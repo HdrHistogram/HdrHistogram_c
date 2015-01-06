@@ -11,12 +11,10 @@ if(UNIX)
     set(CMAKE_C_FLAGS_RELEASE "-O3")
 endif()
 
-set(MINTOMIC_DIR "${CMAKE_SOURCE_DIR}/src/main/c/mintomic")
-
-include_directories("${CMAKE_SOURCE_DIR}/src/main/c")
-add_subdirectory("${CMAKE_SOURCE_DIR}/src/main/c")
-add_subdirectory("${CMAKE_SOURCE_DIR}/src/test/c")
-add_subdirectory("${CMAKE_SOURCE_DIR}/src/examples/c")
+include_directories("${CMAKE_SOURCE_DIR}/src")
+add_subdirectory("${CMAKE_SOURCE_DIR}/src")
+add_subdirectory("${CMAKE_SOURCE_DIR}/test")
+add_subdirectory("${CMAKE_SOURCE_DIR}/examples")
 
 SET(CPACK_GENERATOR "TGZ")
 
