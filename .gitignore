@@ -44,3 +44,4 @@ test/hdr_dbl_histogram_test
 test/hdr_histogram_log_test
 test/hdr_histogram_test
 test/perftest
+.gdb_history
