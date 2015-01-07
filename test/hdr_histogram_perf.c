@@ -9,7 +9,6 @@
 
 #include <stdio.h>
 #include <hdr_histogram.h>
-#include <hdr_atomic_histogram.h>
 #include <locale.h>
 
 #include "hdr_time.h"
@@ -43,27 +42,7 @@ int main(int argc, char **argv)
     int64_t min_value = 1;
     int result = -1;
 
-    if (argc == 1)
-    {
-        result = hdr_init(min_value, max_value, 4, &histogram);
-    }
-    else if (argc == 2)
-    {
-        if (argv[1][0] == 'i')
-        {
-            printf("Using function pointer\n");
-
-            result = hdr_init(min_value, max_value, 4, &histogram);
-            histogram->_increment = inc;
-        }
-        else if (argv[1][0] == 'a')
-        {
-            printf("Using function atomic histogram\n");
-
-            result = hdr_atomic_init(min_value, max_value, 4, &histogram);
-        }
-    }
-
+    result = hdr_init(min_value, max_value, 4, &histogram);
     if (result != 0)
     {
         fprintf(stderr, "Failed to allocate histogram: %d\n", result);

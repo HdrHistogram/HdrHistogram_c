@@ -108,7 +108,7 @@ static char* test_create()
 
     mu_assert("Failed to allocate hdr_histogram", r == 0);
     mu_assert("Failed to allocate hdr_histogram", h != NULL);
-    mu_assert("Size is incorrect", compare_int64(s, 1704064));
+    mu_assert("Size is incorrect", compare_int64(s, 1704040));
 
     free(h);
 

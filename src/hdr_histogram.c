@@ -48,14 +48,7 @@ static int32_t normalize_index(struct hdr_histogram* h, int32_t index)
 
 static int64_t counts_get_direct(struct hdr_histogram* h, int32_t index)
 {
-    if (!h->_get)
-    {
-        return h->counts[index];
-    }
-    else
-    {
-        return h->_get(h, index);
-    }
+    return h->counts[index];
 }
 
 static int32_t counts_get_normalised(struct hdr_histogram* h, int32_t index)
@@ -67,21 +60,12 @@ static void counts_inc_normalised(
     struct hdr_histogram* h, int32_t index, int64_t value)
 {
     int32_t normalised_index = normalize_index(h, index);
-
-    if (!h->_increment)
-    {
-        h->counts[normalised_index] += value;
-        h->total_count += value;
-    }
-    else
-    {
-        h->_increment(h, normalised_index, value);
-    }
+    h->counts[normalised_index] += value;
+    h->total_count += value;
 }
 
 static void counts_set_direct(struct hdr_histogram* h, int32_t index, int64_t value)
 {
-    // TODO: function pointer
     h->counts[index] = value;
 }
 
@@ -93,22 +77,14 @@ static void counts_set_normalised(struct hdr_histogram* h, int32_t index, int64_
 
 static void counts_set_min_max(struct hdr_histogram* h, int64_t min, int64_t max)
 {
-    // TODO: Function pointer
     h->min_value = min;
     h->max_value = max;
 }
 
 static void update_min_max(struct hdr_histogram* h, int64_t value)
 {
-    if (!h->_update_min_max)
-    {
-        h->min_value = (value < h->min_value && value != 0) ? value : h->min_value;
-        h->max_value = (value > h->max_value) ? value : h->max_value;
-    }
-    else
-    {
-        h->_update_min_max(h, value);
-    }
+    h->min_value = (value < h->min_value && value != 0) ? value : h->min_value;
+    h->max_value = (value > h->max_value) ? value : h->max_value;
 }
 
 // ##     ## ######## #### ##       #### ######## ##    ##

@@ -16,10 +16,6 @@
 
 struct hdr_histogram
 {
-    int64_t (*_get)(struct hdr_histogram*, int32_t index);
-    void (*_increment)(struct hdr_histogram* h, int32_t index, int64_t value);
-    void (*_update_min_max)(struct hdr_histogram* h, int64_t value);
-
     int64_t lowest_trackable_value;
     int64_t highest_trackable_value;
     int64_t unit_magnitude;
