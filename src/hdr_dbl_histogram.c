@@ -8,7 +8,10 @@
 #include <errno.h>
 #include <hdr_dbl_histogram.h>
 #include <math.h>
+#include <float.h>
 #include <string.h>
+
+static const double HIGHEST_VALUE_EVA = 4.49423283715579E307;
 
 // ##     ## ######## #### ##       #### ######## ##    ##
 // ##     ##    ##     ##  ##        ##     ##     ##  ##
@@ -56,22 +59,11 @@ static int64_t calculate_integer_value_range(
     return lowest_tracking_integer_value * internal_highest_to_lowest_value_ratio;
 }
 
-/*
-    private int findCappedContainingBinaryOrderOfMagnitude(final double doubleNumber) {
-        if (doubleNumber > configuredHighestToLowestValueRatio) {
-            return (int) (Math.log(configuredHighestToLowestValueRatio)/Math.log(2));
-        }
-        if (doubleNumber > Math.pow(2.0, 50)) {
-            return 50;
-        }
-        return findContainingBinaryOrderOfMagnitude(doubleNumber);
-    }
- */
 static int32_t find_capped_containing_binary_order_of_magnitude(struct hdr_dbl_histogram *h, double d)
 {
     if (d > h->highest_to_lowest_value_ratio)
     {
-        return (int32_t) log(h->highest_to_lowest_value_ratio / log(2));
+        return (int32_t) (log(h->highest_to_lowest_value_ratio) / log(2));
     }
     if (d > pow(2.0, 50))
     {
@@ -81,37 +73,60 @@ static int32_t find_capped_containing_binary_order_of_magnitude(struct hdr_dbl_h
     return find_containing_binary_order_of_magnitude(d);
 }
 
-/*
-   private synchronized void autoAdjustRangeForValueSlowPath(final double value) {
-       if (value < currentLowestValueInAutoRange) {
-           if (value < 0.0) {
-               throw new ArrayIndexOutOfBoundsException("Negative values cannot be recorded");
-           }
-           do {
-               final int shiftAmount =
-                       findCappedContainingBinaryOrderOfMagnitude(
-                               Math.ceil(currentLowestValueInAutoRange / value) - 1.0);
-               shiftCoveredRangeToTheRight(shiftAmount);
-           } while (value < currentLowestValueInAutoRange);
-       } else if (value >= currentHighestValueLimitInAutoRange) {
-           if (value > highestAllowedValueEver) {
-               throw new ArrayIndexOutOfBoundsException(
-                       "Values above " + highestAllowedValueEver + " cannot be recorded");
-           }
-           do {
-               // If value is an exact whole multiple of currentHighestValueLimitInAutoRange, it "belongs" with
-               // the next level up, as it crosses the limit. With floating point values, the simplest way to
-               // make this shift on exact multiple values happen (but not for any just-smaller-than-exact-multiple
-               // values) is to use a value that is 1 ulp bigger in computing the ratio for the shift amount:
-               final int shiftAmount =
-                       findCappedContainingBinaryOrderOfMagnitude(
-                               Math.ceil((value + Math.ulp(value)) / currentHighestValueLimitInAutoRange) - 1.0);
-               shiftCoveredRangeToTheLeft(shiftAmount);
-           } while (value >= currentHighestValueLimitInAutoRange);
-       }
-   }
-*/
+static bool shift_covered_range_right(struct hdr_dbl_histogram* h, int32_t shift)
+{
+    bool shift_applied = true;
 
+    double new_lowest_value = h->current_lowest_value;
+    double new_highest_value = h->current_highest_value;
+
+    double shift_multiplier = 1.0 / (INT64_C(1) << shift);
+    h->current_highest_value *= shift_multiplier;
+
+    if (h->values.total_count > hdr_count_at_index(&h->values, 0) ||
+        hdr_shift_values_left(&h->values, shift))
+    {
+        new_lowest_value *= shift_multiplier;
+        new_highest_value *= shift_multiplier;
+    }
+    else
+    {
+        shift_applied = false;
+    }
+
+    h->current_lowest_value = new_lowest_value;
+    h->current_highest_value = new_highest_value;
+
+    return shift_applied;
+}
+
+static bool shift_covered_range_left(struct hdr_dbl_histogram* h, int32_t shift)
+{
+    bool shift_applied = false;
+    double new_lowest_value = h->current_lowest_value;
+    double new_highest_value = h->current_highest_value;
+    double shift_multiplier = 1.0 * (INT64_C(1) << shift);
+
+    h->current_lowest_value *= shift_multiplier;
+
+    if (h->values.total_count > hdr_count_at_index(&h->values, 0) ||
+        hdr_shift_values_right(&h->values, shift))
+    {
+        new_lowest_value *= shift_multiplier;
+        new_highest_value *= shift_multiplier;
+    }
+    else
+    {
+        shift_applied = false;
+    }
+
+    h->current_lowest_value = new_lowest_value;
+    h->current_highest_value = new_highest_value;
+
+    return shift_applied;
+}
+
+// TODO: This is synchronised in the Java version, should we do the same here.
 static bool adjust_range_for_value(struct hdr_dbl_histogram* h, double value)
 {
     if (0.0 == value)
@@ -125,13 +140,40 @@ static bool adjust_range_for_value(struct hdr_dbl_histogram* h, double value)
         {
             return false;
         }
+
         do
         {
-            int32_t shift_amount =
-                    find_capped_containing_binary_order_of_magnitude(h, ceil(h->current_lowest_value / value) - 1.0);
+            double r_val = ceil(h->current_lowest_value / value) - 1.0;
+            int32_t shift_amount = find_capped_containing_binary_order_of_magnitude(h, r_val);
+
+            if (!shift_covered_range_right(h, shift_amount))
+            {
+                return false;
+            }
         }
         while (value < h->current_lowest_value);
     }
+    else if (value >= h->current_highest_value)
+    {
+        if (value > HIGHEST_VALUE_EVA)
+        {
+            return false;
+        }
+
+        do
+        {
+            double r_val = ceil(nextafter(value, DBL_MAX) / h->current_highest_value) - 1.0;
+            int32_t shift_amount = find_capped_containing_binary_order_of_magnitude(h, r_val);
+
+            if (!shift_covered_range_left(h, shift_amount))
+            {
+                return false;
+            }
+        }
+        while (value >= h->current_highest_value);
+    }
+
+    return true;
 }
 
 // ##     ## ######## ##     ##  #######  ########  ##    ##
@@ -165,7 +207,11 @@ int hdr_dbl_init(
 
     int64_t integer_value_range = calculate_integer_value_range(highest_to_lowest_value_ratio, significant_figures);
 
-    hdr_calculate_bucket_config(1, integer_value_range - 1, significant_figures, &cfg);
+    int rc = hdr_calculate_bucket_config(1, integer_value_range - 1, significant_figures, &cfg);
+    if (0 != rc)
+    {
+        return rc;
+    }
 
     size_t histogram_size = sizeof(struct hdr_dbl_histogram) + cfg.counts_len * sizeof(int64_t);
     dbl_histogram = malloc(histogram_size);
@@ -198,8 +244,14 @@ bool hdr_dbl_record_value(struct hdr_dbl_histogram* h, double value)
 {
     if (value < h->current_lowest_value || h->current_highest_value <= value)
     {
-        adjust_range_for_value(h, value);
+        if (!adjust_range_for_value(h, value))
+        {
+            return false;
+        }
     }
 
-    return false;
+    int64_t int_value = (int64_t) (value * h->dbl_to_int_conversion_ratio);
+    hdr_record_value(&h->values, int_value);
+
+    return true;
 }

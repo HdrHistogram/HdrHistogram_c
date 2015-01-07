@@ -154,6 +154,7 @@ double hdr_mean(struct hdr_histogram* h);
 bool hdr_values_are_equivalent(struct hdr_histogram* h, int64_t a, int64_t b);
 int64_t hdr_lowest_equivalent_value(struct hdr_histogram* h, int64_t value);
 int64_t hdr_count_at_value(struct hdr_histogram* h, int64_t value);
+int64_t hdr_count_at_index(struct hdr_histogram* h, int32_t index);
 
 /**
  * The basic iterator.  This is the equivlent of the
@@ -361,5 +362,8 @@ int hdr_calculate_bucket_config(
         struct hdr_histogram_bucket_config* cfg);
 
 void hdr_init_preallocated(struct hdr_histogram* h, struct hdr_histogram_bucket_config* cfg);
+
+bool hdr_shift_values_left(struct hdr_histogram* h, int32_t binary_orders_of_magnitude);
+bool hdr_shift_values_right(struct hdr_histogram* h, int32_t shift);
 
 #endif
