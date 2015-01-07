@@ -75,55 +75,34 @@ static int32_t find_capped_containing_binary_order_of_magnitude(struct hdr_dbl_h
 
 static bool shift_covered_range_right(struct hdr_dbl_histogram* h, int32_t shift)
 {
-    bool shift_applied = true;
-
-    double new_lowest_value = h->current_lowest_value;
-    double new_highest_value = h->current_highest_value;
-
     double shift_multiplier = 1.0 / (INT64_C(1) << shift);
-    h->current_highest_value *= shift_multiplier;
 
     if (h->values.total_count > hdr_count_at_index(&h->values, 0) ||
         hdr_shift_values_left(&h->values, shift))
     {
-        new_lowest_value *= shift_multiplier;
-        new_highest_value *= shift_multiplier;
-    }
-    else
-    {
-        shift_applied = false;
+        h->current_lowest_value *= shift_multiplier;
+        h->current_highest_value *= shift_multiplier;
+
+        return true;
     }
 
-    h->current_lowest_value = new_lowest_value;
-    h->current_highest_value = new_highest_value;
-
-    return shift_applied;
+    return false;
 }
 
 static bool shift_covered_range_left(struct hdr_dbl_histogram* h, int32_t shift)
 {
-    bool shift_applied = false;
-    double new_lowest_value = h->current_lowest_value;
-    double new_highest_value = h->current_highest_value;
     double shift_multiplier = 1.0 * (INT64_C(1) << shift);
-
-    h->current_lowest_value *= shift_multiplier;
 
     if (h->values.total_count > hdr_count_at_index(&h->values, 0) ||
         hdr_shift_values_right(&h->values, shift))
     {
-        new_lowest_value *= shift_multiplier;
-        new_highest_value *= shift_multiplier;
-    }
-    else
-    {
-        shift_applied = false;
+        h->current_lowest_value *= shift_multiplier;
+        h->current_highest_value *= shift_multiplier;
+
+        return true;
     }
 
-    h->current_lowest_value = new_lowest_value;
-    h->current_highest_value = new_highest_value;
-
-    return shift_applied;
+    return false;
 }
 
 // TODO: This is synchronised in the Java version, should we do the same here.
