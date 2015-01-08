@@ -166,53 +166,6 @@ char* test_reset()
     return 0;
 }
 
-/*
-    @Test
-    public void testAdd() throws Exception {
-        DoubleHistogram histogram = new DoubleHistogram(trackableValueRangeSize, numberOfSignificantValueDigits);
-        DoubleHistogram other = new DoubleHistogram(trackableValueRangeSize, numberOfSignificantValueDigits);
-
-        histogram.recordValue(testValueLevel);
-        histogram.recordValue(testValueLevel * 1000);
-        other.recordValue(testValueLevel);
-        other.recordValue(testValueLevel * 1000);
-        histogram.add(other);
-        assertEquals(2L, histogram.getCountAtValue(testValueLevel));
-        assertEquals(2L, histogram.getCountAtValue(testValueLevel * 1000));
-        assertEquals(4L, histogram.getTotalCount());
-
-        DoubleHistogram biggerOther = new DoubleHistogram(trackableValueRangeSize * 2, numberOfSignificantValueDigits);
-        biggerOther.recordValue(testValueLevel);
-        biggerOther.recordValue(testValueLevel * 1000);
-
-        // Adding the smaller histogram to the bigger one should work:
-        biggerOther.add(histogram);
-        assertEquals(3L, biggerOther.getCountAtValue(testValueLevel));
-        assertEquals(3L, biggerOther.getCountAtValue(testValueLevel * 1000));
-        assertEquals(6L, biggerOther.getTotalCount());
-
-        // Since we are auto-sized, trying to add a larger histogram into a smaller one should work if no
-        // overflowing data is there:
-        try {
-            // This should throw:
-            histogram.add(biggerOther);
-        } catch (ArrayIndexOutOfBoundsException e) {
-            fail("Should of thown with out of bounds error");
-        }
-
-        // But trying to add smaller values to a larger histogram that actually uses it's range should throw an AIOOB:
-        histogram.recordValue(1.0);
-        other.recordValue(1.0);
-        biggerOther.recordValue(trackableValueRangeSize * 8);
-
-        try {
-            // This should throw:
-            biggerOther.add(histogram);
-            fail("Should of thown with out of bounds error");
-        } catch (ArrayIndexOutOfBoundsException e) {
-        }
-    }
-*/
 char* test_add()
 {
     struct hdr_dbl_histogram* this;
@@ -259,6 +212,39 @@ char* test_add_smaller_to_bigger()
     return 0;
 }
 
+/*
+        DoubleHistogram biggerOther = new DoubleHistogram(trackableValueRangeSize * 2, numberOfSignificantValueDigits);
+        biggerOther.recordValue(testValueLevel);
+        biggerOther.recordValue(testValueLevel * 1000);
+
+        // Adding the smaller histogram to the bigger one should work:
+        biggerOther.add(histogram);
+        assertEquals(3L, biggerOther.getCountAtValue(testValueLevel));
+        assertEquals(3L, biggerOther.getCountAtValue(testValueLevel * 1000));
+        assertEquals(6L, biggerOther.getTotalCount());
+
+        // Since we are auto-sized, trying to add a larger histogram into a smaller one should work if no
+        // overflowing data is there:
+        try {
+            // This should throw:
+            histogram.add(biggerOther);
+        } catch (ArrayIndexOutOfBoundsException e) {
+            fail("Should of thown with out of bounds error");
+        }
+
+        // But trying to add smaller values to a larger histogram that actually uses it's range should throw an AIOOB:
+        histogram.recordValue(1.0);
+        other.recordValue(1.0);
+        biggerOther.recordValue(trackableValueRangeSize * 8);
+
+        try {
+            // This should throw:
+            biggerOther.add(histogram);
+            fail("Should of thown with out of bounds error");
+        } catch (ArrayIndexOutOfBoundsException e) {
+        }
+    }
+*/
 char* test_add_bigger_to_smaller_out_of_range()
 {
     struct hdr_dbl_histogram* this;
@@ -276,6 +262,14 @@ char* test_add_bigger_to_smaller_out_of_range()
     hdr_dbl_record_value(that, 1.0);
 
     mu_assert("Should not drop values", 0 == hdr_dbl_add(this, that));
+
+    // TODO: To make this work correctly we need auto-resizing.
+//    hdr_dbl_record_value(this, 1.0);
+//    hdr_dbl_record_value(that, 1.0);
+//
+//    hdr_dbl_record_value(that, TRACKABLE_VALUE_RANGE_SIZE * 8); // Force resize
+//
+//    mu_assert("Should fail to add", hdr_dbl_add(that, this));
 
     return 0;
 }
@@ -353,7 +347,7 @@ static struct mu_result all_tests()
     mu_run_test(test_reset);
     mu_run_test(test_add);
     mu_run_test(test_add_smaller_to_bigger);
-//    mu_run_test(test_add_bigger_to_smaller_out_of_range);
+    mu_run_test(test_add_bigger_to_smaller_out_of_range);
 
     mu_ok;
 }
