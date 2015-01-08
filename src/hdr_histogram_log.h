@@ -25,6 +25,12 @@
 
 #include "hdr_histogram.h"
 
+/**
+ * Encode and compress the histogram with gzip.
+ */
+int hdr_log_encode(struct hdr_histogram* histogram, char** encoded_histogram);
+int hdr_log_decode(struct hdr_histogram** histogram, char* base64_histogram, size_t base64_len);
+
 struct hdr_log_writer
 {
 };
