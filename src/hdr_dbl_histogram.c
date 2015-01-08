@@ -255,6 +255,30 @@ bool hdr_dbl_record_value(struct hdr_dbl_histogram* h, double value)
     return true;
 }
 
+bool hdr_dbl_record_values(struct hdr_dbl_histogram* h, double value, int64_t count)
+{
+    if (count == 0)
+    {
+        return true;
+    }
+
+    if (value < h->current_lowest_value || h->current_highest_value <= value)
+    {
+        if (!adjust_range_for_value(h, value))
+        {
+            return false;
+        }
+    }
+
+    for (int64_t i = 0; i < count; i++)
+    {
+        int64_t int_value = (int64_t) (value * h->dbl_to_int_conversion_ratio);
+        hdr_record_value(&h->values, int_value);
+    }
+
+    return true;
+}
+
 bool hdr_dbl_record_corrected_value(struct hdr_dbl_histogram* h, double value, double expected_interval)
 {
     if (!hdr_dbl_record_value(h, value))
@@ -279,6 +303,23 @@ bool hdr_dbl_record_corrected_value(struct hdr_dbl_histogram* h, double value, d
     }
 
     return true;
+}
+
+int64_t hdr_dbl_add(struct hdr_dbl_histogram* sum, struct hdr_dbl_histogram* addend)
+{
+    int64_t dropped = 0;
+    for (int32_t i = 0; i < addend->values.counts_len; i++)
+    {
+        int64_t addend_count = hdr_count_at_index(&addend->values, i);
+        int64_t addend_value = hdr_value_at_index(&addend->values, i);
+        double value = addend_value * addend->int_to_dbl_conversion_ratio;
+        if (!hdr_dbl_record_values(sum, value, addend_count))
+        {
+            dropped++;
+        }
+    }
+
+    return dropped;
 }
 
 void hdr_dbl_reset(struct hdr_dbl_histogram* h)

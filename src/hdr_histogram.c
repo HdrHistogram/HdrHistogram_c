@@ -144,7 +144,7 @@ static int64_t value_from_index(int32_t bucket_index, int32_t sub_bucket_index, 
     return ((int64_t) sub_bucket_index) << (bucket_index + unit_magnitude);
 }
 
-static int64_t value_from_array_index(struct hdr_histogram* h, int index)
+int64_t hdr_value_at_index(struct hdr_histogram *h, int32_t index)
 {
     int32_t bucket_index = (index >> h->sub_bucket_half_count_magnitude) - 1;
     int32_t sub_bucket_index = (index & (h->sub_bucket_half_count - 1)) + h->sub_bucket_half_count;
@@ -233,7 +233,7 @@ void hdr_reset_internal_counters(struct hdr_histogram* h)
     }
     else
     {
-        int64_t max_value = value_from_array_index(h, max_index);
+        int64_t max_value = hdr_value_at_index(h, max_index);
         h->max_value = highest_equivalent_value(h, max_value);
     }
 
@@ -243,7 +243,7 @@ void hdr_reset_internal_counters(struct hdr_histogram* h)
     }
     else
     {
-        h->min_value = value_from_array_index(h, min_non_zero_index);
+        h->min_value = hdr_value_at_index(h, min_non_zero_index);
     }
 
     h->total_count = observed_total_count;
@@ -398,7 +398,7 @@ void shift_lowest_half_bucket_contents_left(struct hdr_histogram* h, int32_t shi
 
     for (int from_index = 1; from_index < h->sub_bucket_half_count; from_index++)
     {
-        int64_t to_value = value_from_array_index(h, from_index) << binary_orders_of_magnitude;
+        int64_t to_value = hdr_value_at_index(h, from_index) << binary_orders_of_magnitude;
         int32_t to_index = counts_index_for(h, to_value);
         int64_t count_at_from_index = counts_get_direct(h, from_index);
         counts_set_normalised(h, to_index, count_at_from_index);

@@ -151,6 +151,7 @@ bool hdr_values_are_equivalent(struct hdr_histogram* h, int64_t a, int64_t b);
 int64_t hdr_lowest_equivalent_value(struct hdr_histogram* h, int64_t value);
 int64_t hdr_count_at_value(struct hdr_histogram* h, int64_t value);
 int64_t hdr_count_at_index(struct hdr_histogram* h, int32_t index);
+int64_t hdr_value_at_index(struct hdr_histogram *h, int32_t index);
 
 /**
  * The basic iterator.  This is the equivlent of the

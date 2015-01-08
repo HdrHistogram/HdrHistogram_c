@@ -212,8 +212,75 @@ char* test_reset()
         } catch (ArrayIndexOutOfBoundsException e) {
         }
     }
+*/
+char* test_add()
+{
+    struct hdr_dbl_histogram* this;
+    struct hdr_dbl_histogram* that;
 
+    hdr_dbl_init(TRACKABLE_VALUE_RANGE_SIZE, SIGNIFICANT_FIGURES, &this);
+    hdr_dbl_init(TRACKABLE_VALUE_RANGE_SIZE, SIGNIFICANT_FIGURES, &that);
 
+    hdr_dbl_record_value(this, TEST_VALUE_LEVEL);
+    hdr_dbl_record_value(this, TEST_VALUE_LEVEL * 1000);
+
+    hdr_dbl_record_value(that, TEST_VALUE_LEVEL);
+    hdr_dbl_record_value(that, TEST_VALUE_LEVEL * 1000);
+
+    mu_assert("Should not drop values", 0 == hdr_dbl_add(this, that));
+
+    mu_assert("Should have count of 2", compare_int64(2, hdr_dbl_count_at_value(this, TEST_VALUE_LEVEL)));
+    mu_assert("Should have count of 2", compare_int64(2, hdr_dbl_count_at_value(this, TEST_VALUE_LEVEL * 1000)));
+    mu_assert("Should have total of 4", compare_int64(4, this->values.total_count));
+
+    return 0;
+}
+
+char* test_add_smaller_to_bigger()
+{
+    struct hdr_dbl_histogram* this;
+    struct hdr_dbl_histogram* that;
+
+    hdr_dbl_init(TRACKABLE_VALUE_RANGE_SIZE * 2, SIGNIFICANT_FIGURES, &this);
+    hdr_dbl_init(TRACKABLE_VALUE_RANGE_SIZE, SIGNIFICANT_FIGURES, &that);
+
+    hdr_dbl_record_value(this, TEST_VALUE_LEVEL);
+    hdr_dbl_record_value(this, TEST_VALUE_LEVEL * 1000);
+
+    hdr_dbl_record_value(that, TEST_VALUE_LEVEL);
+    hdr_dbl_record_value(that, TEST_VALUE_LEVEL * 1000);
+
+    mu_assert("Should not drop values", 0 == hdr_dbl_add(this, that));
+
+    mu_assert("Should have count of 2", compare_int64(2, hdr_dbl_count_at_value(this, TEST_VALUE_LEVEL)));
+    mu_assert("Should have count of 2", compare_int64(2, hdr_dbl_count_at_value(this, TEST_VALUE_LEVEL * 1000)));
+    mu_assert("Should have total of 4", compare_int64(4, this->values.total_count));
+
+    return 0;
+}
+
+char* test_add_bigger_to_smaller_out_of_range()
+{
+    struct hdr_dbl_histogram* this;
+    struct hdr_dbl_histogram* that;
+
+    hdr_dbl_init(TRACKABLE_VALUE_RANGE_SIZE, SIGNIFICANT_FIGURES, &this);
+    hdr_dbl_init(TRACKABLE_VALUE_RANGE_SIZE * 2, SIGNIFICANT_FIGURES, &that);
+
+    hdr_dbl_record_value(this, TEST_VALUE_LEVEL);
+    hdr_dbl_record_value(this, TEST_VALUE_LEVEL * 1000);
+    hdr_dbl_record_value(this, 1.0);
+
+    hdr_dbl_record_value(that, TEST_VALUE_LEVEL);
+    hdr_dbl_record_value(that, TEST_VALUE_LEVEL * 1000);
+    hdr_dbl_record_value(that, 1.0);
+
+    mu_assert("Should not drop values", 0 == hdr_dbl_add(this, that));
+
+    return 0;
+}
+
+/*
     @Test
     public void testSizeOfEquivalentValueRange() {
         DoubleHistogram histogram = new DoubleHistogram(trackableValueRangeSize, numberOfSignificantValueDigits);
@@ -284,6 +351,9 @@ static struct mu_result all_tests()
     mu_run_test(test_record_value_overflow);
     mu_run_test(test_record_value_with_expected_interval);
     mu_run_test(test_reset);
+    mu_run_test(test_add);
+    mu_run_test(test_add_smaller_to_bigger);
+//    mu_run_test(test_add_bigger_to_smaller_out_of_range);
 
     mu_ok;
 }
