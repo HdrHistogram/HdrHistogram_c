@@ -552,21 +552,21 @@ static char* log_reader_fails_with_incorrect_version()
 
 static char* test_string_encode_decode()
 {
-	struct hdr_histogram *histogram, *hdr_new = NULL;
-	hdr_alloc(3600L * 1000 * 1000, 3, &histogram);
+    struct hdr_histogram *histogram, *hdr_new = NULL;
+    hdr_alloc(3600L * 1000 * 1000, 3, &histogram);
 
-	for (int i = 1; i < 100; i++) {
-		hdr_record_value(histogram, i*i);
-	}
+    for (int i = 1; i < 100; i++) {
+        hdr_record_value(histogram, i*i);
+    }
 
-	char *data;
+    char *data;
 
-	mu_assert("failed to encode histogram data", hdr_log_encode(histogram, &data) == 0);
-	mu_assert("failed to decode histogram data", hdr_log_decode(&hdr_new, data, strlen(data)) == 0);
+    mu_assert("failed to encode histogram data", hdr_log_encode(histogram, &data) == 0);
+    mu_assert("failed to decode histogram data", hdr_log_decode(&hdr_new, data, strlen(data)) == 0);
 
-	mu_assert("failed to be equal histogram after encode/decode", hdr_mean(histogram) == hdr_mean(hdr_new));
+    mu_assert("failed to be equal histogram after encode/decode", hdr_mean(histogram) == hdr_mean(hdr_new));
 
-	return 0;
+    return 0;
 }
 
 static struct mu_result all_tests()
@@ -590,7 +590,7 @@ static struct mu_result all_tests()
     mu_run_test(log_reader_aggregates_into_single_histogram);
     mu_run_test(log_reader_fails_with_incorrect_version);
 
-	mu_run_test(test_string_encode_decode);
+    mu_run_test(test_string_encode_decode);
 
     free(raw_histogram);
     free(cor_histogram);
