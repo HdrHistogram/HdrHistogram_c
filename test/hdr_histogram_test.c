@@ -7,26 +7,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <math.h>
-#include <string.h>
 #include <errno.h>
-#include <inttypes.h>
 
 #include <stdio.h>
 #include <hdr_histogram.h>
 
 #include "minunit.h"
-
-static bool compare_int64(int64_t a, int64_t b)
-{
-    if (a == b)
-    {
-        return true;
-    }
-
-    printf("[compare_int64] %" PRIu64 " == %" PRIu64 " == false\n", a, b);
-    return false;
-}
 
 bool compare_values(double a, double b, double variation)
 {

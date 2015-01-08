@@ -32,17 +32,6 @@ static bool compare_int(int a, int b)
     return false;
 }
 
-static bool compare_int64_t(int64_t a, int64_t b)
-{
-    if (a == b)
-    {
-        return true;
-    }
-
-    printf("%"PRIu64" != %"PRIu64"\n", a, b);
-    return false;
-}
-
 static long ns_to_ms(long ns)
 {
     return (ns / 1000000) * 1000000;
@@ -501,7 +490,7 @@ static char* log_reader_aggregates_into_single_histogram()
 
     mu_assert(
         "Total counts incorrect",
-        compare_int64_t(histogram->total_count, expected_total_count));
+        compare_int64(histogram->total_count, expected_total_count));
 
     while (hdr_recorded_iter_next(&iter))
     {
@@ -512,7 +501,7 @@ static char* log_reader_aggregates_into_single_histogram()
             hdr_count_at_value(raw_histogram, value) +
             hdr_count_at_value(cor_histogram, value);
 
-        mu_assert("Incorrect count", compare_int64_t(count, expected_count));
+        mu_assert("Incorrect count", compare_int64(count, expected_count));
     }
 
     fclose(log_file);

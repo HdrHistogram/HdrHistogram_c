@@ -27,5 +27,6 @@ int hdr_dbl_init(
     struct hdr_dbl_histogram** result);
 
 bool hdr_dbl_record_value(struct hdr_dbl_histogram* h, double value);
+int64_t hdr_dbl_count_at_value(struct hdr_dbl_histogram* h, double value);
 
 #endif

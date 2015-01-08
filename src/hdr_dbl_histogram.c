@@ -168,6 +168,12 @@ static bool adjust_range_for_value(struct hdr_dbl_histogram* h, double value)
     return true;
 }
 
+int64_t hdr_dbl_count_at_value(struct hdr_dbl_histogram* h, double value)
+{
+    return hdr_count_at_value(&h->values, (int64_t)(value * h->dbl_to_int_conversion_ratio));
+}
+
+
 // ##     ## ######## ##     ##  #######  ########  ##    ##
 // ###   ### ##       ###   ### ##     ## ##     ##  ##  ##
 // #### #### ##       #### #### ##     ## ##     ##   ####

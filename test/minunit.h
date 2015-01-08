@@ -3,6 +3,13 @@
  * Written by Michael Barker and released to the public domain,
  * as explained at http://creativecommons.org/publicdomain/zero/1.0/
  */
+
+#ifndef MINUNIT_H
+#define MINUNIT_H
+
+#include <math.h>
+#include <inttypes.h>
+
 struct mu_result
 {
     char* test;
@@ -48,3 +55,15 @@ bool compare_double(double a, double b, double delta)
     return false;
 }
 
+static bool compare_int64(int64_t a, int64_t b)
+{
+    if (a == b)
+    {
+        return true;
+    }
+
+    printf("[compare_int64] %" PRIu64 " == %" PRIu64 " == false\n", a, b);
+    return false;
+}
+
+#endif
