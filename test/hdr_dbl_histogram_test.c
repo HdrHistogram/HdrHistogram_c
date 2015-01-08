@@ -105,6 +105,79 @@ char* test_record_value_overflow()
     return 0;
 }
 
+/*
+    @Test
+    public void testRecordValueWithExpectedInterval() throws Exception {
+        DoubleHistogram histogram = new DoubleHistogram(trackableValueRangeSize, numberOfSignificantValueDigits);
+        histogram.recordValue(0);
+        histogram.recordValueWithExpectedInterval(testValueLevel, testValueLevel/4);
+        DoubleHistogram rawHistogram = new DoubleHistogram(trackableValueRangeSize, numberOfSignificantValueDigits);
+        rawHistogram.recordValue(0);
+        rawHistogram.recordValue(testValueLevel);
+        // The raw data will not include corrected samples:
+        assertEquals(1L, rawHistogram.getCountAtValue(0));
+        assertEquals(0L, rawHistogram.getCountAtValue((testValueLevel * 1 )/4));
+        assertEquals(0L, rawHistogram.getCountAtValue((testValueLevel * 2 )/4));
+        assertEquals(0L, rawHistogram.getCountAtValue((testValueLevel * 3 )/4));
+        assertEquals(1L, rawHistogram.getCountAtValue((testValueLevel * 4 )/4));
+        assertEquals(2L, rawHistogram.getTotalCount());
+        // The data will include corrected samples:
+        assertEquals(1L, histogram.getCountAtValue(0));
+        assertEquals(1L, histogram.getCountAtValue((testValueLevel * 1 )/4));
+        assertEquals(1L, histogram.getCountAtValue((testValueLevel * 2 )/4));
+        assertEquals(1L, histogram.getCountAtValue((testValueLevel * 3 )/4));
+        assertEquals(1L, histogram.getCountAtValue((testValueLevel * 4 )/4));
+        assertEquals(5L, histogram.getTotalCount());
+    }
+ */
+char* test_record_value_with_expected_interval()
+{
+    struct hdr_dbl_histogram* raw_histogram;
+    mu_assert("Should construct", 0 == hdr_dbl_init(TRACKABLE_VALUE_RANGE_SIZE, SIGNIFICANT_FIGURES, &raw_histogram));
+
+    hdr_dbl_record_value(raw_histogram, 0);
+    hdr_dbl_record_value(raw_histogram, TEST_VALUE_LEVEL);
+
+    mu_assert("Raw Count at 0 should be 1", compare_int64(1, hdr_dbl_count_at_value(raw_histogram, 0.0)));
+    mu_assert(
+            "Raw should not contain corrected value",
+            compare_int64(0, hdr_dbl_count_at_value(raw_histogram, (TEST_VALUE_LEVEL * 1) / 4)));
+    mu_assert(
+            "Raw should not contain corrected value",
+            compare_int64(0, hdr_dbl_count_at_value(raw_histogram, (TEST_VALUE_LEVEL * 2) / 4)));
+    mu_assert(
+            "Raw should not contain corrected value",
+            compare_int64(0, hdr_dbl_count_at_value(raw_histogram, (TEST_VALUE_LEVEL * 3) / 4)));
+    mu_assert(
+            "Raw should not contain corrected value",
+            compare_int64(1, hdr_dbl_count_at_value(raw_histogram, (TEST_VALUE_LEVEL * 4) / 4)));
+    mu_assert("Count should be 2", compare_int64(2, raw_histogram->values.total_count));
+
+    struct hdr_dbl_histogram* cor_histogram;
+    mu_assert("Should construct", 0 == hdr_dbl_init(TRACKABLE_VALUE_RANGE_SIZE, SIGNIFICANT_FIGURES, &cor_histogram));
+
+    hdr_dbl_record_value(cor_histogram, 0);
+    hdr_dbl_record_corrected_value(cor_histogram, TEST_VALUE_LEVEL, TEST_VALUE_LEVEL / 4);
+
+    mu_assert("Corrected Count at 0 should be 1", compare_int64(1, hdr_dbl_count_at_value(cor_histogram, 0.0)));
+    mu_assert(
+            "Should contain corrected value",
+            compare_int64(1, hdr_dbl_count_at_value(cor_histogram, (TEST_VALUE_LEVEL * 1) / 4)));
+    mu_assert(
+            "Should contain corrected value",
+            compare_int64(1, hdr_dbl_count_at_value(cor_histogram, (TEST_VALUE_LEVEL * 2) / 4)));
+    mu_assert(
+            "Should contain corrected value",
+            compare_int64(1, hdr_dbl_count_at_value(cor_histogram, (TEST_VALUE_LEVEL * 3) / 4)));
+    mu_assert(
+            "Should contain corrected value",
+            compare_int64(1, hdr_dbl_count_at_value(cor_histogram, (TEST_VALUE_LEVEL * 4) / 4)));
+    mu_assert("Count should be 2", compare_int64(5, cor_histogram->values.total_count));
+
+    return 0;
+}
+
+
 static struct mu_result all_tests()
 {
     mu_run_test(test_construct_argument_ranges);
@@ -112,6 +185,7 @@ static struct mu_result all_tests()
     mu_run_test(test_data_range);
     mu_run_test(test_record_value);
     mu_run_test(test_record_value_overflow);
+    mu_run_test(test_record_value_with_expected_interval);
 
     mu_ok;
 }

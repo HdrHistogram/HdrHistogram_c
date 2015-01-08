@@ -254,3 +254,29 @@ bool hdr_dbl_record_value(struct hdr_dbl_histogram* h, double value)
 
     return true;
 }
+
+bool hdr_dbl_record_corrected_value(struct hdr_dbl_histogram* h, double value, double expected_interval)
+{
+    if (!hdr_dbl_record_value(h, value))
+    {
+        return false;
+    }
+
+    if (expected_interval <= 0)
+    {
+        return true;
+    }
+
+    double missing_value = value - expected_interval;
+    while (missing_value >= expected_interval)
+    {
+        if (!hdr_dbl_record_value(h, missing_value))
+        {
+            return false;
+        }
+
+        missing_value -= expected_interval;
+    }
+
+    return true;
+}
