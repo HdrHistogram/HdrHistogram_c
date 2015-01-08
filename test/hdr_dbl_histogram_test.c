@@ -48,7 +48,7 @@ char* test_construction_argument_gets()
 char* test_data_range()
 {
     struct hdr_dbl_histogram* h;
-    mu_assert("Should construct", 0 == hdr_dbl_init(TRACKABLE_VALUE_RANGE_SIZE, SIGNIFICANT_FIGURES, &h));
+    hdr_dbl_init(TRACKABLE_VALUE_RANGE_SIZE, SIGNIFICANT_FIGURES, &h);
 
     hdr_dbl_record_value(h, 0.0);
 
@@ -85,7 +85,7 @@ char* test_data_range()
 char* test_record_value()
 {
     struct hdr_dbl_histogram* h;
-    mu_assert("Should construct", 0 == hdr_dbl_init(TRACKABLE_VALUE_RANGE_SIZE, SIGNIFICANT_FIGURES, &h));
+    hdr_dbl_init(TRACKABLE_VALUE_RANGE_SIZE, SIGNIFICANT_FIGURES, &h);
 
     hdr_dbl_record_value(h, TEST_VALUE_LEVEL);
     mu_assert("Count at value not 1", compare_int64(1, hdr_dbl_count_at_value(h, TEST_VALUE_LEVEL)));
@@ -97,7 +97,7 @@ char* test_record_value()
 char* test_record_value_overflow()
 {
     struct hdr_dbl_histogram* h;
-    mu_assert("Should construct", 0 == hdr_dbl_init(TRACKABLE_VALUE_RANGE_SIZE, SIGNIFICANT_FIGURES, &h));
+    hdr_dbl_init(TRACKABLE_VALUE_RANGE_SIZE, SIGNIFICANT_FIGURES, &h);
 
     hdr_dbl_record_value(h, TRACKABLE_VALUE_RANGE_SIZE * 3);
     mu_assert("Should not record if overflow will occur", !hdr_dbl_record_value(h, 1.0));
@@ -108,7 +108,7 @@ char* test_record_value_overflow()
 char* test_record_value_with_expected_interval()
 {
     struct hdr_dbl_histogram* raw_histogram;
-    mu_assert("Should construct", 0 == hdr_dbl_init(TRACKABLE_VALUE_RANGE_SIZE, SIGNIFICANT_FIGURES, &raw_histogram));
+    hdr_dbl_init(TRACKABLE_VALUE_RANGE_SIZE, SIGNIFICANT_FIGURES, &raw_histogram);
 
     hdr_dbl_record_value(raw_histogram, 0);
     hdr_dbl_record_value(raw_histogram, TEST_VALUE_LEVEL);
@@ -129,7 +129,7 @@ char* test_record_value_with_expected_interval()
     mu_assert("Count should be 2", compare_int64(2, raw_histogram->values.total_count));
 
     struct hdr_dbl_histogram* cor_histogram;
-    mu_assert("Should construct", 0 == hdr_dbl_init(TRACKABLE_VALUE_RANGE_SIZE, SIGNIFICANT_FIGURES, &cor_histogram));
+    hdr_dbl_init(TRACKABLE_VALUE_RANGE_SIZE, SIGNIFICANT_FIGURES, &cor_histogram);
 
     hdr_dbl_record_value(cor_histogram, 0);
     hdr_dbl_record_corrected_value(cor_histogram, TEST_VALUE_LEVEL, TEST_VALUE_LEVEL / 4);
