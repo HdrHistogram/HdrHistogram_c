@@ -558,6 +558,33 @@ static char* test_string_encode_decode()
     return 0;
 }
 
+static char* test_string_encode_decode_with_value_out_of_range()
+{
+    struct hdr_histogram *histogram = NULL;
+    struct hdr_histogram *new = NULL;
+    struct hdr_iter iterator;
+    hdr_init(1, 1000 * 60, 3, &histogram);
+
+    for (int i = 1; i < (1000 * 60); i++)
+    {
+        hdr_record_values(histogram, i + 1, ((1000*60)-i) / 10);
+    }
+
+    char *data;
+
+    mu_assert("Should encode", hdr_log_encode(histogram, &data) == 0);
+    mu_assert("Should decode", hdr_log_decode(&new, data, strlen(data)) == 0);
+
+    hdr_iter_init(&iterator, new);
+
+    while (hdr_iter_next(&iterator))
+    {
+        printf("%"PRIu64": %"PRIu64"\n", iterator.value_from_index, iterator.count_at_index);
+    }
+
+    return 0;
+}
+
 static struct mu_result all_tests()
 {
     tests_run = 0;
@@ -580,6 +607,7 @@ static struct mu_result all_tests()
     mu_run_test(log_reader_fails_with_incorrect_version);
 
     mu_run_test(test_string_encode_decode);
+    mu_run_test(test_string_encode_decode_with_value_out_of_range);
 
     free(raw_histogram);
     free(cor_histogram);
