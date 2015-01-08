@@ -105,31 +105,6 @@ char* test_record_value_overflow()
     return 0;
 }
 
-/*
-    @Test
-    public void testRecordValueWithExpectedInterval() throws Exception {
-        DoubleHistogram histogram = new DoubleHistogram(trackableValueRangeSize, numberOfSignificantValueDigits);
-        histogram.recordValue(0);
-        histogram.recordValueWithExpectedInterval(testValueLevel, testValueLevel/4);
-        DoubleHistogram rawHistogram = new DoubleHistogram(trackableValueRangeSize, numberOfSignificantValueDigits);
-        rawHistogram.recordValue(0);
-        rawHistogram.recordValue(testValueLevel);
-        // The raw data will not include corrected samples:
-        assertEquals(1L, rawHistogram.getCountAtValue(0));
-        assertEquals(0L, rawHistogram.getCountAtValue((testValueLevel * 1 )/4));
-        assertEquals(0L, rawHistogram.getCountAtValue((testValueLevel * 2 )/4));
-        assertEquals(0L, rawHistogram.getCountAtValue((testValueLevel * 3 )/4));
-        assertEquals(1L, rawHistogram.getCountAtValue((testValueLevel * 4 )/4));
-        assertEquals(2L, rawHistogram.getTotalCount());
-        // The data will include corrected samples:
-        assertEquals(1L, histogram.getCountAtValue(0));
-        assertEquals(1L, histogram.getCountAtValue((testValueLevel * 1 )/4));
-        assertEquals(1L, histogram.getCountAtValue((testValueLevel * 2 )/4));
-        assertEquals(1L, histogram.getCountAtValue((testValueLevel * 3 )/4));
-        assertEquals(1L, histogram.getCountAtValue((testValueLevel * 4 )/4));
-        assertEquals(5L, histogram.getTotalCount());
-    }
- */
 char* test_record_value_with_expected_interval()
 {
     struct hdr_dbl_histogram* raw_histogram;
