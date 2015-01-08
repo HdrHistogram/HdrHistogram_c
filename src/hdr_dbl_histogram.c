@@ -34,7 +34,7 @@ static int64_t power(int64_t base, int64_t exp)
 static int32_t number_of_sub_buckets(int32_t significant_figures)
 {
     int64_t largest_value_with_single_unit_resolution = 2 * (int64_t) pow(10, significant_figures);
-    int32_t sub_bucket_count_magnitude = (int32_t) ceil(log(largest_value_with_single_unit_resolution/log(2)));
+    int32_t sub_bucket_count_magnitude = (int32_t) ceil(log(largest_value_with_single_unit_resolution)/log(2));
 
     return (int32_t) pow(2, sub_bucket_count_magnitude);
 }
@@ -73,15 +73,26 @@ static int32_t find_capped_containing_binary_order_of_magnitude(struct hdr_dbl_h
     return find_containing_binary_order_of_magnitude(d);
 }
 
+static void set_trackable_value_range(struct hdr_dbl_histogram* h, double lowest_value, double highest_value)
+{
+    h->current_lowest_value = lowest_value;
+    h->current_highest_value = highest_value;
+    h->int_to_dbl_conversion_ratio = h->current_lowest_value / h->values.sub_bucket_half_count;
+    h->dbl_to_int_conversion_ratio = 1.0 / h->int_to_dbl_conversion_ratio;
+    h->values.conversion_ratio = h->int_to_dbl_conversion_ratio;
+}
+
 static bool shift_covered_range_right(struct hdr_dbl_histogram* h, int32_t shift)
 {
     double shift_multiplier = 1.0 / (INT64_C(1) << shift);
 
-    if (h->values.total_count > hdr_count_at_index(&h->values, 0) ||
+    if (h->values.total_count == hdr_count_at_index(&h->values, 0) ||
         hdr_shift_values_left(&h->values, shift))
     {
-        h->current_lowest_value *= shift_multiplier;
-        h->current_highest_value *= shift_multiplier;
+        set_trackable_value_range(
+                h,
+                h->current_lowest_value * shift_multiplier,
+                h->current_highest_value * shift_multiplier);
 
         return true;
     }
@@ -93,11 +104,13 @@ static bool shift_covered_range_left(struct hdr_dbl_histogram* h, int32_t shift)
 {
     double shift_multiplier = 1.0 * (INT64_C(1) << shift);
 
-    if (h->values.total_count > hdr_count_at_index(&h->values, 0) ||
+    if (h->values.total_count == hdr_count_at_index(&h->values, 0) ||
         hdr_shift_values_right(&h->values, shift))
     {
-        h->current_lowest_value *= shift_multiplier;
-        h->current_highest_value *= shift_multiplier;
+        set_trackable_value_range(
+                h,
+                h->current_lowest_value * shift_multiplier,
+                h->current_highest_value * shift_multiplier);
 
         return true;
     }
@@ -210,11 +223,12 @@ int hdr_dbl_init(
             calculate_internal_highest_to_lowest_value_ratio(highest_to_lowest_value_ratio);
 
     dbl_histogram->highest_to_lowest_value_ratio = highest_to_lowest_value_ratio;
-    dbl_histogram->current_lowest_value = pow(2.0, 800);
-    dbl_histogram->current_highest_value = dbl_histogram->current_lowest_value * internal_highest_to_lowest_value_ratio;
-    dbl_histogram->int_to_dbl_conversion_ratio = dbl_histogram->current_lowest_value / cfg.sub_bucket_half_count;
-    dbl_histogram->dbl_to_int_conversion_ratio = 1.0 / dbl_histogram->int_to_dbl_conversion_ratio;
-    dbl_histogram->values.conversion_ratio = dbl_histogram->int_to_dbl_conversion_ratio;
+
+    double lowest_value = pow(2.0, 800);
+    set_trackable_value_range(
+            dbl_histogram,
+            lowest_value,
+            lowest_value * internal_highest_to_lowest_value_ratio);
 
     return 0;
 }

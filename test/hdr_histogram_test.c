@@ -103,12 +103,13 @@ static void load_histograms()
 static char* test_create()
 {
     struct hdr_histogram* h = NULL;
-    int r = hdr_alloc(36000000, 4, &h);
+    int r = hdr_init(1, 3600000000, 3, &h);
     size_t s = hdr_get_memory_size(h);
 
     mu_assert("Failed to allocate hdr_histogram", r == 0);
     mu_assert("Failed to allocate hdr_histogram", h != NULL);
-    mu_assert("Size is incorrect", compare_int64(s, 1704040));
+    mu_assert("Incorrect array length", compare_int64(h->counts_len, 23552));
+    mu_assert("Size is incorrect", compare_int64(s, 188520));
 
     free(h);
 

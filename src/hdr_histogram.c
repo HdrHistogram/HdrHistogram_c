@@ -249,6 +249,36 @@ void hdr_reset_internal_counters(struct hdr_histogram* h)
     h->total_count = observed_total_count;
 }
 
+/*
+    int getBucketsNeededToCoverValue(final long value) {
+        long smallestUntrackableValue = ((long)subBucketCount) << unitMagnitude;
+        int bucketsNeeded = 1;
+        while (smallestUntrackableValue <= value) {
+            if (smallestUntrackableValue > (Long.MAX_VALUE / 2)) {
+                return bucketsNeeded + 1;
+            }
+            smallestUntrackableValue <<= 1;
+            bucketsNeeded++;
+        }
+        return bucketsNeeded;
+    }
+*/
+int32_t buckets_needed_to_cover_value(int64_t value, int32_t sub_bucket_count, int32_t unit_magnitude)
+{
+    int64_t smallest_untrackable_value = ((int64_t) sub_bucket_count) << unit_magnitude;
+    int32_t buckets_needed = 1;
+    while (smallest_untrackable_value <= value)
+    {
+        if (smallest_untrackable_value > INT64_MAX / 2)
+        {
+            return buckets_needed + 1;
+        }
+        smallest_untrackable_value <<= 1;
+        buckets_needed++;
+    }
+
+    return buckets_needed;
+}
 
 // ##     ## ######## ##     ##  #######  ########  ##    ##
 // ###   ### ##       ###   ### ##     ## ##     ##  ##  ##
@@ -275,8 +305,8 @@ int hdr_calculate_bucket_config(
     cfg->highest_trackable_value = highest_trackable_value;
 
     int64_t largest_value_with_single_unit_resolution = 2 * power(10, significant_figures);
-    int32_t sub_bucket_count_magnitude                = (int32_t) ceil(log(largest_value_with_single_unit_resolution) / log(2));
-    cfg->sub_bucket_half_count_magnitude           = ((sub_bucket_count_magnitude > 1) ? sub_bucket_count_magnitude : 1) - 1;
+    int32_t sub_bucket_count_magnitude = (int32_t) ceil(log(largest_value_with_single_unit_resolution) / log(2));
+    cfg->sub_bucket_half_count_magnitude = ((sub_bucket_count_magnitude > 1) ? sub_bucket_count_magnitude : 1) - 1;
 
     cfg->unit_magnitude = (int32_t) floor(log(lowest_trackable_value) / log(2));
 
@@ -285,15 +315,8 @@ int hdr_calculate_bucket_config(
     cfg->sub_bucket_mask       = ((int64_t) cfg->sub_bucket_count - 1) << cfg->unit_magnitude;
 
     // determine exponent range needed to support the trackable value with no overflow:
-    int64_t trackable_value = (int64_t) cfg->sub_bucket_mask;
-    int32_t buckets_needed  = 1;
-    while (trackable_value < highest_trackable_value)
-    {
-        trackable_value <<= 1;
-        buckets_needed++;
-    }
-    cfg->bucket_count = buckets_needed;
-    cfg->counts_len   = (cfg->bucket_count + 1) * (cfg->sub_bucket_count / 2);
+    cfg->bucket_count = buckets_needed_to_cover_value(highest_trackable_value, cfg->sub_bucket_count, cfg->unit_magnitude);
+    cfg->counts_len = (cfg->bucket_count + 1) * (cfg->sub_bucket_count / 2);
 
     return 0;
 }

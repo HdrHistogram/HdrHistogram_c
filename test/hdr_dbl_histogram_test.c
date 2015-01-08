@@ -29,29 +29,6 @@ char* test_construct_argument_ranges()
     return 0;
 }
 
-/*
-    @Test
-    public void testConstructionArgumentGets() throws Exception {
-        DoubleHistogram histogram = new DoubleHistogram(trackableValueRangeSize, numberOfSignificantValueDigits);
-        // Record 1.0, and verify that the range adjust to it:
-        histogram.recordValue(Math.pow(2.0, 20));
-        histogram.recordValue(1.0);
-        Assert.assertEquals(1.0, histogram.getCurrentLowestTrackableNonZeroValue(), 0.001);
-        Assert.assertEquals(trackableValueRangeSize, histogram.getHighestToLowestValueRatio(), 0.001);
-        Assert.assertEquals(numberOfSignificantValueDigits, histogram.getNumberOfSignificantValueDigits(), 0.001);
-
-        DoubleHistogram histogram2 = new DoubleHistogram(trackableValueRangeSize, numberOfSignificantValueDigits);
-        // Record a larger value, and verify that the range adjust to it too:
-        histogram2.recordValue(2048.0 * 1024.0 * 1024.0);
-        Assert.assertEquals(2048.0 * 1024.0 * 1024.0, histogram2.getCurrentLowestTrackableNonZeroValue(), 0.001);
-
-        DoubleHistogram histogram3 = new DoubleHistogram(trackableValueRangeSize, numberOfSignificantValueDigits);
-        // Record a value that is 1000x outside of the initially set range, which should scale us by 1/1024x:
-        histogram3.recordValue(1/1000.0);
-        Assert.assertEquals(1.0/1024, histogram3.getCurrentLowestTrackableNonZeroValue(), 0.001);
-    }
- */
-
 char* test_construction_argument_gets()
 {
     struct hdr_dbl_histogram* h;
@@ -67,10 +44,49 @@ char* test_construction_argument_gets()
     return 0;
 }
 
+char* test_data_range()
+{
+    struct hdr_dbl_histogram* h;
+
+    mu_assert("Should construct", 0 == hdr_dbl_init(TRACKABLE_VALUE_RANGE_SIZE, SIGNIFICANT_FIGURES, &h));
+
+    hdr_dbl_record_value(h, 0.0);
+
+    mu_assert("Should handle 0.0 value", 1 == hdr_count_at_value(&h->values, 0.0));
+
+    double top_value = 1.0;
+    while (hdr_dbl_record_value(h, top_value))
+    {
+        top_value *= 2.0;
+    }
+    mu_assert("Top value should be roughly 2^33", compare_double(INT64_C(1) << 33, top_value, 0.00001));
+    mu_assert("Should only be 1 value at 0.0", INT64_C(1) == hdr_count_at_value(&h->values, 0.0));
+
+    free(h);
+
+    mu_assert("Should construct", 0 == hdr_dbl_init(TRACKABLE_VALUE_RANGE_SIZE, SIGNIFICANT_FIGURES, &h));
+    hdr_dbl_record_value(h, 0.0);
+
+    double bottom_value = INT64_C(1) << 33;
+    while (hdr_dbl_record_value(h, bottom_value))
+    {
+        bottom_value /= 2.0;
+    }
+
+    int64_t expected_range = INT64_C(1) << ((64 - __builtin_clzll(TRACKABLE_VALUE_RANGE_SIZE)) + 1);
+
+    mu_assert("Range should be same as top/bottom", compare_double(expected_range, top_value/bottom_value, 0.00001));
+    mu_assert("Bottom value should be around 1.0", compare_double(1.0, bottom_value, 0.00001));
+    mu_assert("Should only be 1 value at 0.0", INT64_C(1) == hdr_count_at_value(&h->values, 0.0));
+
+    return 0;
+}
+
 static struct mu_result all_tests()
 {
     mu_run_test(test_construct_argument_ranges);
     mu_run_test(test_construction_argument_gets);
+    mu_run_test(test_data_range);
 
     mu_ok;
 }
