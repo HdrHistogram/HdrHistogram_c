@@ -152,6 +152,128 @@ char* test_record_value_with_expected_interval()
     return 0;
 }
 
+char* test_reset()
+{
+    struct hdr_dbl_histogram* h;
+    mu_assert("Should construct", 0 == hdr_dbl_init(TRACKABLE_VALUE_RANGE_SIZE, SIGNIFICANT_FIGURES, &h));
+
+    hdr_dbl_record_value(h, TEST_VALUE_LEVEL);
+    hdr_dbl_reset(h);
+
+    mu_assert("Should have 0 count", compare_int64(0, hdr_dbl_count_at_value(h, TEST_VALUE_LEVEL)));
+    mu_assert("Should have 0 total", compare_int64(0, h->values.total_count));
+
+    return 0;
+}
+
+/*
+    @Test
+    public void testAdd() throws Exception {
+        DoubleHistogram histogram = new DoubleHistogram(trackableValueRangeSize, numberOfSignificantValueDigits);
+        DoubleHistogram other = new DoubleHistogram(trackableValueRangeSize, numberOfSignificantValueDigits);
+
+        histogram.recordValue(testValueLevel);
+        histogram.recordValue(testValueLevel * 1000);
+        other.recordValue(testValueLevel);
+        other.recordValue(testValueLevel * 1000);
+        histogram.add(other);
+        assertEquals(2L, histogram.getCountAtValue(testValueLevel));
+        assertEquals(2L, histogram.getCountAtValue(testValueLevel * 1000));
+        assertEquals(4L, histogram.getTotalCount());
+
+        DoubleHistogram biggerOther = new DoubleHistogram(trackableValueRangeSize * 2, numberOfSignificantValueDigits);
+        biggerOther.recordValue(testValueLevel);
+        biggerOther.recordValue(testValueLevel * 1000);
+
+        // Adding the smaller histogram to the bigger one should work:
+        biggerOther.add(histogram);
+        assertEquals(3L, biggerOther.getCountAtValue(testValueLevel));
+        assertEquals(3L, biggerOther.getCountAtValue(testValueLevel * 1000));
+        assertEquals(6L, biggerOther.getTotalCount());
+
+        // Since we are auto-sized, trying to add a larger histogram into a smaller one should work if no
+        // overflowing data is there:
+        try {
+            // This should throw:
+            histogram.add(biggerOther);
+        } catch (ArrayIndexOutOfBoundsException e) {
+            fail("Should of thown with out of bounds error");
+        }
+
+        // But trying to add smaller values to a larger histogram that actually uses it's range should throw an AIOOB:
+        histogram.recordValue(1.0);
+        other.recordValue(1.0);
+        biggerOther.recordValue(trackableValueRangeSize * 8);
+
+        try {
+            // This should throw:
+            biggerOther.add(histogram);
+            fail("Should of thown with out of bounds error");
+        } catch (ArrayIndexOutOfBoundsException e) {
+        }
+    }
+
+
+    @Test
+    public void testSizeOfEquivalentValueRange() {
+        DoubleHistogram histogram = new DoubleHistogram(trackableValueRangeSize, numberOfSignificantValueDigits);
+        histogram.recordValue(1.0);
+        assertEquals("Size of equivalent range for value 1 is 1",
+                1.0/1024.0, histogram.sizeOfEquivalentValueRange(1), 0.001);
+        assertEquals("Size of equivalent range for value 2500 is 2",
+                2, histogram.sizeOfEquivalentValueRange(2500), 0.001);
+        assertEquals("Size of equivalent range for value 8191 is 4",
+                4, histogram.sizeOfEquivalentValueRange(8191), 0.001);
+        assertEquals("Size of equivalent range for value 8192 is 8",
+                8, histogram.sizeOfEquivalentValueRange(8192), 0.001);
+        assertEquals("Size of equivalent range for value 10000 is 8",
+                8, histogram.sizeOfEquivalentValueRange(10000), 0.001);
+    }
+
+    @Test
+    public void testLowestEquivalentValue() {
+        DoubleHistogram histogram = new DoubleHistogram(trackableValueRangeSize, numberOfSignificantValueDigits);
+        histogram.recordValue(1.0);
+        assertEquals("The lowest equivalent value to 10007 is 10000",
+                10000, histogram.lowestEquivalentValue(10007), 0.001);
+        assertEquals("The lowest equivalent value to 10009 is 10008",
+                10008, histogram.lowestEquivalentValue(10009), 0.001);
+    }
+
+    @Test
+    public void testHighestEquivalentValue() {
+        DoubleHistogram histogram = new DoubleHistogram(trackableValueRangeSize, numberOfSignificantValueDigits);
+        histogram.recordValue(1.0);
+        assertEquals("The highest equivalent value to 8180 is 8183",
+                8183.99999, histogram.highestEquivalentValue(8180), 0.001);
+        assertEquals("The highest equivalent value to 8187 is 8191",
+                8191.99999, histogram.highestEquivalentValue(8191), 0.001);
+        assertEquals("The highest equivalent value to 8193 is 8199",
+                8199.99999, histogram.highestEquivalentValue(8193), 0.001);
+        assertEquals("The highest equivalent value to 9995 is 9999",
+                9999.99999, histogram.highestEquivalentValue(9995), 0.001);
+        assertEquals("The highest equivalent value to 10007 is 10007",
+                10007.99999, histogram.highestEquivalentValue(10007), 0.001);
+        assertEquals("The highest equivalent value to 10008 is 10015",
+                10015.99999, histogram.highestEquivalentValue(10008), 0.001);
+    }
+
+    @Test
+    public void testMedianEquivalentValue() {
+        DoubleHistogram histogram = new DoubleHistogram(trackableValueRangeSize, numberOfSignificantValueDigits);
+        histogram.recordValue(1.0);
+        assertEquals("The median equivalent value to 4 is 4",
+                4.002, histogram.medianEquivalentValue(4), 0.001);
+        assertEquals("The median equivalent value to 5 is 5",
+                5.002, histogram.medianEquivalentValue(5), 0.001);
+        assertEquals("The median equivalent value to 4000 is 4001",
+                4001, histogram.medianEquivalentValue(4000), 0.001);
+        assertEquals("The median equivalent value to 8000 is 8002",
+                8002, histogram.medianEquivalentValue(8000), 0.001);
+        assertEquals("The median equivalent value to 10007 is 10004",
+                10004, histogram.medianEquivalentValue(10007), 0.001);
+    }
+ */
 
 static struct mu_result all_tests()
 {
@@ -161,6 +283,7 @@ static struct mu_result all_tests()
     mu_run_test(test_record_value);
     mu_run_test(test_record_value_overflow);
     mu_run_test(test_record_value_with_expected_interval);
+    mu_run_test(test_reset);
 
     mu_ok;
 }

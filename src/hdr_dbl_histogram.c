@@ -280,3 +280,8 @@ bool hdr_dbl_record_corrected_value(struct hdr_dbl_histogram* h, double value, d
 
     return true;
 }
+
+void hdr_dbl_reset(struct hdr_dbl_histogram* h)
+{
+    hdr_reset(&h->values);
+}
