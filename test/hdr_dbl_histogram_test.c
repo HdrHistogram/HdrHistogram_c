@@ -290,6 +290,12 @@ char* test_add_bigger_to_smaller_out_of_range()
         assertEquals("Size of equivalent range for value 10000 is 8",
                 8, histogram.sizeOfEquivalentValueRange(10000), 0.001);
     }
+*/
+char* test_size_of_equivalent_value_range()
+{
+    return 0;
+}
+/*
 
     @Test
     public void testLowestEquivalentValue() {
