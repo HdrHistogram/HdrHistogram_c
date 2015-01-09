@@ -299,6 +299,10 @@ int hdr_calculate_bucket_config(
     {
         return EINVAL;
     }
+    else if (lowest_trackable_value * 2 > highest_trackable_value)
+    {
+        return EINVAL;
+    }
 
     cfg->lowest_trackable_value = lowest_trackable_value;
     cfg->significant_figures = significant_figures;

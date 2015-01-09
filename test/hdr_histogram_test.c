@@ -150,8 +150,8 @@ static char* test_invalid_init()
 {
     struct hdr_histogram* h = NULL;
 
-    int r = hdr_init(0, 64*1024, 2, &h);
-    mu_assert("Result was not EINVAL", r == EINVAL);
+    mu_assert("Should not allow 0 as lowest trackable value", EINVAL == hdr_init(0, 64*1024, 2, &h));
+    mu_assert("Should have lowest < 2 * highest", EINVAL == hdr_init(80, 110, 5, &h));
 
     return 0;
 }
