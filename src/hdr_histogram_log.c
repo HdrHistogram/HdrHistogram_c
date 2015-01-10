@@ -105,6 +105,50 @@ int null_trailing_whitespace(char* s, int len)
     return 0;
 }
 
+void hex_dump (char *desc, void *addr, int len) {
+    int i;
+    unsigned char buff[17];
+    unsigned char *pc = (unsigned char*)addr;
+
+    // Output description if given.
+    if (desc != NULL)
+        printf ("%s:\n", desc);
+
+    // Process every byte in the data.
+    for (i = 0; i < len; i++) {
+        // Multiple of 16 means new line (with line offset).
+
+        if ((i % 16) == 0) {
+            // Just don't print ASCII for the zeroth line.
+            if (i != 0)
+                printf ("  %s\n", buff);
+
+            // Output the offset.
+            printf ("  %04x ", i);
+        }
+
+        // Now the hex code for the specific character.
+        printf (" %02x", pc[i]);
+
+        // And store a printable ASCII character for later.
+        if ((pc[i] < 0x20) || (pc[i] > 0x7e))
+            buff[i % 16] = '.';
+        else
+            buff[i % 16] = pc[i];
+        buff[(i % 16) + 1] = '\0';
+    }
+
+    // Pad out last line if not exactly 16 characters.
+    while ((i % 16) != 0) {
+        printf ("   ");
+        i++;
+    }
+
+    // And print the final ASCII bit.
+    printf ("  %s\n", buff);
+}
+
+
 // ########     ###     ######  ########     #######  ##
 // ##     ##   ## ##   ##    ## ##          ##     ## ##    ##
 // ##     ##  ##   ##  ##       ##          ##        ##    ##
@@ -158,12 +202,12 @@ static int from_base_64(int c)
     return EINVAL;
 }
 
-static size_t base64_encoded_len(size_t decoded_size)
+size_t base64_encoded_len(size_t decoded_size)
 {
     return (size_t) (ceil(decoded_size / 3.0) * 4.0);
 }
 
-static size_t base64_decoded_len(size_t encoded_size)
+size_t base64_decoded_len(size_t encoded_size)
 {
     return (encoded_size / 4) * 3;
 }
@@ -417,9 +461,9 @@ int hdr_encode_compressed(
     compressed->length = htobe32((int32_t)destLen);
 
     *compressed_histogram = (uint8_t*) compressed;
-    *compressed_len = destLen;
+    *compressed_len = sizeof(_compression_flyweight) + destLen;
 
-cleanup:
+    cleanup:
     free(encoded);
     if (result == HDR_DEFLATE_FAIL)
     {
@@ -495,10 +539,18 @@ static int hdr_decode_compressed_v0(
     strm.avail_out = sizeof(int64_t) * h->counts_len;
 
     int r = inflate(&strm, Z_SYNC_FLUSH);
-    if (r != Z_STREAM_END && r != Z_OK)
+    while (r != Z_STREAM_END)
     {
-        FAIL_AND_CLEANUP(cleanup, result, HDR_INFLATE_FAIL);
+        if (r != Z_OK)
+        {
+            FAIL_AND_CLEANUP(cleanup, result, HDR_INFLATE_FAIL);
+        }
+        else
+        {
+            r = inflate(&strm, Z_FINISH);
+        }
     }
+    (void)inflateEnd(&strm);
 
     for (int i = 0; i < h->counts_len; i++)
     {
@@ -510,7 +562,6 @@ static int hdr_decode_compressed_v0(
     h->conversion_ratio = 1.0;
 
 cleanup:
-    (void)inflateEnd(&strm);
     free(counts_array);
 
     if (result != 0)
@@ -547,7 +598,9 @@ static int hdr_decode_compressed_v1(
         FAIL_AND_CLEANUP(cleanup, result, HDR_INFLATE_FAIL);
     }
 
+
     int32_t compressed_length = be32toh(compression_flyweight->length);
+
     strm.next_in = compression_flyweight->data;
     strm.avail_in = compressed_length;
     strm.next_out = (uint8_t *) &encoding_flyweight;
@@ -576,19 +629,30 @@ static int hdr_decode_compressed_v1(
         FAIL_AND_CLEANUP(cleanup, result, ENOMEM);
     }
 
-    if ((counts_array = calloc(h->counts_len, sizeof(int64_t))) == NULL)
+    // Give the temp uncompressed array a little bif of extra
+    size_t counts_array_length = h->counts_len * 2;
+
+    if ((counts_array = calloc(counts_array_length, sizeof(int64_t))) == NULL)
     {
         FAIL_AND_CLEANUP(cleanup, result, ENOMEM);
     }
 
     strm.next_out = (uint8_t*) counts_array;
-    strm.avail_out = sizeof(int64_t) * h->counts_len;
+    strm.avail_out = sizeof(int64_t) * counts_array_length;
 
-    int r = inflate(&strm, Z_SYNC_FLUSH);
-    if (r != Z_STREAM_END && r != Z_OK)
+    int r = inflate(&strm, Z_FINISH);
+    while (r != Z_STREAM_END)
     {
-        FAIL_AND_CLEANUP(cleanup, result, HDR_INFLATE_FAIL);
+        if (r != Z_OK)
+        {
+            FAIL_AND_CLEANUP(cleanup, result, HDR_INFLATE_FAIL);
+        }
+        else
+        {
+            r = inflate(&strm, Z_FINISH);
+        }
     }
+    (void)inflateEnd(&strm);
 
     for (int i = 0; i < h->counts_len; i++)
     {

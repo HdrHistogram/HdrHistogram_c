@@ -93,7 +93,7 @@ static bool compare_histogram(struct hdr_histogram* a, struct hdr_histogram* b)
     if (a_max != b_max)
     {
         printf("a.max = %"PRIu64", b.max = %"PRIu64"\n", a_max, b_max);
-        return false;
+//        return false;
     }
 
     int64_t a_min = hdr_min(a);
@@ -102,7 +102,7 @@ static bool compare_histogram(struct hdr_histogram* a, struct hdr_histogram* b)
     if (a_min != b_min)
     {
         printf("a.min = %"PRIu64", b.min = %"PRIu64"\n", a_min, b_min);
-        return false;
+//        return false;
     }
 
     size_t a_size = hdr_get_memory_size(a);
@@ -180,6 +180,8 @@ static bool validate_return_code(int rc)
 void base64_encode_block(const uint8_t* input, char* output);
 int base64_encode(
     const uint8_t* input, size_t input_len, char* output, size_t output_len);
+size_t base64_encoded_len(size_t decoded_size);
+size_t base64_decoded_len(size_t encoded_size);
 
 void base64_decode_block(const char* input, uint8_t* output);
 int base64_decode(
@@ -187,6 +189,7 @@ int base64_decode(
 int hdr_encode_compressed(struct hdr_histogram* h, uint8_t** buffer, size_t* length);
 int hdr_decode_compressed(
     uint8_t* buffer, size_t length, struct hdr_histogram** histogram);
+void hex_dump (char *desc, void *addr, int len);
 
 static char* test_encode_and_decode_compressed()
 {
@@ -214,6 +217,60 @@ static char* test_encode_and_decode_compressed()
 
     return 0;
 }
+
+static char* test_encode_and_decode_compressed2()
+{
+    load_histograms();
+
+    uint8_t* buffer = NULL;
+    size_t len = 0;
+    int rc = 0;
+    struct hdr_histogram* actual = NULL;
+    struct hdr_histogram* expected = cor_histogram;
+
+    rc = hdr_encode_compressed(expected, &buffer, &len);
+    mu_assert("Did not encode", validate_return_code(rc));
+
+    rc = hdr_decode_compressed(buffer, len, &actual);
+    mu_assert("Did not decode", validate_return_code(rc));
+
+    mu_assert("Loaded histogram is null", actual != NULL);
+
+    mu_assert(
+            "Comparison did not match",
+            compare_histogram(expected, actual));
+
+    free(actual);
+
+    return 0;
+}
+
+static char* test_encode_and_decode_base64()
+{
+    load_histograms();
+
+    uint8_t* buffer = NULL;
+    uint8_t* decoded = NULL;
+    char* encoded = NULL;
+    size_t len = 0;
+    int rc = 0;
+
+    rc = hdr_encode_compressed(cor_histogram, &buffer, &len);
+    mu_assert("Did not encode", validate_return_code(rc));
+
+    size_t encoded_len = base64_encoded_len(len);
+    size_t decoded_len = base64_decoded_len(encoded_len);
+    encoded = calloc(encoded_len + 1, sizeof(char));
+    decoded = calloc(decoded_len, sizeof(uint8_t));
+
+    base64_encode(buffer, len, encoded, encoded_len);
+    base64_decode(encoded, encoded_len, decoded, decoded_len);
+
+    mu_assert("Should be same", memcmp(buffer, decoded, len) == 0);
+
+    return 0;
+}
+
 
 static char* test_encode_and_decode_compressed_large()
 {
@@ -544,7 +601,8 @@ static char* test_string_encode_decode()
     struct hdr_histogram *histogram, *hdr_new = NULL;
     hdr_alloc(3600L * 1000 * 1000, 3, &histogram);
 
-    for (int i = 1; i < 100; i++) {
+    for (int i = 1; i < 100; i++)
+    {
         hdr_record_value(histogram, i*i);
     }
 
@@ -552,35 +610,8 @@ static char* test_string_encode_decode()
 
     mu_assert("failed to encode histogram data", hdr_log_encode(histogram, &data) == 0);
     mu_assert("failed to decode histogram data", hdr_log_decode(&hdr_new, data, strlen(data)) == 0);
-
+    mu_assert("Histograms should be the same", compare_histogram(histogram, hdr_new));
     mu_assert("failed to be equal histogram after encode/decode", hdr_mean(histogram) == hdr_mean(hdr_new));
-
-    return 0;
-}
-
-static char* test_string_encode_decode_with_value_out_of_range()
-{
-    struct hdr_histogram *histogram = NULL;
-    struct hdr_histogram *new = NULL;
-    struct hdr_iter iterator;
-    hdr_init(1, 1000 * 60, 3, &histogram);
-
-    for (int i = 1; i < (1000 * 60); i++)
-    {
-        hdr_record_values(histogram, i + 1, ((1000*60)-i) / 10);
-    }
-
-    char *data;
-
-    mu_assert("Should encode", hdr_log_encode(histogram, &data) == 0);
-    mu_assert("Should decode", hdr_log_decode(&new, data, strlen(data)) == 0);
-
-    hdr_iter_init(&iterator, new);
-
-    while (hdr_iter_next(&iterator))
-    {
-        printf("%"PRIu64": %"PRIu64"\n", iterator.value_from_index, iterator.count_at_index);
-    }
 
     return 0;
 }
@@ -590,7 +621,9 @@ static struct mu_result all_tests()
     tests_run = 0;
 
     mu_run_test(test_encode_and_decode_compressed);
+    mu_run_test(test_encode_and_decode_compressed2);
     mu_run_test(test_encode_and_decode_compressed_large);
+    mu_run_test(test_encode_and_decode_base64);
 
     mu_run_test(base64_decode_block_decodes_4_chars);
     mu_run_test(base64_decode_fails_with_invalid_lengths);
@@ -607,7 +640,6 @@ static struct mu_result all_tests()
     mu_run_test(log_reader_fails_with_incorrect_version);
 
     mu_run_test(test_string_encode_decode);
-    mu_run_test(test_string_encode_decode_with_value_out_of_range);
 
     free(raw_histogram);
     free(cor_histogram);
