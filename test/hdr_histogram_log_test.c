@@ -245,6 +245,26 @@ static char* test_encode_and_decode_compressed2()
     return 0;
 }
 
+static char* test_bounds_check_on_decode()
+{
+    load_histograms();
+
+    uint8_t* buffer = NULL;
+    size_t len = 0;
+    int rc = 0;
+    struct hdr_histogram* actual = NULL;
+    struct hdr_histogram* expected = cor_histogram;
+
+    rc = hdr_encode_compressed(expected, &buffer, &len);
+    mu_assert("Did not encode", validate_return_code(rc));
+
+    rc = hdr_decode_compressed(buffer, len - 1, &actual);
+    mu_assert("Should have be invalid", compare_int64(EINVAL, rc));
+    mu_assert("Should not have built histogram", NULL == actual);
+
+    return 0;
+}
+
 static char* test_encode_and_decode_base64()
 {
     load_histograms();
@@ -624,6 +644,7 @@ static struct mu_result all_tests()
     mu_run_test(test_encode_and_decode_compressed2);
     mu_run_test(test_encode_and_decode_compressed_large);
     mu_run_test(test_encode_and_decode_base64);
+    mu_run_test(test_bounds_check_on_decode);
 
     mu_run_test(base64_decode_block_decodes_4_chars);
     mu_run_test(base64_decode_fails_with_invalid_lengths);

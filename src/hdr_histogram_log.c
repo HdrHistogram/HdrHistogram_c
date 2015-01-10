@@ -458,6 +458,12 @@ static int hdr_decode_compressed_v0(
     }
 
     int32_t compressed_length = be32toh(compression_flyweight->length);
+
+    if (length - sizeof(_compression_flyweight) < compressed_length)
+    {
+        FAIL_AND_CLEANUP(cleanup, result, EINVAL);
+    }
+
     strm.next_in = compression_flyweight->data;
     strm.avail_in = compressed_length;
     strm.next_out = (uint8_t *) &encoding_flyweight;
@@ -494,19 +500,10 @@ static int hdr_decode_compressed_v0(
     strm.next_out = (uint8_t*) counts_array;
     strm.avail_out = sizeof(int64_t) * h->counts_len;
 
-    int r = inflate(&strm, Z_SYNC_FLUSH);
-    while (r != Z_STREAM_END)
+    if (inflate(&strm, Z_FINISH) != Z_STREAM_END)
     {
-        if (r != Z_OK)
-        {
-            FAIL_AND_CLEANUP(cleanup, result, HDR_INFLATE_FAIL);
-        }
-        else
-        {
-            r = inflate(&strm, Z_FINISH);
-        }
+        FAIL_AND_CLEANUP(cleanup, result, HDR_INFLATE_FAIL);
     }
-    (void)inflateEnd(&strm);
 
     for (int i = 0; i < h->counts_len; i++)
     {
@@ -518,6 +515,7 @@ static int hdr_decode_compressed_v0(
     h->conversion_ratio = 1.0;
 
 cleanup:
+    (void)inflateEnd(&strm);
     free(counts_array);
 
     if (result != 0)
@@ -554,8 +552,12 @@ static int hdr_decode_compressed_v1(
         FAIL_AND_CLEANUP(cleanup, result, HDR_INFLATE_FAIL);
     }
 
-
     int32_t compressed_length = be32toh(compression_flyweight->length);
+
+    if (length - sizeof(_compression_flyweight) < compressed_length)
+    {
+        FAIL_AND_CLEANUP(cleanup, result, EINVAL);
+    }
 
     strm.next_in = compression_flyweight->data;
     strm.avail_in = compressed_length;
@@ -586,7 +588,7 @@ static int hdr_decode_compressed_v1(
     }
 
     // Give the temp uncompressed array a little bif of extra
-    size_t counts_array_length = h->counts_len * 2;
+    size_t counts_array_length = h->counts_len;
 
     if ((counts_array = calloc(counts_array_length, sizeof(int64_t))) == NULL)
     {
@@ -596,17 +598,9 @@ static int hdr_decode_compressed_v1(
     strm.next_out = (uint8_t*) counts_array;
     strm.avail_out = sizeof(int64_t) * counts_array_length;
 
-    int r = inflate(&strm, Z_FINISH);
-    while (r != Z_STREAM_END)
+    if (inflate(&strm, Z_FINISH) != Z_STREAM_END)
     {
-        if (r != Z_OK)
-        {
-            FAIL_AND_CLEANUP(cleanup, result, HDR_INFLATE_FAIL);
-        }
-        else
-        {
-            r = inflate(&strm, Z_FINISH);
-        }
+        FAIL_AND_CLEANUP(cleanup, result, HDR_INFLATE_FAIL);
     }
 
     for (int i = 0; i < h->counts_len; i++)
