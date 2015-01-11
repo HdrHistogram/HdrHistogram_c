@@ -771,6 +771,18 @@ static int64_t peek_next_value_from_index(struct hdr_iter* iter)
     return value_from_index(bucket_index, sub_bucket_index, iter->h->unit_magnitude);
 }
 
+bool _basic_iter_next(struct hdr_iter *iter)
+{
+    if (!has_next(iter))
+    {
+        return false;
+    }
+
+    move_next(iter);
+
+    return true;
+}
+
 void hdr_iter_init(struct hdr_iter* itr, struct hdr_histogram* h)
 {
     itr->h = h;
@@ -781,18 +793,13 @@ void hdr_iter_init(struct hdr_iter* itr, struct hdr_histogram* h)
     itr->count_to_index     =  0;
     itr->value_from_index   =  0;
     itr->highest_equivalent_value = 0;
+
+    itr->_next_fp = _basic_iter_next;
 }
 
 bool hdr_iter_next(struct hdr_iter* iter)
 {
-    if (!has_next(iter))
-    {
-        return false;
-    }
-
-    move_next(iter);
-
-    return true;
+    return iter->_next_fp(iter);
 }
 
 

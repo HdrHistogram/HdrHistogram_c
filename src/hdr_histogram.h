@@ -168,6 +168,8 @@ struct hdr_iter
     int64_t count_to_index;
     int64_t value_from_index;
     int64_t highest_equivalent_value;
+
+    bool (*_next_fp)(struct hdr_iter* iter);
 };
 
 /**
