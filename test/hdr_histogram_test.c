@@ -227,16 +227,16 @@ static char* test_percentiles()
 static char* test_recorded_values()
 {
     load_histograms();
-    struct hdr_recorded_iter iter;
+    struct hdr_iter iter;
     int index;
 
     // Raw Histogram
-    hdr_recorded_iter_init(&iter, raw_histogram);
+    hdr_iter_recorded_init(&iter, raw_histogram);
 
     index = 0;
-    while (hdr_recorded_iter_next(&iter))
+    while (hdr_iter_next(&iter))
     {
-        int64_t count_added_in_this_bucket = iter.count_added_in_this_iteration_step;
+        int64_t count_added_in_this_bucket = iter.specifics.recorded.count_added_in_this_iteration_step;
         if (index == 0)
         {
             mu_assert("Value at 0 is not 10000", count_added_in_this_bucket == 10000);
@@ -251,20 +251,20 @@ static char* test_recorded_values()
     mu_assert("Should have encountered 2 values", index == 2);
 
     // Corrected Histogram
-    hdr_recorded_iter_init(&iter, cor_histogram);
+    hdr_iter_recorded_init(&iter, cor_histogram);
 
     index = 0;
     int64_t total_added_count = 0;
-    while (hdr_recorded_iter_next(&iter))
+    while (hdr_iter_next(&iter))
     {
-        int64_t count_added_in_this_bucket = iter.count_added_in_this_iteration_step;
+        int64_t count_added_in_this_bucket = iter.specifics.recorded.count_added_in_this_iteration_step;
         if (index == 0)
         {
             mu_assert("Count at 0 is not 10000", count_added_in_this_bucket == 10000);
         }
-        mu_assert("Count should not be 0", iter.iter.count_at_index != 0);
+        mu_assert("Count should not be 0", iter.count_at_index != 0);
         mu_assert("Count at value iterated to should be count added in this step",
-                  iter.iter.count_at_index == count_added_in_this_bucket);
+                  iter.count_at_index == count_added_in_this_bucket);
         total_added_count += count_added_in_this_bucket;
         index++;
     }
@@ -276,15 +276,15 @@ static char* test_recorded_values()
 static char* test_linear_values()
 {
     load_histograms();
-    struct hdr_linear_iter iter;
+    struct hdr_iter iter;
     int index;
 
     // Raw Histogram
-    hdr_linear_iter_init(&iter, raw_histogram, 100000);
+    hdr_iter_linear_init(&iter, raw_histogram, 100000);
     index = 0;
-    while (hdr_linear_iter_next(&iter))
+    while (hdr_iter_next(&iter))
     {
-        int64_t count_added_in_this_bucket = iter.count_added_in_this_iteration_step;
+        int64_t count_added_in_this_bucket = iter.specifics.linear.count_added_in_this_iteration_step;
 
         if (index == 0)
         {
@@ -305,12 +305,12 @@ static char* test_linear_values()
 
     // Corrected Histogram
 
-    hdr_linear_iter_init(&iter, cor_histogram, 10000);
+    hdr_iter_linear_init(&iter, cor_histogram, 10000);
     index = 0;
     int64_t total_added_count = 0;
-    while (hdr_linear_iter_next(&iter))
+    while (hdr_iter_next(&iter))
     {
-        int64_t count_added_in_this_bucket = iter.count_added_in_this_iteration_step;
+        int64_t count_added_in_this_bucket = iter.specifics.linear.count_added_in_this_iteration_step;
 
         if (index == 0)
         {
@@ -329,15 +329,15 @@ static char* test_linear_values()
 static char* test_logarithmic_values()
 {
     load_histograms();
-    struct hdr_log_iter iter;
+    struct hdr_iter iter;
     int index;
 
-    hdr_log_iter_init(&iter, raw_histogram, 10000, 2.0);
+    hdr_iter_log_init(&iter, raw_histogram, 10000, 2.0);
     index = 0;
 
-    while(hdr_log_iter_next(&iter))
+    while(hdr_iter_next(&iter))
     {
-        long count_added_in_this_bucket = iter.count_added_in_this_iteration_step;
+        long count_added_in_this_bucket = iter.specifics.log.count_added_in_this_iteration_step;
         if (index == 0)
         {
             mu_assert("Raw Logarithmic 10 msec bucket # 0 added a count of 10000", 10000 == count_added_in_this_bucket);
@@ -356,12 +356,12 @@ static char* test_logarithmic_values()
 
     mu_assert("Should of seen 14 values", index - 1 == 14);
 
-    hdr_log_iter_init(&iter, cor_histogram, 10000, 2.0);
+    hdr_iter_log_init(&iter, cor_histogram, 10000, 2.0);
     index = 0;
     int total_added_count = 0;
-    while (hdr_log_iter_next(&iter))
+    while (hdr_iter_next(&iter))
     {
-        long count_added_in_this_bucket = iter.count_added_in_this_iteration_step;
+        long count_added_in_this_bucket = iter.specifics.log.count_added_in_this_iteration_step;
 
         if (index == 0)
         {

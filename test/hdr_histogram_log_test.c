@@ -560,8 +560,8 @@ static char* log_reader_aggregates_into_single_histogram()
     rc = hdr_log_read(&reader, log_file, &histogram, NULL, NULL);
     mu_assert("Failed raw read", validate_return_code(rc));
 
-    struct hdr_recorded_iter iter;
-    hdr_recorded_iter_init(&iter, histogram);
+    struct hdr_iter iter;
+    hdr_iter_recorded_init(&iter, histogram);
     int64_t expected_total_count =
         raw_histogram->total_count + cor_histogram->total_count;
 
@@ -569,10 +569,10 @@ static char* log_reader_aggregates_into_single_histogram()
         "Total counts incorrect",
         compare_int64(histogram->total_count, expected_total_count));
 
-    while (hdr_recorded_iter_next(&iter))
+    while (hdr_iter_next(&iter))
     {
-        int64_t count = iter.iter.count_at_index;
-        int64_t value = iter.iter.value_from_index;
+        int64_t count = iter.count_at_index;
+        int64_t value = iter.value_from_index;
 
         int64_t expected_count =
             hdr_count_at_value(raw_histogram, value) +
