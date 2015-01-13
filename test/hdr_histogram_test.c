@@ -426,6 +426,16 @@ static char* test_scaling_equivalence()
     return 0;
 }
 
+char* test_out_of_range_values()
+{
+    struct hdr_histogram *h;
+    hdr_init(1, 1000, 4, &h);
+    mu_assert("Should successfully record value", hdr_record_value(h, 32767));
+    mu_assert("Should not record value", !hdr_record_value(h, 32768));
+
+    return 0;
+}
+
 static struct mu_result all_tests()
 {
     mu_run_test(test_create);
@@ -441,6 +451,7 @@ static struct mu_result all_tests()
     mu_run_test(test_logarithmic_values);
     mu_run_test(test_reset);
     mu_run_test(test_scaling_equivalence);
+    mu_run_test(test_out_of_range_values);
 
     mu_ok;
 }
