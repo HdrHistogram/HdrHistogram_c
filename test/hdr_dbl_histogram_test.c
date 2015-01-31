@@ -10,6 +10,7 @@
 #include <hdr_dbl_histogram.h>
 
 #include "minunit.h"
+#include "../src/hdr_dbl_histogram.h"
 
 int tests_run = 0;
 
@@ -301,6 +302,18 @@ char* test_size_of_equivalent_value_range()
     mu_assert(
         "Size of equivalent range for value 1 is 1",
         compare_double(1.0/1024.0, hdr_dbl_size_of_equivalent_value_range(h, 1), 0.001));
+    mu_assert(
+        "Size of equivalent range for value 2500 is 2",
+        compare_double(2.0, hdr_dbl_size_of_equivalent_value_range(h, 2500), 0.001));
+    mu_assert(
+        "Size of equivalent range for value 8191 is 4",
+        compare_double(4.0, hdr_dbl_size_of_equivalent_value_range(h, 8191), 0.001));
+    mu_assert(
+        "Size of equivalent range for value 8192 is 8",
+        compare_double(8.0, hdr_dbl_size_of_equivalent_value_range(h, 8192), 0.001));
+    mu_assert(
+        "Size of equivalent range for value 10000 is 8",
+        compare_double(8.0, hdr_dbl_size_of_equivalent_value_range(h, 10000), 0.001));
 
     return 0;
 }
