@@ -162,7 +162,7 @@ static int64_t get_count_at_index(
     return counts_get_normalised(h, counts_index(h, bucket_index, sub_bucket_index));
 }
 
-static int64_t size_of_equivalent_value_range(struct hdr_histogram* h, int64_t value)
+int64_t hdr_size_of_equivalent_value_range(struct hdr_histogram* h, int64_t value)
 {
     int32_t bucket_index     = get_bucket_index(h, value);
     int32_t sub_bucket_index = get_sub_bucket_index(value, bucket_index, h->unit_magnitude);
@@ -179,7 +179,7 @@ static int64_t lowest_equivalent_value(struct hdr_histogram* h, int64_t value)
 
 static int64_t next_non_equivalent_value(struct hdr_histogram* h, int64_t value)
 {
-    return lowest_equivalent_value(h, value) + size_of_equivalent_value_range(h, value);
+    return lowest_equivalent_value(h, value) + hdr_size_of_equivalent_value_range(h, value);
 }
 
 static int64_t highest_equivalent_value(struct hdr_histogram* h, int64_t value)
@@ -189,7 +189,7 @@ static int64_t highest_equivalent_value(struct hdr_histogram* h, int64_t value)
 
 static int64_t median_equivalent_value(struct hdr_histogram* h, int64_t value)
 {
-    return lowest_equivalent_value(h, value) + (size_of_equivalent_value_range(h, value) >> 1);
+    return lowest_equivalent_value(h, value) + (hdr_size_of_equivalent_value_range(h, value) >> 1);
 }
 
 static int64_t non_zero_min(struct hdr_histogram* h)

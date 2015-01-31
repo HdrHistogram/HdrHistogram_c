@@ -293,6 +293,15 @@ char* test_add_bigger_to_smaller_out_of_range()
 */
 char* test_size_of_equivalent_value_range()
 {
+    struct hdr_dbl_histogram* h;
+    hdr_dbl_init(TRACKABLE_VALUE_RANGE_SIZE, SIGNIFICANT_FIGURES, &h);
+
+    hdr_dbl_record_value(h, 1.0);
+
+    mu_assert(
+        "Size of equivalent range for value 1 is 1",
+        compare_double(1.0/1024.0, hdr_dbl_size_of_equivalent_value_range(h, 1), 0.001));
+
     return 0;
 }
 /*
@@ -354,6 +363,7 @@ static struct mu_result all_tests()
     mu_run_test(test_add);
     mu_run_test(test_add_smaller_to_bigger);
     mu_run_test(test_add_bigger_to_smaller_out_of_range);
+    mu_run_test(test_size_of_equivalent_value_range);
 
     mu_ok;
 }

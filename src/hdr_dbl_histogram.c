@@ -326,3 +326,10 @@ void hdr_dbl_reset(struct hdr_dbl_histogram* h)
 {
     hdr_reset(&h->values);
 }
+
+double hdr_dbl_size_of_equivalent_value_range(struct hdr_dbl_histogram* h, double value)
+{
+    int64_t value_as_long = value * h->dbl_to_int_conversion_ratio;
+    int64_t range_size = hdr_size_of_equivalent_value_range(&h->values, value_as_long);
+    return range_size * h->int_to_dbl_conversion_ratio;
+}
