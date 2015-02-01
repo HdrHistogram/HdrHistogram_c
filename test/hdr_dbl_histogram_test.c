@@ -274,23 +274,6 @@ char* test_add_bigger_to_smaller_out_of_range()
     return 0;
 }
 
-/*
-    @Test
-    public void testSizeOfEquivalentValueRange() {
-        DoubleHistogram histogram = new DoubleHistogram(trackableValueRangeSize, numberOfSignificantValueDigits);
-        histogram.recordValue(1.0);
-        assertEquals("Size of equivalent range for value 1 is 1",
-                1.0/1024.0, histogram.sizeOfEquivalentValueRange(1), 0.001);
-        assertEquals("Size of equivalent range for value 2500 is 2",
-                2, histogram.sizeOfEquivalentValueRange(2500), 0.001);
-        assertEquals("Size of equivalent range for value 8191 is 4",
-                4, histogram.sizeOfEquivalentValueRange(8191), 0.001);
-        assertEquals("Size of equivalent range for value 8192 is 8",
-                8, histogram.sizeOfEquivalentValueRange(8192), 0.001);
-        assertEquals("Size of equivalent range for value 10000 is 8",
-                8, histogram.sizeOfEquivalentValueRange(10000), 0.001);
-    }
-*/
 char* test_size_of_equivalent_value_range()
 {
     struct hdr_dbl_histogram* h;
@@ -316,18 +299,7 @@ char* test_size_of_equivalent_value_range()
 
     return 0;
 }
-/*
 
-    @Test
-    public void testLowestEquivalentValue() {
-        DoubleHistogram histogram = new DoubleHistogram(trackableValueRangeSize, numberOfSignificantValueDigits);
-        histogram.recordValue(1.0);
-        assertEquals("The lowest equivalent value to 10007 is 10000",
-                10000, histogram.lowestEquivalentValue(10007), 0.001);
-        assertEquals("The lowest equivalent value to 10009 is 10008",
-                10008, histogram.lowestEquivalentValue(10009), 0.001);
-    }
-*/
 char* test_lowest_equivalent_value()
 {
     struct hdr_dbl_histogram* h;
@@ -343,25 +315,7 @@ char* test_lowest_equivalent_value()
 
     return 0;
 }
-/*
-    @Test
-    public void testHighestEquivalentValue() {
-        DoubleHistogram histogram = new DoubleHistogram(trackableValueRangeSize, numberOfSignificantValueDigits);
-        histogram.recordValue(1.0);
-        assertEquals("The highest equivalent value to 8180 is 8183",
-                8183.99999, histogram.highestEquivalentValue(8180), 0.001);
-        assertEquals("The highest equivalent value to 8187 is 8191",
-                8191.99999, histogram.highestEquivalentValue(8191), 0.001);
-        assertEquals("The highest equivalent value to 8193 is 8199",
-                8199.99999, histogram.highestEquivalentValue(8193), 0.001);
-        assertEquals("The highest equivalent value to 9995 is 9999",
-                9999.99999, histogram.highestEquivalentValue(9995), 0.001);
-        assertEquals("The highest equivalent value to 10007 is 10007",
-                10007.99999, histogram.highestEquivalentValue(10007), 0.001);
-        assertEquals("The highest equivalent value to 10008 is 10015",
-                10015.99999, histogram.highestEquivalentValue(10008), 0.001);
-    }
-    */
+
 char* test_highest_equivalent_value()
 {
     struct hdr_dbl_histogram* h;
@@ -388,24 +342,7 @@ char* test_highest_equivalent_value()
 
     return 0;
 }
-/*
 
-    @Test
-    public void testMedianEquivalentValue() {
-        DoubleHistogram histogram = new DoubleHistogram(trackableValueRangeSize, numberOfSignificantValueDigits);
-        histogram.recordValue(1.0);
-        assertEquals("The median equivalent value to 4 is 4",
-                4.002, histogram.medianEquivalentValue(4), 0.001);
-        assertEquals("The median equivalent value to 5 is 5",
-                5.002, histogram.medianEquivalentValue(5), 0.001);
-        assertEquals("The median equivalent value to 4000 is 4001",
-                4001, histogram.medianEquivalentValue(4000), 0.001);
-        assertEquals("The median equivalent value to 8000 is 8002",
-                8002, histogram.medianEquivalentValue(8000), 0.001);
-        assertEquals("The median equivalent value to 10007 is 10004",
-                10004, histogram.medianEquivalentValue(10007), 0.001);
-    }
- */
 char* test_median_equivalent_value()
 {
     struct hdr_dbl_histogram* h;
@@ -427,7 +364,7 @@ char* test_median_equivalent_value()
     mu_assert(
         "The median equivalent value for 4 is 4",
         compare_double(10004, hdr_dbl_median_equivalent_value(h, 10007), 0.001));
-    
+
     return 0;
 }
 
