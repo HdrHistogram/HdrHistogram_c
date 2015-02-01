@@ -304,5 +304,6 @@ bool hdr_shift_values_left(struct hdr_histogram* h, int32_t binary_orders_of_mag
 bool hdr_shift_values_right(struct hdr_histogram* h, int32_t shift);
 int64_t hdr_size_of_equivalent_value_range(struct hdr_histogram *h, int64_t value);
 int64_t hdr_next_non_equivalent_value(struct hdr_histogram *h, int64_t value);
+int64_t hdr_median_equivalent_value(struct hdr_histogram *h, int64_t value);
 
 #endif

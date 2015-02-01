@@ -364,3 +364,10 @@ double hdr_dbl_highest_equivalent_value(struct hdr_dbl_histogram* h, double valu
 
     return highest_equivalent_value;
 }
+
+double hdr_dbl_median_equivalent_value(struct hdr_dbl_histogram* h, double value)
+{
+    int64_t value_as_long = (int64_t) value * h->dbl_to_int_conversion_ratio;
+    int64_t median_value = hdr_median_equivalent_value(&h->values, value_as_long);
+    return median_value * h->int_to_dbl_conversion_ratio;
+}

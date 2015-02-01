@@ -187,7 +187,7 @@ static int64_t highest_equivalent_value(struct hdr_histogram* h, int64_t value)
     return hdr_next_non_equivalent_value(h, value) - 1;
 }
 
-static int64_t median_equivalent_value(struct hdr_histogram* h, int64_t value)
+int64_t hdr_median_equivalent_value(struct hdr_histogram *h, int64_t value)
 {
     return lowest_equivalent_value(h, value) + (hdr_size_of_equivalent_value_range(h, value) >> 1);
 }
@@ -661,7 +661,7 @@ double hdr_mean(struct hdr_histogram* h)
     {
         if (0 != iter.count_at_index)
         {
-            total += iter.count_at_index * median_equivalent_value(h, iter.value_from_index);
+            total += iter.count_at_index * hdr_median_equivalent_value(h, iter.value_from_index);
         }
     }
 
@@ -680,7 +680,7 @@ double hdr_stddev(struct hdr_histogram* h)
     {
         if (0 != iter.count_at_index)
         {
-            double dev = (median_equivalent_value(h, iter.value_from_index) * 1.0) - mean;
+            double dev = (hdr_median_equivalent_value(h, iter.value_from_index) * 1.0) - mean;
             geometric_dev_total += (dev * dev) * iter.count_at_index;
         }
     }

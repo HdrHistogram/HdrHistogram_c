@@ -406,6 +406,30 @@ char* test_highest_equivalent_value()
                 10004, histogram.medianEquivalentValue(10007), 0.001);
     }
  */
+char* test_median_equivalent_value()
+{
+    struct hdr_dbl_histogram* h;
+    hdr_dbl_init(TRACKABLE_VALUE_RANGE_SIZE, SIGNIFICANT_FIGURES, &h);
+
+    hdr_dbl_record_value(h, 1.0);
+    mu_assert(
+        "The median equivalent value for 4 is 4",
+        compare_double(4.002, hdr_dbl_median_equivalent_value(h, 4), 0.001));
+    mu_assert(
+        "The median equivalent value for 5 is 5",
+        compare_double(5.002, hdr_dbl_median_equivalent_value(h, 5), 0.001));
+    mu_assert(
+        "The median equivalent value for 4 is 4",
+        compare_double(4001, hdr_dbl_median_equivalent_value(h, 4000), 0.001));
+    mu_assert(
+        "The median equivalent value for 4 is 4",
+        compare_double(8002, hdr_dbl_median_equivalent_value(h, 8000), 0.001));
+    mu_assert(
+        "The median equivalent value for 4 is 4",
+        compare_double(10004, hdr_dbl_median_equivalent_value(h, 10007), 0.001));
+    
+    return 0;
+}
 
 static struct mu_result all_tests()
 {
@@ -422,6 +446,7 @@ static struct mu_result all_tests()
     mu_run_test(test_size_of_equivalent_value_range);
     mu_run_test(test_lowest_equivalent_value);
     mu_run_test(test_highest_equivalent_value);
+    mu_run_test(test_median_equivalent_value);
 
     mu_ok;
 }
