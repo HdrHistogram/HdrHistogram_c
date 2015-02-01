@@ -10,7 +10,6 @@
 #include <hdr_dbl_histogram.h>
 
 #include "minunit.h"
-#include "../src/hdr_dbl_histogram.h"
 
 int tests_run = 0;
 
@@ -328,7 +327,23 @@ char* test_size_of_equivalent_value_range()
         assertEquals("The lowest equivalent value to 10009 is 10008",
                 10008, histogram.lowestEquivalentValue(10009), 0.001);
     }
+*/
+char* test_lowest_equivalent_value()
+{
+    struct hdr_dbl_histogram* h;
+    hdr_dbl_init(TRACKABLE_VALUE_RANGE_SIZE, SIGNIFICANT_FIGURES, &h);
 
+    hdr_dbl_record_value(h, 1.0);
+    mu_assert(
+        "The lowest equivalent value to 10007 is 10000",
+        compare_double(10000, hdr_dbl_lowest_equivalent_value(h, 10007), 0.001));
+    mu_assert(
+        "The lowest equivalent value to 10007 is 10000",
+        compare_double(10008, hdr_dbl_lowest_equivalent_value(h, 10009), 0.001));
+
+    return 0;
+}
+/*
     @Test
     public void testHighestEquivalentValue() {
         DoubleHistogram histogram = new DoubleHistogram(trackableValueRangeSize, numberOfSignificantValueDigits);
@@ -377,6 +392,7 @@ static struct mu_result all_tests()
     mu_run_test(test_add_smaller_to_bigger);
     mu_run_test(test_add_bigger_to_smaller_out_of_range);
     mu_run_test(test_size_of_equivalent_value_range);
+    mu_run_test(test_lowest_equivalent_value);
 
     mu_ok;
 }

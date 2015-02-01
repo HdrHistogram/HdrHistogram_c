@@ -29,6 +29,7 @@ int hdr_dbl_init(
 bool hdr_dbl_record_value(struct hdr_dbl_histogram* h, double value);
 bool hdr_dbl_record_corrected_value(struct hdr_dbl_histogram* h, double value, double expected_interval);
 double hdr_dbl_size_of_equivalent_value_range(struct hdr_dbl_histogram* h, double value);
+double hdr_dbl_lowest_equivalent_value(struct hdr_dbl_histogram* h, double value);
 
 /**
  * Add the values from the addend histogram to the sum histogram.
