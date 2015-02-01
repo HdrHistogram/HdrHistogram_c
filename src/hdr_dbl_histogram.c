@@ -340,3 +340,27 @@ double hdr_dbl_lowest_equivalent_value(struct hdr_dbl_histogram* h, double value
     int64_t lowest_value = hdr_lowest_equivalent_value(&h->values, value_as_long);
     return lowest_value * h->int_to_dbl_conversion_ratio;
 }
+
+double hdr_dbl_next_non_equivalent_value(struct hdr_dbl_histogram* h, double value)
+{
+    int64_t value_as_long = (int64_t) value * h->dbl_to_int_conversion_ratio;
+    int64_t next_non_equivalent_value = hdr_next_non_equivalent_value(&h->values, value_as_long);
+    return next_non_equivalent_value * h->int_to_dbl_conversion_ratio;
+}
+
+double hdr_dbl_highest_equivalent_value(struct hdr_dbl_histogram* h, double value)
+{
+    double next_non_equivalent_value = hdr_dbl_next_non_equivalent_value(h, value);
+
+    // Rollback 2 ulps.
+    double highest_equivalent_value = nextafter(next_non_equivalent_value, DBL_MIN);
+    highest_equivalent_value = nextafter(highest_equivalent_value, DBL_MIN);
+
+    double next;
+    while ((next = nextafter(highest_equivalent_value, DBL_MAX)) < next_non_equivalent_value)
+    {
+        highest_equivalent_value = next;
+    }
+
+    return highest_equivalent_value;
+}

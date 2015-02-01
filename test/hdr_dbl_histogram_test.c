@@ -361,6 +361,34 @@ char* test_lowest_equivalent_value()
         assertEquals("The highest equivalent value to 10008 is 10015",
                 10015.99999, histogram.highestEquivalentValue(10008), 0.001);
     }
+    */
+char* test_highest_equivalent_value()
+{
+    struct hdr_dbl_histogram* h;
+    hdr_dbl_init(TRACKABLE_VALUE_RANGE_SIZE, SIGNIFICANT_FIGURES, &h);
+    hdr_dbl_record_value(h, 1.0);
+    mu_assert(
+        "The highest equivalent value for 8180 is 8183",
+        compare_double(8183.99999, hdr_dbl_highest_equivalent_value(h, 8180), 0.001));
+    mu_assert(
+        "The highest equivalent value for 8187 is 8191",
+        compare_double(8191.99999, hdr_dbl_highest_equivalent_value(h, 8191), 0.001));
+    mu_assert(
+        "The highest equivalent value for 8193 is 8199",
+        compare_double(8199.99999, hdr_dbl_highest_equivalent_value(h, 8193), 0.001));
+    mu_assert(
+        "The highest equivalent value for 9995 is 9999",
+        compare_double(9999.99999, hdr_dbl_highest_equivalent_value(h, 9995), 0.001));
+    mu_assert(
+        "The highest equivalent value for 10007 is 10007",
+        compare_double(10007.99999, hdr_dbl_highest_equivalent_value(h, 10007), 0.001));
+    mu_assert(
+        "The highest equivalent value for 10008 is 10015",
+        compare_double(10015.99999, hdr_dbl_highest_equivalent_value(h, 10008), 0.001));
+
+    return 0;
+}
+/*
 
     @Test
     public void testMedianEquivalentValue() {
@@ -393,6 +421,7 @@ static struct mu_result all_tests()
     mu_run_test(test_add_bigger_to_smaller_out_of_range);
     mu_run_test(test_size_of_equivalent_value_range);
     mu_run_test(test_lowest_equivalent_value);
+    mu_run_test(test_highest_equivalent_value);
 
     mu_ok;
 }
