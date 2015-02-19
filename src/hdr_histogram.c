@@ -245,20 +245,6 @@ void hdr_reset_internal_counters(struct hdr_histogram* h)
     h->total_count = observed_total_count;
 }
 
-/*
-    int getBucketsNeededToCoverValue(final long value) {
-        long smallestUntrackableValue = ((long)subBucketCount) << unitMagnitude;
-        int bucketsNeeded = 1;
-        while (smallestUntrackableValue <= value) {
-            if (smallestUntrackableValue > (Long.MAX_VALUE / 2)) {
-                return bucketsNeeded + 1;
-            }
-            smallestUntrackableValue <<= 1;
-            bucketsNeeded++;
-        }
-        return bucketsNeeded;
-    }
-*/
 int32_t buckets_needed_to_cover_value(int64_t value, int32_t sub_bucket_count, int32_t unit_magnitude)
 {
     int64_t smallest_untrackable_value = ((int64_t) sub_bucket_count) << unit_magnitude;
