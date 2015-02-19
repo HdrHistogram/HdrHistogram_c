@@ -129,6 +129,7 @@ bool hdr_record_values(struct hdr_histogram* h, int64_t value, int64_t count);
  * true otherwise.
  */
 bool hdr_record_corrected_value(struct hdr_histogram* h, int64_t value, int64_t expexcted_interval);
+bool hdr_record_corrected_values(struct hdr_histogram* h, int64_t value, int64_t count, int64_t expected_interval);
 
 /**
  * Adds all of the values from 'from' to 'this' histogram.  Will return the
@@ -141,6 +142,8 @@ bool hdr_record_corrected_value(struct hdr_histogram* h, int64_t value, int64_t 
  * @return The number of values dropped when copying.
  */
 int64_t hdr_add(struct hdr_histogram* h, struct hdr_histogram* from);
+int64_t hdr_add_while_correcting_for_coordinated_omission(
+        struct hdr_histogram* h, struct hdr_histogram* from, int64_t expected_interval);
 
 int64_t hdr_min(struct hdr_histogram* h);
 int64_t hdr_max(struct hdr_histogram* h);

@@ -575,6 +575,31 @@ bool hdr_record_corrected_value(struct hdr_histogram* h, int64_t value, int64_t 
     return true;
 }
 
+
+bool hdr_record_corrected_values(struct hdr_histogram* h, int64_t value, int64_t count, int64_t expected_interval)
+{
+    if (!hdr_record_values(h, value, count))
+    {
+        return false;
+    }
+
+    if (expected_interval <= 0 || value <= expected_interval)
+    {
+        return true;
+    }
+
+    int64_t missing_value = value - expected_interval;
+    for (; missing_value >= expected_interval; missing_value -= expected_interval)
+    {
+        if (!hdr_record_values(h, missing_value, count))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 int64_t hdr_add(struct hdr_histogram* h, struct hdr_histogram* from)
 {
     struct hdr_iter iter;
@@ -594,6 +619,28 @@ int64_t hdr_add(struct hdr_histogram* h, struct hdr_histogram* from)
 
     return dropped;
 }
+
+int64_t hdr_add_while_correcting_for_coordinated_omission(
+        struct hdr_histogram* h, struct hdr_histogram* from, int64_t expected_interval)
+{
+    struct hdr_iter iter;
+    hdr_iter_recorded_init(&iter, from);
+    int64_t dropped = 0;
+    
+    while (hdr_iter_next(&iter))
+    {
+        int64_t value = iter.value_from_index;
+        int64_t count = iter.count_at_index;
+
+        if (!hdr_record_corrected_values(h, value, count, expected_interval))
+        {
+            dropped += count;
+        }
+    }
+    
+    return dropped;
+}
+
 
 
 // ##     ##    ###    ##       ##     ## ########  ######
