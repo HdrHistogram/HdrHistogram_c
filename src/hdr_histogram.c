@@ -499,22 +499,7 @@ bool hdr_shift_values_right(struct hdr_histogram* h, int32_t binary_orders_of_ma
 
 bool hdr_record_value(struct hdr_histogram* h, int64_t value)
 {
-    if (value < 0)
-    {
-        return false;
-    }
-
-    int32_t counts_index = counts_index_for(h, value);
-
-    if (counts_index < 0 || h->counts_len <= counts_index)
-    {
-        return false;
-    }
-
-    counts_inc_normalised(h, counts_index, 1);
-    update_min_max(h, value);
-
-    return true;
+    return hdr_record_values(h, value, 1);
 }
 
 bool hdr_record_values(struct hdr_histogram* h, int64_t value, int64_t count)
@@ -539,26 +524,7 @@ bool hdr_record_values(struct hdr_histogram* h, int64_t value, int64_t count)
 
 bool hdr_record_corrected_value(struct hdr_histogram* h, int64_t value, int64_t expected_interval)
 {
-    if (!hdr_record_value(h, value))
-    {
-        return false;
-    }
-
-    if (expected_interval <= 0 || value <= expected_interval)
-    {
-        return true;
-    }
-
-    int64_t missing_value = value - expected_interval;
-    for (; missing_value >= expected_interval; missing_value -= expected_interval)
-    {
-        if (!hdr_record_value(h, missing_value))
-        {
-            return false;
-        }
-    }
-
-    return true;
+    return hdr_record_corrected_values(h, value, 1, expected_interval);
 }
 
 
