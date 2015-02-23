@@ -241,18 +241,7 @@ int hdr_dbl_init(
 
 bool hdr_dbl_record_value(struct hdr_dbl_histogram* h, double value)
 {
-    if (value < h->current_lowest_value || h->current_highest_value <= value)
-    {
-        if (!adjust_range_for_value(h, value))
-        {
-            return false;
-        }
-    }
-
-    int64_t int_value = (int64_t) (value * h->dbl_to_int_conversion_ratio);
-    hdr_record_value(&h->values, int_value);
-
-    return true;
+    return hdr_dbl_record_values(h, value, 1);
 }
 
 bool hdr_dbl_record_values(struct hdr_dbl_histogram* h, double value, int64_t count)
@@ -281,7 +270,12 @@ bool hdr_dbl_record_values(struct hdr_dbl_histogram* h, double value, int64_t co
 
 bool hdr_dbl_record_corrected_value(struct hdr_dbl_histogram* h, double value, double expected_interval)
 {
-    if (!hdr_dbl_record_value(h, value))
+    return hdr_dbl_record_corrected_values(h, value, 1, expected_interval);
+}
+
+bool hdr_dbl_record_corrected_values(struct hdr_dbl_histogram* h, double value, int64_t count, double expected_interval)
+{
+    if (!hdr_dbl_record_values(h, value, count))
     {
         return false;
     }
@@ -294,7 +288,7 @@ bool hdr_dbl_record_corrected_value(struct hdr_dbl_histogram* h, double value, d
     double missing_value = value - expected_interval;
     while (missing_value >= expected_interval)
     {
-        if (!hdr_dbl_record_value(h, missing_value))
+        if (!hdr_dbl_record_values(h, missing_value, count))
         {
             return false;
         }
@@ -370,4 +364,34 @@ double hdr_dbl_median_equivalent_value(struct hdr_dbl_histogram* h, double value
     int64_t value_as_long = (int64_t) value * h->dbl_to_int_conversion_ratio;
     int64_t median_value = hdr_median_equivalent_value(&h->values, value_as_long);
     return median_value * h->int_to_dbl_conversion_ratio;
+}
+
+int64_t hdr_dbl_add_while_correcting_for_coordinated_omission(
+        struct hdr_dbl_histogram* dest,
+        struct hdr_dbl_histogram* src,
+        double expected_interval)
+{
+    if (dest == NULL)
+    {
+        hdr_dbl_init(src->values.highest_trackable_value, src->values.significant_figures, &dest);
+        set_trackable_value_range(dest, src->current_lowest_value, src->current_highest_value);
+    }
+
+    struct hdr_iter recorded_values;
+    hdr_iter_recorded_init(&recorded_values, &src->values);
+
+    int64_t dropped = 0;
+
+    while (hdr_iter_next(&recorded_values))
+    {
+        double value = recorded_values.value_from_index * src->int_to_dbl_conversion_ratio;
+        double count = recorded_values.count_at_index * src->int_to_dbl_conversion_ratio;
+
+        if (!hdr_dbl_record_corrected_values(dest, value, count, expected_interval))
+        {
+            dropped++;
+        }
+    }
+
+    return dropped;
 }
