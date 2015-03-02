@@ -38,6 +38,7 @@ int64_t hdr_dbl_add_while_correcting_for_coordinated_omission(
         struct hdr_dbl_histogram* dest,
         struct hdr_dbl_histogram* src,
         double expected_interval);
+double hdr_dbl_mean(struct hdr_dbl_histogram* h);
 
 /**
  * Add the values from the addend histogram to the sum histogram.

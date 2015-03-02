@@ -259,11 +259,8 @@ bool hdr_dbl_record_values(struct hdr_dbl_histogram* h, double value, int64_t co
         }
     }
 
-    for (int64_t i = 0; i < count; i++)
-    {
-        int64_t int_value = (int64_t) (value * h->dbl_to_int_conversion_ratio);
-        hdr_record_value(&h->values, int_value);
-    }
+    int64_t int_value = (int64_t) (value * h->dbl_to_int_conversion_ratio);
+    hdr_record_values(&h->values, int_value, count);
 
     return true;
 }
@@ -394,4 +391,9 @@ int64_t hdr_dbl_add_while_correcting_for_coordinated_omission(
     }
 
     return dropped;
+}
+
+double hdr_dbl_mean(struct hdr_dbl_histogram* h)
+{
+    return hdr_mean(&h->values) * h->int_to_dbl_conversion_ratio;
 }

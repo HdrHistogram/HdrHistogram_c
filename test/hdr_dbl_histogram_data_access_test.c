@@ -64,9 +64,52 @@ void load_histograms()
     hdr_dbl_add_while_correcting_for_coordinated_omission(post_corrected_scaled_histogram, scaled_raw_histogram, 10000);
 }
 
-char* test_noop()
+/*
+    @Test
+    public void testScalingEquivalence() {
+        Assert.assertEquals("averages should be equivalent",
+                histogram.getMean() * 512,
+                scaledHistogram.getMean(), scaledHistogram.getMean() * 0.000001);
+        Assert.assertEquals("total count should be the same",
+                histogram.getTotalCount(),
+                scaledHistogram.getTotalCount());
+        Assert.assertEquals("99%'iles should be equivalent",
+                scaledHistogram.highestEquivalentValue(histogram.getValueAtPercentile(99.0) * 512),
+                scaledHistogram.highestEquivalentValue(scaledHistogram.getValueAtPercentile(99.0)),
+                scaledHistogram.highestEquivalentValue(scaledHistogram.getValueAtPercentile(99.0)) * 0.000001);
+        Assert.assertEquals("Max should be equivalent",
+                scaledHistogram.highestEquivalentValue(histogram.getMaxValue() * 512),
+                scaledHistogram.getMaxValue(),
+                scaledHistogram.getMaxValue() * 0.000001);
+        // Same for post-corrected:
+        Assert.assertEquals("averages should be equivalent",
+                histogram.getMean() * 512,
+                scaledHistogram.getMean(), scaledHistogram.getMean() * 0.000001);
+        Assert.assertEquals("total count should be the same",
+                postCorrectedHistogram.getTotalCount(),
+                postCorrectedScaledHistogram.getTotalCount());
+        Assert.assertEquals("99%'iles should be equivalent",
+                postCorrectedHistogram.lowestEquivalentValue(postCorrectedHistogram.getValueAtPercentile(99.0)) * 512,
+                postCorrectedScaledHistogram.lowestEquivalentValue(postCorrectedScaledHistogram.getValueAtPercentile(99.0)),
+                postCorrectedScaledHistogram.lowestEquivalentValue(postCorrectedScaledHistogram.getValueAtPercentile(99.0)) * 0.000001
+                );
+        Assert.assertEquals("Max should be equivalent",
+                postCorrectedScaledHistogram.highestEquivalentValue(postCorrectedHistogram.getMaxValue() * 512),
+                postCorrectedScaledHistogram.getMaxValue(),
+                postCorrectedScaledHistogram.getMaxValue() * 0.000001
+                );
+    }
+ */
+
+char* test_scaling_equivalence()
 {
-    mu_assert("fail", compare_int64(1, 1));
+    load_histograms();
+
+    mu_assert("averages should be equivalent",
+            compare_double(
+                    hdr_dbl_mean(histogram) * 512,
+                    hdr_dbl_mean(scaled_histogram),
+                    hdr_dbl_mean(scaled_histogram) * 0.000001));
 
     return 0;
 }
@@ -74,7 +117,7 @@ char* test_noop()
 
 static struct mu_result all_tests()
 {
-    mu_run_test(test_noop);
+    mu_run_test(test_scaling_equivalence);
 
     mu_ok;
 }
