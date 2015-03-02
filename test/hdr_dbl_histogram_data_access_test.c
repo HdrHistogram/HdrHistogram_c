@@ -70,10 +70,7 @@ void load_histograms()
         Assert.assertEquals("total count should be the same",
                 histogram.getTotalCount(),
                 scaledHistogram.getTotalCount());
-        Assert.assertEquals("99%'iles should be equivalent",
-                scaledHistogram.highestEquivalentValue(histogram.getValueAtPercentile(99.0) * 512),
-                scaledHistogram.highestEquivalentValue(scaledHistogram.getValueAtPercentile(99.0)),
-                scaledHistogram.highestEquivalentValue(scaledHistogram.getValueAtPercentile(99.0)) * 0.000001);
+
         Assert.assertEquals("Max should be equivalent",
                 scaledHistogram.highestEquivalentValue(histogram.getMaxValue() * 512),
                 scaledHistogram.getMaxValue(),
@@ -110,9 +107,15 @@ char* test_scaling_equivalence()
 
     mu_assert("99%'iles should be equivalent",
             compare_double(
-                    hdr_dbl_highest_equivalent_value(histogram, hdr_dbl_value_at_percentile(histogram, 99.0)) * 512.0,
+                    hdr_dbl_highest_equivalent_value(scaled_histogram, hdr_dbl_value_at_percentile(histogram, 99.0)) * 512.0,
                     hdr_dbl_highest_equivalent_value(scaled_histogram, hdr_dbl_value_at_percentile(scaled_histogram, 99.0)),
                     hdr_dbl_highest_equivalent_value(scaled_histogram, hdr_dbl_value_at_percentile(scaled_histogram, 99.0)) * 0.000001));
+
+    mu_assert("Max should be equivalent",
+            compare_double(
+                    hdr_dbl_highest_equivalent_value(scaled_histogram, hdr_dbl_max(histogram) * 512),
+                    hdr_dbl_max(scaled_histogram),
+                    hdr_dbl_max(scaled_histogram) * 0.000001));
 
     return 0;
 }
