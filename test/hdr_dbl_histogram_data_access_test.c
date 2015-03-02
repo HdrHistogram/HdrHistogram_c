@@ -71,10 +71,6 @@ void load_histograms()
                 histogram.getTotalCount(),
                 scaledHistogram.getTotalCount());
 
-        Assert.assertEquals("Max should be equivalent",
-                scaledHistogram.highestEquivalentValue(histogram.getMaxValue() * 512),
-                scaledHistogram.getMaxValue(),
-                scaledHistogram.getMaxValue() * 0.000001);
         // Same for post-corrected:
         Assert.assertEquals("averages should be equivalent",
                 histogram.getMean() * 512,
@@ -98,6 +94,9 @@ void load_histograms()
 char* test_scaling_equivalence()
 {
     load_histograms();
+
+    mu_assert("total count should be the same",
+            compare_int64(histogram->values.total_count, scaled_histogram->values.total_count));
 
     mu_assert("averages should be equivalent",
             compare_double(
