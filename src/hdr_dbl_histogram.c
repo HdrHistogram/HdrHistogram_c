@@ -397,3 +397,8 @@ double hdr_dbl_mean(struct hdr_dbl_histogram* h)
 {
     return hdr_mean(&h->values) * h->int_to_dbl_conversion_ratio;
 }
+
+double hdr_dbl_value_at_percentile(struct hdr_dbl_histogram* h, double percentile)
+{
+    return hdr_value_at_percentile(&h->values, percentile) * h->int_to_dbl_conversion_ratio;
+}

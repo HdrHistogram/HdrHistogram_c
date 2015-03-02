@@ -67,9 +67,6 @@ void load_histograms()
 /*
     @Test
     public void testScalingEquivalence() {
-        Assert.assertEquals("averages should be equivalent",
-                histogram.getMean() * 512,
-                scaledHistogram.getMean(), scaledHistogram.getMean() * 0.000001);
         Assert.assertEquals("total count should be the same",
                 histogram.getTotalCount(),
                 scaledHistogram.getTotalCount());
@@ -110,6 +107,12 @@ char* test_scaling_equivalence()
                     hdr_dbl_mean(histogram) * 512,
                     hdr_dbl_mean(scaled_histogram),
                     hdr_dbl_mean(scaled_histogram) * 0.000001));
+
+    mu_assert("99%'iles should be equivalent",
+            compare_double(
+                    hdr_dbl_highest_equivalent_value(histogram, hdr_dbl_value_at_percentile(histogram, 99.0)) * 512.0,
+                    hdr_dbl_highest_equivalent_value(scaled_histogram, hdr_dbl_value_at_percentile(scaled_histogram, 99.0)),
+                    hdr_dbl_highest_equivalent_value(scaled_histogram, hdr_dbl_value_at_percentile(scaled_histogram, 99.0)) * 0.000001));
 
     return 0;
 }
