@@ -35,7 +35,7 @@ double hdr_dbl_lowest_equivalent_value(struct hdr_dbl_histogram* h, double value
 double hdr_dbl_highest_equivalent_value(struct hdr_dbl_histogram* h, double value);
 double hdr_dbl_median_equivalent_value(struct hdr_dbl_histogram* h, double value);
 int64_t hdr_dbl_add_while_correcting_for_coordinated_omission(
-        struct hdr_dbl_histogram* dest,
+        struct hdr_dbl_histogram** dest,
         struct hdr_dbl_histogram* src,
         double expected_interval);
 double hdr_dbl_mean(struct hdr_dbl_histogram* h);

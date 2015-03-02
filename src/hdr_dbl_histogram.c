@@ -364,14 +364,19 @@ double hdr_dbl_median_equivalent_value(struct hdr_dbl_histogram* h, double value
 }
 
 int64_t hdr_dbl_add_while_correcting_for_coordinated_omission(
-        struct hdr_dbl_histogram* dest,
+        struct hdr_dbl_histogram** dest,
         struct hdr_dbl_histogram* src,
         double expected_interval)
 {
     if (dest == NULL)
     {
-        hdr_dbl_init(src->values.highest_trackable_value, src->values.significant_figures, &dest);
-        set_trackable_value_range(dest, src->current_lowest_value, src->current_highest_value);
+        return EINVAL;
+    }
+
+    if (*dest == NULL)
+    {
+        hdr_dbl_init(src->values.highest_trackable_value, src->values.significant_figures, dest);
+        set_trackable_value_range(*dest, src->current_lowest_value, src->current_highest_value);
     }
 
     struct hdr_iter recorded_values;
@@ -382,9 +387,8 @@ int64_t hdr_dbl_add_while_correcting_for_coordinated_omission(
     while (hdr_iter_next(&recorded_values))
     {
         double value = recorded_values.value_from_index * src->int_to_dbl_conversion_ratio;
-        double count = recorded_values.count_at_index * src->int_to_dbl_conversion_ratio;
 
-        if (!hdr_dbl_record_corrected_values(dest, value, count, expected_interval))
+        if (!hdr_dbl_record_corrected_values(*dest, value, recorded_values.count_at_index, expected_interval))
         {
             dropped++;
         }
