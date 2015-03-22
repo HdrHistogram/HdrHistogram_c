@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <math.h>
 
 #include <hdr_dbl_histogram.h>
 
@@ -43,8 +42,20 @@ static struct hdr_dbl_histogram* post_corrected_scaled_histogram = NULL;
         postCorrectedScaledHistogram = scaledRawHistogram.copyCorrectedForCoordinatedOmission(10000 * 512);
     }
  */
+void free_histograms()
+{
+    free(raw_histogram);
+    free(histogram);
+    free(scaled_raw_histogram);
+    free(scaled_histogram);
+    free(post_corrected_histogram);
+    free(post_corrected_scaled_histogram);
+}
+
 void load_histograms()
 {
+    free_histograms();
+
     hdr_dbl_init(HIGHEST_TRACKABLE_VALUE, SIGNIFICANT_FIGURES, &histogram);
     hdr_dbl_init(HIGHEST_TRACKABLE_VALUE / 2, SIGNIFICANT_FIGURES, &scaled_histogram);
     hdr_dbl_init(HIGHEST_TRACKABLE_VALUE, SIGNIFICANT_FIGURES, &raw_histogram);
@@ -57,8 +68,8 @@ void load_histograms()
         hdr_dbl_record_value(raw_histogram, INT64_C(1000));
         hdr_dbl_record_value(scaled_raw_histogram, 1000 * 512);
     }
-    hdr_dbl_record_corrected_value(histogram, INT64_C(100000000L), 1000);
-    hdr_dbl_record_corrected_value(scaled_histogram, INT64_C(100000000L) * 512, 1000 * 512);
+    hdr_dbl_record_corrected_value(histogram, INT64_C(100000000), 1000);
+    hdr_dbl_record_corrected_value(scaled_histogram, INT64_C(100000000) * 512, 1000 * 512);
 
     hdr_dbl_add_while_correcting_for_coordinated_omission(
         &post_corrected_histogram, raw_histogram, 10000);
@@ -115,6 +126,31 @@ char *test_scaling_equivalence() {
 
     return 0;
 }
+
+/*
+    @Test
+    public void testGetTotalCount() throws Exception {
+        // The overflow value should count in the total count:
+        Assert.assertEquals("Raw total count is 10,001",
+                10001L, rawHistogram.getTotalCount());
+        Assert.assertEquals("Total count is 20,000",
+                20000L, histogram.getTotalCount());
+    }
+
+    @Test
+    public void testGetMaxValue() throws Exception {
+        Assert.assertTrue(
+                histogram.valuesAreEquivalent(100L * 1000 * 1000,
+                        histogram.getMaxValue()));
+    }
+
+    @Test
+    public void testGetMinValue() throws Exception {
+        Assert.assertTrue(
+                histogram.valuesAreEquivalent(1000,
+                        histogram.getMinValue()));
+    }
+ */
 
 
 static struct mu_result all_tests() {

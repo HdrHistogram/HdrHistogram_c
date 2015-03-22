@@ -7,10 +7,10 @@ add_executable(hdr_dbl_histogram_data_access_test hdr_dbl_histogram_data_access_
 
 add_executable(perftest hdr_histogram_perf.c)
 
-target_link_libraries(hdr_histogram_test hdr_histogram m z)
+target_link_libraries(hdr_histogram_test hdr_histogram m)
 target_link_libraries(hdr_histogram_log_test hdr_histogram m z)
-target_link_libraries(hdr_dbl_histogram_test hdr_histogram m z)
-target_link_libraries(hdr_dbl_histogram_data_access_test hdr_histogram m z)
+target_link_libraries(hdr_dbl_histogram_test hdr_histogram m)
+target_link_libraries(hdr_dbl_histogram_data_access_test hdr_histogram m)
 target_link_libraries(perftest hdr_histogram m z)
 
 CHECK_LIBRARY_EXISTS(rt clock_gettime "" RT_EXISTS)
