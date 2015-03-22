@@ -322,22 +322,22 @@ char* test_highest_equivalent_value()
     hdr_dbl_init(TRACKABLE_VALUE_RANGE_SIZE, SIGNIFICANT_FIGURES, &h);
     hdr_dbl_record_value(h, 1.0);
     mu_assert(
-        "The highest equivalent value for 8180 is 8183",
+        "The highest equivalent value for 8180 is ~8184",
         compare_double(8183.99999, hdr_dbl_highest_equivalent_value(h, 8180), 0.001));
     mu_assert(
-        "The highest equivalent value for 8187 is 8191",
+        "The highest equivalent value for 8187 is ~8192",
         compare_double(8191.99999, hdr_dbl_highest_equivalent_value(h, 8191), 0.001));
     mu_assert(
-        "The highest equivalent value for 8193 is 8199",
+        "The highest equivalent value for 8193 is ~8200",
         compare_double(8199.99999, hdr_dbl_highest_equivalent_value(h, 8193), 0.001));
     mu_assert(
-        "The highest equivalent value for 9995 is 9999",
+        "The highest equivalent value for 9995 is ~10000",
         compare_double(9999.99999, hdr_dbl_highest_equivalent_value(h, 9995), 0.001));
     mu_assert(
-        "The highest equivalent value for 10007 is 10007",
+        "The highest equivalent value for 10007 is ~10008",
         compare_double(10007.99999, hdr_dbl_highest_equivalent_value(h, 10007), 0.001));
     mu_assert(
-        "The highest equivalent value for 10008 is 10015",
+        "The highest equivalent value for 10008 is ~10016",
         compare_double(10015.99999, hdr_dbl_highest_equivalent_value(h, 10008), 0.001));
 
     return 0;
@@ -350,19 +350,19 @@ char* test_median_equivalent_value()
 
     hdr_dbl_record_value(h, 1.0);
     mu_assert(
-        "The median equivalent value for 4 is 4",
+        "The median equivalent value for 4 is 4.002",
         compare_double(4.002, hdr_dbl_median_equivalent_value(h, 4), 0.001));
     mu_assert(
-        "The median equivalent value for 5 is 5",
+        "The median equivalent value for 5 is 5.002",
         compare_double(5.002, hdr_dbl_median_equivalent_value(h, 5), 0.001));
     mu_assert(
-        "The median equivalent value for 4 is 4",
+        "The median equivalent value for 4000 is 4001",
         compare_double(4001, hdr_dbl_median_equivalent_value(h, 4000), 0.001));
     mu_assert(
-        "The median equivalent value for 4 is 4",
+        "The median equivalent value for 8000 is 8002",
         compare_double(8002, hdr_dbl_median_equivalent_value(h, 8000), 0.001));
     mu_assert(
-        "The median equivalent value for 4 is 4",
+        "The median equivalent value for 10007 is 10004",
         compare_double(10004, hdr_dbl_median_equivalent_value(h, 10007), 0.001));
 
     return 0;
