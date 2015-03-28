@@ -4,6 +4,7 @@
 #include <hdr_dbl_histogram.h>
 
 #include "minunit.h"
+#include "../src/hdr_dbl_histogram.h"
 
 int tests_run = 0;
 
@@ -183,6 +184,57 @@ char* test_get_stddev()
     return 0;
 }
 
+char*test_get_raw_value_at_percentile()
+{
+    mu_assert(
+        "raw 30%'ile is 1 msec +/- 0.1%",
+        compare_double(
+            1000.0, hdr_dbl_value_at_percentile(raw_histogram, 30.0), 1000.0 * 0.001));
+    mu_assert(
+        "raw 99%'ile is 1 msec +/- 0.1%",
+        compare_double(
+            1000.0, hdr_dbl_value_at_percentile(raw_histogram, 99.0), 1000.0 * 0.001));
+    mu_assert(
+        "raw 99.99%'ile is 1 msec +/- 0.1%",
+        compare_double(
+            1000.0, hdr_dbl_value_at_percentile(raw_histogram, 99.99), 1000.0 * 0.001));
+    mu_assert(
+        "raw 99.999%'ile is 100 sec +/- 0.1%",
+        compare_double(100000000.0, hdr_dbl_value_at_percentile(raw_histogram, 99.999), 100000000.0 * 0.001));
+    mu_assert(
+        "raw 100%'ile is 100 sec +/- 0.1%",
+        compare_double(100000000.0, hdr_dbl_value_at_percentile(raw_histogram, 100.0), 100000000.0 * 0.001));
+
+    return 0;
+}
+
+char* test_get_value_at_percentile()
+{
+    mu_assert(
+        "30%'ile is 1 msec +/- 0.1%",
+        compare_double(1000.0, hdr_dbl_value_at_percentile(histogram, 30.0), 1000.0 * 0.001));
+    mu_assert(
+        "50%'ile is 1 msec +/- 0.1%",
+        compare_double(1000.0, hdr_dbl_value_at_percentile(histogram, 50.0), 1000.0 * 0.001));
+    mu_assert("75%'ile is 50 sec +/- 0.1%",
+        compare_double(50000000.0, hdr_dbl_value_at_percentile(histogram, 75.0),
+        50000000.0 * 0.001));
+    mu_assert("90%'ile is 80 sec +/- 0.1%",
+        compare_double(80000000.0, hdr_dbl_value_at_percentile(histogram, 90.0),
+        80000000.0 * 0.001));
+    mu_assert("99%'ile is 98 sec +/- 0.1%",
+        compare_double(98000000.0, hdr_dbl_value_at_percentile(histogram, 99.0),
+        98000000.0 * 0.001));
+    mu_assert("99.999%'ile is 100 sec +/- 0.1%",
+        compare_double(100000000.0, hdr_dbl_value_at_percentile(histogram, 99.999),
+        100000000.0 * 0.001));
+    mu_assert("100%'ile is 100 sec +/- 0.1%",
+        compare_double(100000000.0, hdr_dbl_value_at_percentile(histogram, 100.0),
+        100000000.0 * 0.001));
+
+    return 0;
+}
+
 static struct mu_result all_tests() {
     mu_run_test(test_scaling_equivalence);
     mu_run_test(test_get_total_count);
@@ -191,6 +243,8 @@ static struct mu_result all_tests() {
     mu_run_test(test_get_mean);
     mu_run_test(test_get_raw_stddev);
     mu_run_test(test_get_stddev);
+    mu_run_test(test_get_raw_value_at_percentile);
+    mu_run_test(test_get_value_at_percentile);
 
     mu_ok;
 }
