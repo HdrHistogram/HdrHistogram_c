@@ -42,14 +42,21 @@ static struct hdr_dbl_histogram* post_corrected_scaled_histogram = NULL;
         postCorrectedScaledHistogram = scaledRawHistogram.copyCorrectedForCoordinatedOmission(10000 * 512);
     }
  */
+
+static void do_free(struct hdr_dbl_histogram** h)
+{
+    free(*h);
+    *h = NULL;
+}
+
 void free_histograms()
 {
-    free(raw_histogram);
-    free(histogram);
-    free(scaled_raw_histogram);
-    free(scaled_histogram);
-    free(post_corrected_histogram);
-    free(post_corrected_scaled_histogram);
+    do_free(&raw_histogram);
+    do_free(&histogram);
+    do_free(&scaled_raw_histogram);
+    do_free(&scaled_histogram);
+    do_free(&post_corrected_histogram);
+    do_free(&post_corrected_scaled_histogram);
 }
 
 void load_histograms()
@@ -68,8 +75,10 @@ void load_histograms()
         hdr_dbl_record_value(raw_histogram, INT64_C(1000));
         hdr_dbl_record_value(scaled_raw_histogram, 1000 * 512);
     }
-    hdr_dbl_record_corrected_value(histogram, INT64_C(100000000), 1000);
-    hdr_dbl_record_corrected_value(scaled_histogram, INT64_C(100000000) * 512, 1000 * 512);
+    hdr_dbl_record_corrected_value(histogram, INT64_C(100000000), 10000);
+    hdr_dbl_record_corrected_value(scaled_histogram, INT64_C(100000000) * 512, 10000 * 512);
+    hdr_dbl_record_value(raw_histogram, INT64_C(100000000));
+    hdr_dbl_record_value(scaled_raw_histogram, INT64_C(100000000) * 512);
 
     hdr_dbl_add_while_correcting_for_coordinated_omission(
         &post_corrected_histogram, raw_histogram, 10000);
@@ -127,34 +136,111 @@ char *test_scaling_equivalence() {
     return 0;
 }
 
+char* test_get_total_count()
+{
+    load_histograms();
+    mu_assert("Total count is 10,001", compare_int64(10001, raw_histogram->values.total_count));
+    mu_assert("Total count is 20,000", compare_int64(20000, histogram->values.total_count));
+
+    return 0;
+}
+
+char* test_get_max_value()
+{
+    load_histograms();
+    mu_assert(
+        "Max value is 100000000",
+        hdr_dbl_values_are_equivalent(histogram, INT64_C(100) * 1000 * 1000, hdr_dbl_max(histogram)));
+
+    return 0;
+}
+
+char* test_get_min_value()
+{
+    load_histograms();
+    mu_assert(
+        "Min value is 1000",
+        hdr_dbl_values_are_equivalent(histogram, INT64_C(1000), hdr_dbl_min(histogram)));
+
+    return 0;
+}
+
+char* test_get_mean()
+{
+    double expected_raw_mean = ((10000.0 * 1000) + (1.0 * 100000000))/10001; // direct avg. of raw results
+    mu_assert(
+        "Should calculate raw mean",
+        compare_double(expected_raw_mean, hdr_dbl_mean(raw_histogram), expected_raw_mean * 0.001));
+
+    double expected_mean = (1000.0 + 50000000.0)/2; // avg. 1 msec for half the time, and 50 sec for other half
+    mu_assert(
+        "Should calculate mean",
+        compare_double(expected_mean, hdr_dbl_mean(histogram), expected_mean * 0.001));
+
+    return 0;
+}
+
 /*
     @Test
-    public void testGetTotalCount() throws Exception {
-        // The overflow value should count in the total count:
-        Assert.assertEquals("Raw total count is 10,001",
-                10001L, rawHistogram.getTotalCount());
-        Assert.assertEquals("Total count is 20,000",
-                20000L, histogram.getTotalCount());
-    }
+    public void testGetStdDeviation() throws Exception {
+        double expectedRawMean = ((10000.0 * 1000) + (1.0 * 100000000))/10001; // direct avg. of raw results
+        double expectedRawStdDev =
+                Math.sqrt(
+                    ((10000.0 * Math.pow((1000.0 - expectedRawMean), 2)) +
+                            Math.pow((100000000.0 - expectedRawMean), 2)) /
+                            10001);
 
-    @Test
-    public void testGetMaxValue() throws Exception {
-        Assert.assertTrue(
-                histogram.valuesAreEquivalent(100L * 1000 * 1000,
-                        histogram.getMaxValue()));
-    }
+        double expectedMean = (1000.0 + 50000000.0)/2; // avg. 1 msec for half the time, and 50 sec for other half
+        double expectedSquareDeviationSum = 10000 * Math.pow((1000.0 - expectedMean), 2);
+        for (long value = 10000; value <= 100000000; value += 10000) {
+            expectedSquareDeviationSum += Math.pow((value - expectedMean), 2);
+        }
+        double expectedStdDev = Math.sqrt(expectedSquareDeviationSum / 20000);
 
-    @Test
-    public void testGetMinValue() throws Exception {
-        Assert.assertTrue(
-                histogram.valuesAreEquivalent(1000,
-                        histogram.getMinValue()));
+        // We expect to see the standard deviations to be accurate to ~3 decimal points (~0.1%):
+        Assert.assertEquals("Raw standard deviation is " + expectedRawStdDev + " +/- 0.1%",
+                expectedRawStdDev, rawHistogram.getStdDeviation(), expectedRawStdDev * 0.001);
+        Assert.assertEquals("Standard deviation is " + expectedStdDev + " +/- 0.1%",
+                expectedStdDev, histogram.getStdDeviation(), expectedStdDev * 0.001);
     }
- */
+*/
+char* test_get_raw_stddev()
+{
+    double expected_raw_mean = ((10000.0 * 1000) + (1.0 * 100000000))/10001; // direct avg. of raw results
+    double expected_raw_std_dev =
+        sqrt(((10000.0 * pow((1000.0 - expected_raw_mean), 2)) + pow((100000000.0 - expected_raw_mean), 2)) / 10001);
 
+    mu_assert(
+        "Raw standard deviation",
+        compare_double(expected_raw_std_dev, hdr_dbl_stddev(raw_histogram), expected_raw_std_dev * 0.001));
+
+    return 0;
+}
+
+char* test_get_stddev()
+{
+    double expected_mean = (1000.0 + 50000000.0)/2; // avg. 1 msec for half the time, and 50 sec for other half
+    double expected_stddev_sum = 10000 * pow((1000.0 - expected_mean), 2);
+    for (long value = 10000; value <= 100000000; value += 10000) {
+        expected_stddev_sum += pow((value - expected_mean), 2);
+    }
+    double expected_stddev = sqrt(expected_stddev_sum / 20000);
+
+    mu_assert(
+        "Raw standard deviation",
+        compare_double(expected_stddev, hdr_dbl_stddev(histogram), expected_stddev * 0.001));
+
+    return 0;
+}
 
 static struct mu_result all_tests() {
     mu_run_test(test_scaling_equivalence);
+    mu_run_test(test_get_total_count);
+    mu_run_test(test_get_max_value);
+    mu_run_test(test_get_min_value);
+    mu_run_test(test_get_mean);
+    mu_run_test(test_get_raw_stddev);
+    mu_run_test(test_get_stddev);
 
     mu_ok;
 }
@@ -163,7 +249,7 @@ int hdr_dbl_histogram_data_access_run_tests() {
     struct mu_result result = all_tests();
 
     if (result.message != 0) {
-        printf("hdr_histogram_log_test.%s(): %s\n", result.test, result.message);
+        printf("hdr_dbl_histogram_data_access_test.%s(): %s\n", result.test, result.message);
     }
     else {
         printf("ALL TESTS PASSED\n");

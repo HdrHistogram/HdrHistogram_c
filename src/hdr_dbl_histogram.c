@@ -200,7 +200,7 @@ int hdr_dbl_init(
         return EINVAL;
     }
 
-    struct hdr_dbl_histogram*dbl_histogram;
+    struct hdr_dbl_histogram* dbl_histogram;
     struct hdr_histogram_bucket_config cfg;
 
     int64_t integer_value_range = calculate_integer_value_range(highest_to_lowest_value_ratio, significant_figures);
@@ -363,6 +363,11 @@ double hdr_dbl_median_equivalent_value(struct hdr_dbl_histogram* h, double value
     return median_value * h->int_to_dbl_conversion_ratio;
 }
 
+bool hdr_dbl_values_are_equivalent(struct hdr_dbl_histogram* h, double a, double b)
+{
+    return hdr_dbl_lowest_equivalent_value(h, a) == hdr_dbl_lowest_equivalent_value(h, b);
+}
+
 int64_t hdr_dbl_add_while_correcting_for_coordinated_omission(
         struct hdr_dbl_histogram** dest,
         struct hdr_dbl_histogram* src,
@@ -410,4 +415,14 @@ double hdr_dbl_value_at_percentile(struct hdr_dbl_histogram* h, double percentil
 double hdr_dbl_max(struct hdr_dbl_histogram* h)
 {
     return hdr_max(&h->values) * h->int_to_dbl_conversion_ratio;
+}
+
+double hdr_dbl_min(struct hdr_dbl_histogram* h)
+{
+    return hdr_min(&h->values) * h->int_to_dbl_conversion_ratio;
+}
+
+double hdr_dbl_stddev(struct hdr_dbl_histogram *h)
+{
+    return hdr_stddev(&h->values) * h->int_to_dbl_conversion_ratio;
 }

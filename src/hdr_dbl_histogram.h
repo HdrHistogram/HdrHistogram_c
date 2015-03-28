@@ -34,6 +34,7 @@ double hdr_dbl_size_of_equivalent_value_range(struct hdr_dbl_histogram* h, doubl
 double hdr_dbl_lowest_equivalent_value(struct hdr_dbl_histogram* h, double value);
 double hdr_dbl_highest_equivalent_value(struct hdr_dbl_histogram* h, double value);
 double hdr_dbl_median_equivalent_value(struct hdr_dbl_histogram* h, double value);
+bool hdr_dbl_values_are_equivalent(struct hdr_dbl_histogram* h, double a, double b);
 int64_t hdr_dbl_add_while_correcting_for_coordinated_omission(
         struct hdr_dbl_histogram** dest,
         struct hdr_dbl_histogram* src,
@@ -41,6 +42,8 @@ int64_t hdr_dbl_add_while_correcting_for_coordinated_omission(
 double hdr_dbl_mean(struct hdr_dbl_histogram* h);
 double hdr_dbl_value_at_percentile(struct hdr_dbl_histogram* h, double percentile);
 double hdr_dbl_max(struct hdr_dbl_histogram* h);
+double hdr_dbl_min(struct hdr_dbl_histogram* h);
+double hdr_dbl_stddev(struct hdr_dbl_histogram *h);
 
 /**
  * Add the values from the addend histogram to the sum histogram.
