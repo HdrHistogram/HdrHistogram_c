@@ -17,32 +17,6 @@ static struct hdr_dbl_histogram* scaled_histogram = NULL;
 static struct hdr_dbl_histogram* post_corrected_histogram = NULL;
 static struct hdr_dbl_histogram* post_corrected_scaled_histogram = NULL;
 
-/*
-    static {
-        histogram = new DoubleHistogram(highestTrackableValue, numberOfSignificantValueDigits);
-        scaledHistogram = new DoubleHistogram(highestTrackableValue / 2 , numberOfSignificantValueDigits);
-        rawHistogram = new DoubleHistogram(highestTrackableValue, numberOfSignificantValueDigits);
-        scaledRawHistogram = new DoubleHistogram(highestTrackableValue / 2, numberOfSignificantValueDigits);
-        // Log hypothetical scenario: 100 seconds of "perfect" 1msec results, sampled
-        // 100 times per second (10,000 results), followed by a 100 second pause with
-        // a single (100 second) recorded result. Recording is done indicating an expected
-        // interval between samples of 10 msec:
-        for (int i = 0; i < 10000; i++) {
-            histogram.recordValueWithExpectedInterval(1000 , 10000);
-            scaledHistogram.recordValueWithExpectedInterval(1000 * 512, 10000 * 512);
-            rawHistogram.recordValue(1000);
-            scaledRawHistogram.recordValue(1000 * 512);
-        }
-        histogram.recordValueWithExpectedInterval(100000000L, 10000);
-        scaledHistogram.recordValueWithExpectedInterval(100000000L * 512, 10000 * 512);
-        rawHistogram.recordValue(100000000L);
-        scaledRawHistogram.recordValue(100000000L * 512);
-
-        postCorrectedHistogram = rawHistogram.copyCorrectedForCoordinatedOmission(10000);
-        postCorrectedScaledHistogram = scaledRawHistogram.copyCorrectedForCoordinatedOmission(10000 * 512);
-    }
- */
-
 static void do_free(struct hdr_dbl_histogram** h)
 {
     free(*h);
@@ -180,30 +154,6 @@ char* test_get_mean()
     return 0;
 }
 
-/*
-    @Test
-    public void testGetStdDeviation() throws Exception {
-        double expectedRawMean = ((10000.0 * 1000) + (1.0 * 100000000))/10001; // direct avg. of raw results
-        double expectedRawStdDev =
-                Math.sqrt(
-                    ((10000.0 * Math.pow((1000.0 - expectedRawMean), 2)) +
-                            Math.pow((100000000.0 - expectedRawMean), 2)) /
-                            10001);
-
-        double expectedMean = (1000.0 + 50000000.0)/2; // avg. 1 msec for half the time, and 50 sec for other half
-        double expectedSquareDeviationSum = 10000 * Math.pow((1000.0 - expectedMean), 2);
-        for (long value = 10000; value <= 100000000; value += 10000) {
-            expectedSquareDeviationSum += Math.pow((value - expectedMean), 2);
-        }
-        double expectedStdDev = Math.sqrt(expectedSquareDeviationSum / 20000);
-
-        // We expect to see the standard deviations to be accurate to ~3 decimal points (~0.1%):
-        Assert.assertEquals("Raw standard deviation is " + expectedRawStdDev + " +/- 0.1%",
-                expectedRawStdDev, rawHistogram.getStdDeviation(), expectedRawStdDev * 0.001);
-        Assert.assertEquals("Standard deviation is " + expectedStdDev + " +/- 0.1%",
-                expectedStdDev, histogram.getStdDeviation(), expectedStdDev * 0.001);
-    }
-*/
 char* test_get_raw_stddev()
 {
     double expected_raw_mean = ((10000.0 * 1000) + (1.0 * 100000000))/10001; // direct avg. of raw results
