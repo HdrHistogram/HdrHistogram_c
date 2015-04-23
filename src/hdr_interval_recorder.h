@@ -16,17 +16,17 @@ struct hdr_interval_recorder
     struct hdr_writer_reader_phaser phaser;
 } __attribute__((aligned (8)));
 
-int hdr_interval_recorder_init(struct hdr_interval_recorder* r)
+static inline int hdr_interval_recorder_init(struct hdr_interval_recorder* r)
 {
     return hdr_writer_reader_phaser_init(&r->phaser);
 }
 
-void hdr_interval_recorder_destroy(struct hdr_interval_recorder* r)
+static inline void hdr_interval_recorder_destroy(struct hdr_interval_recorder* r)
 {
     hdr_writer_reader_phaser_destory(&r->phaser);
 }
 
-void hdr_interval_recorder_update(
+static inline void hdr_interval_recorder_update(
     struct hdr_interval_recorder* r, 
     void(*update_action)(void*, void*), 
     void* arg)
@@ -40,7 +40,7 @@ void hdr_interval_recorder_update(
     hdr_phaser_writer_exit(&r->phaser, val);
 }
 
-void* hdr_interval_recorder_sample(struct hdr_interval_recorder* r)
+static inline void* hdr_interval_recorder_sample(struct hdr_interval_recorder* r)
 {
     void* temp;
 
