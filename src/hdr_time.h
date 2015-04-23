@@ -25,7 +25,7 @@ void hdr_gettime(struct timespec* ts)
 
 void hdr_gettime(struct timespec* t)
 {
-    clock_gettime(CLOCK_REALTIME, t);
+    clock_gettime(CLOCK_MONOTONIC, t);
 }
 
 #else
