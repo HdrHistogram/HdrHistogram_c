@@ -187,10 +187,10 @@ struct hdr_iter_log
 };
 
 /**
- * The basic iterator.  This is the equivlent of the
- * AllValues iterator from the Java implementation.  It iterates
- * through all entries in the histogram whether or not a value
- * is recorded.
+ * The basic iterator.  This is a generic structure
+ * that supports all of the types of iteration.  Use
+ * the appropriate initialiser to get the desired
+ * iteration.
  */
 struct hdr_iter
 {

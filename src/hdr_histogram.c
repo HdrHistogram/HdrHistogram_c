@@ -1061,7 +1061,7 @@ int hdr_percentiles_print(
     }
 
     struct hdr_iter_percentiles * percentiles = &iter.specifics.percentiles;
-    while (_basic_iter_next(&iter))
+    while (hdr_iter_next(&iter))
     {
         double  value               = iter.highest_equivalent_value / value_scale;
         double  percentile          = percentiles->percentile / 100.0;
