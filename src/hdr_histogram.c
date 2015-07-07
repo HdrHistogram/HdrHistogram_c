@@ -24,7 +24,7 @@
 // ##    ## ##     ## ##     ## ##   ###    ##    ##    ## 
 //  ######   #######   #######  ##    ##    ##     ######
 
-static int32_t normalize_index(struct hdr_histogram* h, int32_t index)
+static int32_t normalize_index(const struct hdr_histogram* h, int32_t index)
 {
     if (h->normalizing_index_offset == 0)
     {
@@ -46,12 +46,12 @@ static int32_t normalize_index(struct hdr_histogram* h, int32_t index)
     return normalized_index + adjustment;
 }
 
-static int64_t counts_get_direct(struct hdr_histogram* h, int32_t index)
+static int64_t counts_get_direct(const struct hdr_histogram* h, int32_t index)
 {
     return h->counts[index];
 }
 
-static int32_t counts_get_normalised(struct hdr_histogram* h, int32_t index)
+static int32_t counts_get_normalised(const struct hdr_histogram* h, int32_t index)
 {
     return counts_get_direct(h, normalize_index(h, index));
 }
@@ -105,7 +105,7 @@ static int64_t power(int64_t base, int64_t exp)
     return result;
 }
 
-static int32_t get_bucket_index(struct hdr_histogram* h, int64_t value)
+static int32_t get_bucket_index(const struct hdr_histogram* h, int64_t value)
 {
     int32_t pow2ceiling = 64 - __builtin_clzll(value | h->sub_bucket_mask); // smallest power of 2 containing value
     return pow2ceiling - h->unit_magnitude - (h->sub_bucket_half_count_magnitude + 1);
@@ -116,7 +116,7 @@ static int32_t get_sub_bucket_index(int64_t value, int32_t bucket_index, int32_t
     return (int32_t)(value >> (bucket_index + unit_magnitude));
 }
 
-static int32_t counts_index(struct hdr_histogram* h, int32_t bucket_index, int32_t sub_bucket_index)
+static int32_t counts_index(const struct hdr_histogram* h, int32_t bucket_index, int32_t sub_bucket_index)
 {
     // Calculate the index for the first entry in the bucket:
     // (The following is the equivalent of ((bucket_index + 1) * subBucketHalfCount) ):
@@ -127,7 +127,7 @@ static int32_t counts_index(struct hdr_histogram* h, int32_t bucket_index, int32
     return bucket_base_index + offset_in_bucket;
 }
 
-static int32_t counts_index_for(struct hdr_histogram* h, int64_t value)
+static int32_t counts_index_for(const struct hdr_histogram* h, int64_t value)
 {
     int32_t bucket_index     = get_bucket_index(h, value);
     int32_t sub_bucket_index = get_sub_bucket_index(value, bucket_index, h->unit_magnitude);
@@ -140,7 +140,7 @@ static int64_t value_from_index(int32_t bucket_index, int32_t sub_bucket_index, 
     return ((int64_t) sub_bucket_index) << (bucket_index + unit_magnitude);
 }
 
-int64_t hdr_value_at_index(struct hdr_histogram *h, int32_t index)
+int64_t hdr_value_at_index(const struct hdr_histogram *h, int32_t index)
 {
     int32_t bucket_index = (index >> h->sub_bucket_half_count_magnitude) - 1;
     int32_t sub_bucket_index = (index & (h->sub_bucket_half_count - 1)) + h->sub_bucket_half_count;
@@ -155,14 +155,14 @@ int64_t hdr_value_at_index(struct hdr_histogram *h, int32_t index)
 }
 
 static int64_t get_count_at_index(
-        struct hdr_histogram* h,
+        const struct hdr_histogram* h,
         int32_t bucket_index,
         int32_t sub_bucket_index)
 {
     return counts_get_normalised(h, counts_index(h, bucket_index, sub_bucket_index));
 }
 
-int64_t hdr_size_of_equivalent_value_range(struct hdr_histogram* h, int64_t value)
+int64_t hdr_size_of_equivalent_value_range(const struct hdr_histogram* h, int64_t value)
 {
     int32_t bucket_index     = get_bucket_index(h, value);
     int32_t sub_bucket_index = get_sub_bucket_index(value, bucket_index, h->unit_magnitude);
@@ -170,29 +170,29 @@ int64_t hdr_size_of_equivalent_value_range(struct hdr_histogram* h, int64_t valu
     return INT64_C(1) << (h->unit_magnitude + adjusted_bucket);
 }
 
-static int64_t lowest_equivalent_value(struct hdr_histogram* h, int64_t value)
+static int64_t lowest_equivalent_value(const struct hdr_histogram* h, int64_t value)
 {
     int32_t bucket_index     = get_bucket_index(h, value);
     int32_t sub_bucket_index = get_sub_bucket_index(value, bucket_index, h->unit_magnitude);
     return value_from_index(bucket_index, sub_bucket_index, h->unit_magnitude);
 }
 
-int64_t hdr_next_non_equivalent_value(struct hdr_histogram *h, int64_t value)
+int64_t hdr_next_non_equivalent_value(const struct hdr_histogram *h, int64_t value)
 {
     return lowest_equivalent_value(h, value) + hdr_size_of_equivalent_value_range(h, value);
 }
 
-static int64_t highest_equivalent_value(struct hdr_histogram* h, int64_t value)
+static int64_t highest_equivalent_value(const struct hdr_histogram* h, int64_t value)
 {
     return hdr_next_non_equivalent_value(h, value) - 1;
 }
 
-int64_t hdr_median_equivalent_value(struct hdr_histogram *h, int64_t value)
+int64_t hdr_median_equivalent_value(const struct hdr_histogram *h, int64_t value)
 {
     return lowest_equivalent_value(h, value) + (hdr_size_of_equivalent_value_range(h, value) >> 1);
 }
 
-static int64_t non_zero_min(struct hdr_histogram* h)
+static int64_t non_zero_min(const struct hdr_histogram* h)
 {
     if (INT64_MAX == h->min_value)
     {
@@ -552,7 +552,7 @@ bool hdr_record_corrected_values(struct hdr_histogram* h, int64_t value, int64_t
     return true;
 }
 
-int64_t hdr_add(struct hdr_histogram* h, struct hdr_histogram* from)
+int64_t hdr_add(struct hdr_histogram* h, const struct hdr_histogram* from)
 {
     struct hdr_iter iter;
     hdr_iter_recorded_init(&iter, from);
@@ -604,7 +604,7 @@ int64_t hdr_add_while_correcting_for_coordinated_omission(
 //    ###    ##     ## ########  #######  ########  ######
 
 
-int64_t hdr_max(struct hdr_histogram* h)
+int64_t hdr_max(const struct hdr_histogram* h)
 {
     if (0 == h->max_value)
     {
@@ -614,7 +614,7 @@ int64_t hdr_max(struct hdr_histogram* h)
     return highest_equivalent_value(h, h->max_value);
 }
 
-int64_t hdr_min(struct hdr_histogram* h)
+int64_t hdr_min(const struct hdr_histogram* h)
 {
     if (0 < hdr_count_at_index(h, 0))
     {
@@ -624,7 +624,7 @@ int64_t hdr_min(struct hdr_histogram* h)
     return non_zero_min(h);
 }
 
-int64_t hdr_value_at_percentile(struct hdr_histogram* h, double percentile)
+int64_t hdr_value_at_percentile(const struct hdr_histogram* h, double percentile)
 {
     struct hdr_iter iter;
     hdr_iter_init(&iter, h);
@@ -649,7 +649,7 @@ int64_t hdr_value_at_percentile(struct hdr_histogram* h, double percentile)
     return 0;
 }
 
-double hdr_mean(struct hdr_histogram* h)
+double hdr_mean(const struct hdr_histogram* h)
 {
     struct hdr_iter iter;
     int64_t total = 0;
@@ -667,7 +667,7 @@ double hdr_mean(struct hdr_histogram* h)
     return (total * 1.0) / h->total_count;
 }
 
-double hdr_stddev(struct hdr_histogram* h)
+double hdr_stddev(const struct hdr_histogram* h)
 {
     double mean = hdr_mean(h);
     double geometric_dev_total = 0.0;
@@ -687,22 +687,22 @@ double hdr_stddev(struct hdr_histogram* h)
     return sqrt(geometric_dev_total / h->total_count);
 }
 
-bool hdr_values_are_equivalent(struct hdr_histogram* h, int64_t a, int64_t b)
+bool hdr_values_are_equivalent(const struct hdr_histogram* h, int64_t a, int64_t b)
 {
     return lowest_equivalent_value(h, a) == lowest_equivalent_value(h, b);
 }
 
-int64_t hdr_lowest_equivalent_value(struct hdr_histogram* h, int64_t value)
+int64_t hdr_lowest_equivalent_value(const struct hdr_histogram* h, int64_t value)
 {
     return lowest_equivalent_value(h, value);
 }
 
-int64_t hdr_count_at_value(struct hdr_histogram* h, int64_t value)
+int64_t hdr_count_at_value(const struct hdr_histogram* h, int64_t value)
 {
     return counts_get_normalised(h, counts_index_for(h, value));
 }
 
-int64_t hdr_count_at_index(struct hdr_histogram* h, int32_t index)
+int64_t hdr_count_at_index(const struct hdr_histogram* h, int32_t index)
 {
     return counts_get_normalised(h, index);
 }
@@ -727,7 +727,7 @@ static bool has_next(struct hdr_iter* iter)
     return iter->count_to_index < iter->h->total_count;
 }
 
-static void increment_bucket(struct hdr_histogram* h, int32_t* bucket_index, int32_t* sub_bucket_index)
+static void increment_bucket(const struct hdr_histogram* h, int32_t* bucket_index, int32_t* sub_bucket_index)
 {
     (*sub_bucket_index)++;
 
@@ -778,7 +778,7 @@ bool _basic_iter_next(struct hdr_iter *iter)
     return true;
 }
 
-void hdr_iter_init(struct hdr_iter* itr, struct hdr_histogram* h)
+void hdr_iter_init(struct hdr_iter* itr, const struct hdr_histogram* h)
 {
     itr->h = h;
 
@@ -847,7 +847,7 @@ bool _percentile_iter_next(struct hdr_iter* iter)
     return true;
 }
 
-void hdr_iter_percentile_init(struct hdr_iter* iter, struct hdr_histogram* h, int32_t ticks_per_half_distance)
+void hdr_iter_percentile_init(struct hdr_iter* iter, const struct hdr_histogram* h, int32_t ticks_per_half_distance)
 {
     iter->h = h;
 
@@ -902,7 +902,7 @@ bool _recorded_iter_next(struct hdr_iter* iter)
     return false;
 }
 
-void hdr_iter_recorded_init(struct hdr_iter* iter, struct hdr_histogram* h)
+void hdr_iter_recorded_init(struct hdr_iter* iter, const struct hdr_histogram* h)
 {
     hdr_iter_init(iter, h);
 
@@ -952,7 +952,7 @@ bool _iter_linear_next(struct hdr_iter* iter)
 }
 
 
-void hdr_iter_linear_init(struct hdr_iter* iter, struct hdr_histogram* h, int64_t value_units_per_bucket)
+void hdr_iter_linear_init(struct hdr_iter* iter, const struct hdr_histogram* h, int64_t value_units_per_bucket)
 {
     hdr_iter_init(iter, h);
 
@@ -1006,7 +1006,7 @@ bool _log_iter_next(struct hdr_iter *iter)
 
 void hdr_iter_log_init(
         struct hdr_iter* iter,
-        struct hdr_histogram* h,
+        const struct hdr_histogram* h,
         int64_t value_units_first_bucket,
         double log_base)
 {
