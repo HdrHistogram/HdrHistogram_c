@@ -188,16 +188,13 @@ char*test_get_raw_value_at_percentile()
 {
     mu_assert(
         "raw 30%'ile is 1 msec +/- 0.1%",
-        compare_double(
-            1000.0, hdr_dbl_value_at_percentile(raw_histogram, 30.0), 1000.0 * 0.001));
+        compare_double(1000.0, hdr_dbl_value_at_percentile(raw_histogram, 30.0), 1000.0 * 0.001));
     mu_assert(
         "raw 99%'ile is 1 msec +/- 0.1%",
-        compare_double(
-            1000.0, hdr_dbl_value_at_percentile(raw_histogram, 99.0), 1000.0 * 0.001));
+        compare_double(1000.0, hdr_dbl_value_at_percentile(raw_histogram, 99.0), 1000.0 * 0.001));
     mu_assert(
         "raw 99.99%'ile is 1 msec +/- 0.1%",
-        compare_double(
-            1000.0, hdr_dbl_value_at_percentile(raw_histogram, 99.99), 1000.0 * 0.001));
+        compare_double(1000.0, hdr_dbl_value_at_percentile(raw_histogram, 99.99), 1000.0 * 0.001));
     mu_assert(
         "raw 99.999%'ile is 100 sec +/- 0.1%",
         compare_double(100000000.0, hdr_dbl_value_at_percentile(raw_histogram, 99.999), 100000000.0 * 0.001));
@@ -216,24 +213,114 @@ char* test_get_value_at_percentile()
     mu_assert(
         "50%'ile is 1 msec +/- 0.1%",
         compare_double(1000.0, hdr_dbl_value_at_percentile(histogram, 50.0), 1000.0 * 0.001));
-    mu_assert("75%'ile is 50 sec +/- 0.1%",
-        compare_double(50000000.0, hdr_dbl_value_at_percentile(histogram, 75.0),
-        50000000.0 * 0.001));
-    mu_assert("90%'ile is 80 sec +/- 0.1%",
-        compare_double(80000000.0, hdr_dbl_value_at_percentile(histogram, 90.0),
-        80000000.0 * 0.001));
-    mu_assert("99%'ile is 98 sec +/- 0.1%",
-        compare_double(98000000.0, hdr_dbl_value_at_percentile(histogram, 99.0),
-        98000000.0 * 0.001));
-    mu_assert("99.999%'ile is 100 sec +/- 0.1%",
-        compare_double(100000000.0, hdr_dbl_value_at_percentile(histogram, 99.999),
-        100000000.0 * 0.001));
-    mu_assert("100%'ile is 100 sec +/- 0.1%",
-        compare_double(100000000.0, hdr_dbl_value_at_percentile(histogram, 100.0),
-        100000000.0 * 0.001));
+    mu_assert(
+        "75%'ile is 50 sec +/- 0.1%",
+        compare_double(50000000.0, hdr_dbl_value_at_percentile(histogram, 75.0), 50000000.0 * 0.001));
+    mu_assert(
+        "90%'ile is 80 sec +/- 0.1%",
+        compare_double(80000000.0, hdr_dbl_value_at_percentile(histogram, 90.0), 80000000.0 * 0.001));
+    mu_assert(
+        "99%'ile is 98 sec +/- 0.1%",
+        compare_double(98000000.0, hdr_dbl_value_at_percentile(histogram, 99.0), 98000000.0 * 0.001));
+    mu_assert(
+        "99.999%'ile is 100 sec +/- 0.1%",
+        compare_double(100000000.0, hdr_dbl_value_at_percentile(histogram, 99.999), 100000000.0 * 0.001));
+    mu_assert(
+        "100%'ile is 100 sec +/- 0.1%",
+        compare_double(100000000.0, hdr_dbl_value_at_percentile(histogram, 100.0), 100000000.0 * 0.001));
 
     return 0;
 }
+
+/*
+    @Test
+    public void testLinearBucketValues() throws Exception {
+        int index = 0;
+        // Note that using linear buckets should work "as expected" as long as the number of linear buckets
+        // is lower than the resolution level determined by largestValueWithSingleUnitResolution
+        // (2000 in this case). Above that count, some of the linear buckets can end up rounded up in size
+        // (to the nearest local resolution unit level), which can result in a smaller number of buckets that
+        // expected covering the range.
+
+        // Iterate raw data using linear buckets of 100 msec each.
+        for (DoubleHistogramIterationValue v : rawHistogram.linearBucketValues(100000)) {
+            long countAddedInThisBucket = v.getCountAddedInThisIterationStep();
+            if (index == 0) {
+                Assert.assertEquals("Raw Linear 100 msec bucket # 0 added a count of 10000",
+                        10000, countAddedInThisBucket);
+            } else if (index == 999) {
+                Assert.assertEquals("Raw Linear 100 msec bucket # 999 added a count of 1",
+                        1, countAddedInThisBucket);
+            } else {
+                Assert.assertEquals("Raw Linear 100 msec bucket # " + index + " added a count of 0",
+                        0 , countAddedInThisBucket);
+            }
+            index++;
+        }
+        Assert.assertEquals(1000, index);
+        */
+
+char* test_get_value_linear()
+{
+
+}
+
+/*
+
+        index = 0;
+        long totalAddedCounts = 0;
+        // Iterate data using linear buckets of 10 msec each.
+        for (DoubleHistogramIterationValue v : histogram.linearBucketValues(10000)) {
+            long countAddedInThisBucket = v.getCountAddedInThisIterationStep();
+            if (index == 0) {
+                Assert.assertEquals("Linear 1 sec bucket # 0 [" +
+                        v.getValueIteratedFrom() + ".." + v.getValueIteratedTo() +
+                        "] added a count of 10001",
+                        10001, countAddedInThisBucket);
+            }
+            // Because value resolution is low enough (3 digits) that multiple linear buckets will end up
+            // residing in a single value-equivalent range, some linear buckets will have counts of 2 or
+            // more, and some will have 0 (when the first bucket in the equivalent range was the one that
+            // got the total count bump).
+            // However, we can still verify the sum of counts added in all the buckets...
+            totalAddedCounts += v.getCountAddedInThisIterationStep();
+            index++;
+        }
+        Assert.assertEquals("There should be 10000 linear buckets of size 10000 usec between 0 and 100 sec.",
+                10000, index);
+        Assert.assertEquals("Total added counts should be 20000", 20000, totalAddedCounts);
+
+        index = 0;
+        totalAddedCounts = 0;
+        // Iterate data using linear buckets of 1 msec each.
+        for (DoubleHistogramIterationValue v : histogram.linearBucketValues(1000)) {
+            long countAddedInThisBucket = v.getCountAddedInThisIterationStep();
+            if (index == 0) {
+                Assert.assertEquals("Linear 1 sec bucket # 0 [" +
+                        v.getValueIteratedFrom() + ".." + v.getValueIteratedTo() +
+                        "] added a count of 10000",
+                        10000, countAddedInThisBucket);
+            }
+            // Because value resolution is low enough (3 digits) that multiple linear buckets will end up
+            // residing in a single value-equivalent range, some linear buckets will have counts of 2 or
+            // more, and some will have 0 (when the first bucket in the equivalent range was the one that
+            // got the total count bump).
+            // However, we can still verify the sum of counts added in all the buckets...
+            totalAddedCounts += v.getCountAddedInThisIterationStep();
+            index++;
+        }
+        // You may ask "why 100007 and not 100000?" for the value below? The answer is that at this fine
+        // a linear stepping resolution, the final populated sub-bucket (at 100 seconds with 3 decimal
+        // point resolution) is larger than our liner stepping, and holds more than one linear 1 msec
+        // step in it.
+        // Since we only know we're done with linear iteration when the next iteration step will step
+        // out of the last populated bucket, there is not way to tell if the iteration should stop at
+        // 100000 or 100007 steps. The proper thing to do is to run to the end of the sub-bucket quanta...
+        Assert.assertEquals("There should be 100007 linear buckets of size 1000 usec between 0 and 100 sec.",
+                100007, index);
+        Assert.assertEquals("Total added counts should be 20000", 20000, totalAddedCounts);
+    }
+ */
 
 static struct mu_result all_tests() {
     mu_run_test(test_scaling_equivalence);
