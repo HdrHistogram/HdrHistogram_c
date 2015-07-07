@@ -147,7 +147,7 @@ char* test_record_value_with_expected_interval()
     mu_assert(
             "Should contain corrected value",
             compare_int64(1, hdr_dbl_count_at_value(cor_histogram, (TEST_VALUE_LEVEL * 4) / 4)));
-    mu_assert("Count should be 2", compare_int64(5, cor_histogram->values.total_count));
+    mu_assert("Count should be 5", compare_int64(5, cor_histogram->values.total_count));
 
     return 0;
 }
@@ -310,7 +310,7 @@ char* test_lowest_equivalent_value()
         "The lowest equivalent value to 10007 is 10000",
         compare_double(10000, hdr_dbl_lowest_equivalent_value(h, 10007), 0.001));
     mu_assert(
-        "The lowest equivalent value to 10007 is 10000",
+        "The lowest equivalent value to 10008 is 10009",
         compare_double(10008, hdr_dbl_lowest_equivalent_value(h, 10009), 0.001));
 
     return 0;
@@ -325,7 +325,7 @@ char* test_highest_equivalent_value()
         "The highest equivalent value for 8180 is ~8184",
         compare_double(8183.99999, hdr_dbl_highest_equivalent_value(h, 8180), 0.001));
     mu_assert(
-        "The highest equivalent value for 8187 is ~8192",
+        "The highest equivalent value for 8191 is ~8192",
         compare_double(8191.99999, hdr_dbl_highest_equivalent_value(h, 8191), 0.001));
     mu_assert(
         "The highest equivalent value for 8193 is ~8200",
