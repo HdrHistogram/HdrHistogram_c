@@ -296,7 +296,7 @@ bool hdr_dbl_record_corrected_values(struct hdr_dbl_histogram* h, double value, 
     return true;
 }
 
-int64_t hdr_dbl_add(struct hdr_dbl_histogram* sum, struct hdr_dbl_histogram* addend)
+int64_t hdr_dbl_add(struct hdr_dbl_histogram* sum, const struct hdr_dbl_histogram* addend)
 {
     int64_t dropped = 0;
     for (int32_t i = 0; i < addend->values.counts_len; i++)
@@ -318,28 +318,28 @@ void hdr_dbl_reset(struct hdr_dbl_histogram* h)
     hdr_reset(&h->values);
 }
 
-double hdr_dbl_size_of_equivalent_value_range(struct hdr_dbl_histogram* h, double value)
+double hdr_dbl_size_of_equivalent_value_range(const struct hdr_dbl_histogram* h, double value)
 {
     int64_t value_as_long = (int64_t) value * h->dbl_to_int_conversion_ratio;
     int64_t range_size = hdr_size_of_equivalent_value_range(&h->values, value_as_long);
     return range_size * h->int_to_dbl_conversion_ratio;
 }
 
-double hdr_dbl_lowest_equivalent_value(struct hdr_dbl_histogram* h, double value)
+double hdr_dbl_lowest_equivalent_value(const struct hdr_dbl_histogram* h, double value)
 {
     int64_t value_as_long = (int64_t) value * h->dbl_to_int_conversion_ratio;
     int64_t lowest_value = hdr_lowest_equivalent_value(&h->values, value_as_long);
     return lowest_value * h->int_to_dbl_conversion_ratio;
 }
 
-double hdr_dbl_next_non_equivalent_value(struct hdr_dbl_histogram* h, double value)
+double hdr_dbl_next_non_equivalent_value(const struct hdr_dbl_histogram* h, double value)
 {
     int64_t value_as_long = (int64_t) value * h->dbl_to_int_conversion_ratio;
     int64_t next_non_equivalent_value = hdr_next_non_equivalent_value(&h->values, value_as_long);
     return next_non_equivalent_value * h->int_to_dbl_conversion_ratio;
 }
 
-double hdr_dbl_highest_equivalent_value(struct hdr_dbl_histogram* h, double value)
+double hdr_dbl_highest_equivalent_value(const struct hdr_dbl_histogram* h, double value)
 {
     double next_non_equivalent_value = hdr_dbl_next_non_equivalent_value(h, value);
 
@@ -356,21 +356,21 @@ double hdr_dbl_highest_equivalent_value(struct hdr_dbl_histogram* h, double valu
     return highest_equivalent_value;
 }
 
-double hdr_dbl_median_equivalent_value(struct hdr_dbl_histogram* h, double value)
+double hdr_dbl_median_equivalent_value(const struct hdr_dbl_histogram* h, double value)
 {
     int64_t value_as_long = (int64_t) value * h->dbl_to_int_conversion_ratio;
     int64_t median_value = hdr_median_equivalent_value(&h->values, value_as_long);
     return median_value * h->int_to_dbl_conversion_ratio;
 }
 
-bool hdr_dbl_values_are_equivalent(struct hdr_dbl_histogram* h, double a, double b)
+bool hdr_dbl_values_are_equivalent(const struct hdr_dbl_histogram* h, double a, double b)
 {
     return hdr_dbl_lowest_equivalent_value(h, a) == hdr_dbl_lowest_equivalent_value(h, b);
 }
 
 int64_t hdr_dbl_add_while_correcting_for_coordinated_omission(
         struct hdr_dbl_histogram** dest,
-        struct hdr_dbl_histogram* src,
+        const struct hdr_dbl_histogram* src,
         double expected_interval)
 {
     if (dest == NULL)
@@ -402,27 +402,27 @@ int64_t hdr_dbl_add_while_correcting_for_coordinated_omission(
     return dropped;
 }
 
-double hdr_dbl_mean(struct hdr_dbl_histogram* h)
+double hdr_dbl_mean(const struct hdr_dbl_histogram* h)
 {
     return hdr_mean(&h->values) * h->int_to_dbl_conversion_ratio;
 }
 
-double hdr_dbl_value_at_percentile(struct hdr_dbl_histogram* h, double percentile)
+double hdr_dbl_value_at_percentile(const struct hdr_dbl_histogram* h, double percentile)
 {
     return hdr_value_at_percentile(&h->values, percentile) * h->int_to_dbl_conversion_ratio;
 }
 
-double hdr_dbl_max(struct hdr_dbl_histogram* h)
+double hdr_dbl_max(const struct hdr_dbl_histogram* h)
 {
     return hdr_max(&h->values) * h->int_to_dbl_conversion_ratio;
 }
 
-double hdr_dbl_min(struct hdr_dbl_histogram* h)
+double hdr_dbl_min(const struct hdr_dbl_histogram* h)
 {
     return hdr_min(&h->values) * h->int_to_dbl_conversion_ratio;
 }
 
-double hdr_dbl_stddev(struct hdr_dbl_histogram *h)
+double hdr_dbl_stddev(const struct hdr_dbl_histogram *h)
 {
     return hdr_stddev(&h->values) * h->int_to_dbl_conversion_ratio;
 }
