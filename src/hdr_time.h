@@ -10,7 +10,7 @@
 #include <mach/clock.h>
 #include <mach/mach.h>
 
-void hdr_gettime(struct timespec* ts)
+static inline void hdr_gettime(struct timespec* ts)
 {
     clock_serv_t cclock;
     mach_timespec_t mts;
@@ -23,7 +23,7 @@ void hdr_gettime(struct timespec* ts)
 
 #elif __linux__
 
-void hdr_gettime(struct timespec* t)
+static inline void hdr_gettime(struct timespec* t)
 {
     clock_gettime(CLOCK_MONOTONIC, t);
 }

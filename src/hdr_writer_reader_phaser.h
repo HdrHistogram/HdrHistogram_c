@@ -22,22 +22,22 @@ struct hdr_writer_reader_phaser
     pthread_mutex_t* reader_mutex;
 } __attribute__((aligned (8)));
 
-int64_t _hdr_phaser_get_epoch(int64_t* field)
+static inline int64_t _hdr_phaser_get_epoch(int64_t* field)
 {
     return __atomic_load_n(field, __ATOMIC_SEQ_CST);
 }
 
-void _hdr_phaser_set_epoch(int64_t* field, int64_t val)
+static inline void _hdr_phaser_set_epoch(int64_t* field, int64_t val)
 {
     __atomic_store_n(field, val, __ATOMIC_SEQ_CST);
 }
 
-int64_t _hdr_phaser_reset_epoch(int64_t* field, int64_t initial_value)
+static inline int64_t _hdr_phaser_reset_epoch(int64_t* field, int64_t initial_value)
 {
     return __atomic_exchange_n(field, initial_value, __ATOMIC_SEQ_CST);
 }
 
-int hdr_writer_reader_phaser_init(struct hdr_writer_reader_phaser* p)
+static inline int hdr_writer_reader_phaser_init(struct hdr_writer_reader_phaser* p)
 {
     if (NULL == p)
     {
@@ -65,17 +65,17 @@ int hdr_writer_reader_phaser_init(struct hdr_writer_reader_phaser* p)
     return 0;
 }
 
-void hdr_writer_reader_phaser_destory(struct hdr_writer_reader_phaser* p)
+static inline void hdr_writer_reader_phaser_destory(struct hdr_writer_reader_phaser* p)
 {
     pthread_mutex_destroy(p->reader_mutex);
 }
 
-int64_t hdr_phaser_writer_enter(struct hdr_writer_reader_phaser* p)
+static inline int64_t hdr_phaser_writer_enter(struct hdr_writer_reader_phaser* p)
 {
     return __atomic_add_fetch(&p->start_epoch, 1, __ATOMIC_SEQ_CST);
 }
 
-void hdr_phaser_writer_exit(
+static inline void hdr_phaser_writer_exit(
     struct hdr_writer_reader_phaser* p, int64_t critical_value_at_enter)
 {
     int64_t* end_epoch = 
@@ -83,17 +83,17 @@ void hdr_phaser_writer_exit(
     __atomic_add_fetch(end_epoch, 1, __ATOMIC_SEQ_CST);
 }
 
-void hdr_phaser_reader_lock(struct hdr_writer_reader_phaser* p)
+static inline void hdr_phaser_reader_lock(struct hdr_writer_reader_phaser* p)
 {
     pthread_mutex_lock(p->reader_mutex);
 }
 
-void hdr_phaser_reader_unlock(struct hdr_writer_reader_phaser* p)
+static inline void hdr_phaser_reader_unlock(struct hdr_writer_reader_phaser* p)
 {
     pthread_mutex_unlock(p->reader_mutex);
 }
 
-void hdr_phaser_flip_phase(
+static inline void hdr_phaser_flip_phase(
     struct hdr_writer_reader_phaser* p, int64_t sleep_time_ns)
 {
     // TODO: is_held_by_current_thread
