@@ -261,7 +261,7 @@ char* test_get_value_at_percentile()
 
 char* test_get_value_linear()
 {
-
+    return 0;
 }
 
 /*

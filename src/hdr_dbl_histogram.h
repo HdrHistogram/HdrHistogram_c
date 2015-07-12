@@ -45,6 +45,17 @@ double hdr_dbl_max(const struct hdr_dbl_histogram* h);
 double hdr_dbl_min(const struct hdr_dbl_histogram* h);
 double hdr_dbl_stddev(const struct hdr_dbl_histogram *h);
 
+struct hdr_dbl_iter
+{
+    struct hdr_iter iter;
+    double units_per_bucket;
+};
+
+void hdr_dbl_iter_linear_init(
+    struct hdr_dbl_iter* iter,
+    struct hdr_dbl_histogram* h,
+    const double units_per_bucket);
+
 /**
  * Add the values from the addend histogram to the sum histogram.
  */

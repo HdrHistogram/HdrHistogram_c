@@ -4,10 +4,6 @@
  * as explained at http://creativecommons.org/publicdomain/zero/1.0/
  */
 
-#ifndef HDR_INTERVAL_RECORDER_H
-#define HDR_INTERVAL_RECORDER_H 1
-
-#include <hdr_writer_reader_phaser.h>
 #include <hdr_interval_recorder.h>
 
 int hdr_interval_recorder_init(struct hdr_interval_recorder* r)
@@ -54,5 +50,3 @@ void* hdr_interval_recorder_sample(struct hdr_interval_recorder* r)
 
     return r->inactive;
 }
-
-#endif
