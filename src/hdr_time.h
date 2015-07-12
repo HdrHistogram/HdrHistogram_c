@@ -6,11 +6,11 @@
 
 #include <time.h>
 
-#ifdef __APPLE__
+#if defined(__APPLE__)
 #include <mach/clock.h>
 #include <mach/mach.h>
 
-void hdr_gettime(struct timespec* ts)
+static void hdr_gettime(struct timespec* ts)
 {
     clock_serv_t cclock;
     mach_timespec_t mts;
@@ -21,9 +21,9 @@ void hdr_gettime(struct timespec* ts)
     ts->tv_nsec = mts.tv_nsec;
 }
 
-#elif __linux__
+#elif defined(__linux__)
 
-void hdr_gettime(struct timespec* t)
+static void hdr_gettime(struct timespec* t)
 {
     clock_gettime(CLOCK_MONOTONIC, t);
 }
