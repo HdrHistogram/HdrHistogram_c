@@ -4,7 +4,6 @@
 #include <hdr_dbl_histogram.h>
 
 #include "minunit.h"
-#include "../src/hdr_dbl_histogram.h"
 
 int tests_run = 0;
 
