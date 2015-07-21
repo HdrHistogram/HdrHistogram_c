@@ -53,9 +53,9 @@
 enum zero_strategy { ZERO_ALL, ZERO_NONE };
 
 int realloc_buffer(
-    void** buffer, size_t nmemb, size_t size, enum zero_strategy zeroing)
+    void** buffer, size_t nmemb, ssize_t size, enum zero_strategy zeroing)
 {
-    int len = nmemb * size;
+    size_t len = nmemb * size;
     if (NULL == *buffer)
     {
         *buffer = malloc(len);
@@ -87,9 +87,9 @@ int realloc_buffer(
 // ##    ##    ##    ##    ##   ##  ##   ### ##    ##  ##    ##
 //  ######     ##    ##     ## #### ##    ##  ######    ######
 
-int null_trailing_whitespace(char* s, int len)
+ssize_t null_trailing_whitespace(char* s, ssize_t len)
 {
-    int i = len;
+    ssize_t i = len;
     while (--i != -1)
     {
         if (isspace(s[i]))
@@ -168,7 +168,7 @@ size_t base64_decoded_len(size_t encoded_size)
     return (encoded_size / 4) * 3;
 }
 
-void base64_encode_block_pad(const uint8_t* input, char* output, int pad)
+void base64_encode_block_pad(const uint8_t* input, char* output, size_t pad)
 {
     uint32_t _24_bit_value = 0;
 
@@ -192,6 +192,10 @@ void base64_encode_block_pad(const uint8_t* input, char* output, int pad)
             output[2] = '=';
             output[3] = '=';
 
+            break;
+
+        default:
+            // No-op
             break;
     }
 }
@@ -224,7 +228,7 @@ int base64_encode(
         base64_encode_block(&input[i], &output[j]);
     }
 
-    int remaining = input_len - i;
+    size_t remaining = input_len - i;
 
     base64_encode_block_pad(&input[i], &output[j], remaining);
 
@@ -459,13 +463,13 @@ static int hdr_decode_compressed_v0(
 
     int32_t compressed_length = be32toh(compression_flyweight->length);
 
-    if (length - sizeof(_compression_flyweight) < compressed_length)
+    if (compressed_length < 0 || length - sizeof(_compression_flyweight) < compressed_length)
     {
         FAIL_AND_CLEANUP(cleanup, result, EINVAL);
     }
 
     strm.next_in = compression_flyweight->data;
-    strm.avail_in = compressed_length;
+    strm.avail_in = (uInt) compressed_length;
     strm.next_out = (uint8_t *) &encoding_flyweight;
     strm.avail_out = sizeof(_encoding_flyweight_v0);
 
@@ -492,13 +496,14 @@ static int hdr_decode_compressed_v0(
         FAIL_AND_CLEANUP(cleanup, result, ENOMEM);
     }
 
-    if ((counts_array = calloc(h->counts_len, sizeof(int64_t))) == NULL)
+    int32_t counts_array_len = h->counts_len * (int32_t) sizeof(int64_t);
+    if ((counts_array = calloc(1, (size_t) counts_array_len)) == NULL)
     {
         FAIL_AND_CLEANUP(cleanup, result, ENOMEM);
     }
 
     strm.next_out = (uint8_t*) counts_array;
-    strm.avail_out = sizeof(int64_t) * h->counts_len;
+    strm.avail_out = (uInt) counts_array_len;
 
     if (inflate(&strm, Z_FINISH) != Z_STREAM_END)
     {
@@ -554,13 +559,13 @@ static int hdr_decode_compressed_v1(
 
     int32_t compressed_length = be32toh(compression_flyweight->length);
 
-    if (length - sizeof(_compression_flyweight) < compressed_length)
+    if (compressed_length < 0 || length - sizeof(_compression_flyweight) < compressed_length)
     {
         FAIL_AND_CLEANUP(cleanup, result, EINVAL);
     }
 
     strm.next_in = compression_flyweight->data;
-    strm.avail_in = compressed_length;
+    strm.avail_in = (uInt) compressed_length;
     strm.next_out = (uint8_t *) &encoding_flyweight;
     strm.avail_out = sizeof(_encoding_flyweight_v1);
 
@@ -588,15 +593,15 @@ static int hdr_decode_compressed_v1(
     }
 
     // Give the temp uncompressed array a little bif of extra
-    size_t counts_array_length = h->counts_len;
+    int32_t counts_array_len = h->counts_len * (int32_t) sizeof(int64_t);
 
-    if ((counts_array = calloc(counts_array_length, sizeof(int64_t))) == NULL)
+    if ((counts_array = calloc(1, (size_t) counts_array_len)) == NULL)
     {
         FAIL_AND_CLEANUP(cleanup, result, ENOMEM);
     }
 
     strm.next_out = (uint8_t*) counts_array;
-    strm.avail_out = sizeof(int64_t) * counts_array_length;
+    strm.avail_out = (uInt) counts_array_len;
 
     if (inflate(&strm, Z_FINISH) != Z_STREAM_END)
     {
@@ -608,7 +613,7 @@ static int hdr_decode_compressed_v1(
         h->counts[i] = be64toh(counts_array[i]);
     }
 
-    h->normalizing_index_offset = be64toh(encoding_flyweight.normalizing_index_offset);
+    h->normalizing_index_offset = be32toh(encoding_flyweight.normalizing_index_offset);
     h->conversion_ratio = int64_bits_to_double(be64toh(encoding_flyweight.conversion_ratio_bits));
     hdr_reset_internal_counters(h);
 
