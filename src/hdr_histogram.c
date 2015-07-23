@@ -127,17 +127,17 @@ static int32_t counts_index(const struct hdr_histogram* h, int32_t bucket_index,
     return bucket_base_index + offset_in_bucket;
 }
 
-static int32_t counts_index_for(const struct hdr_histogram* h, int64_t value)
+static int64_t value_from_index(int32_t bucket_index, int32_t sub_bucket_index, int32_t unit_magnitude)
+{
+    return ((int64_t) sub_bucket_index) << (bucket_index + unit_magnitude);
+}
+
+int32_t counts_index_for(const struct hdr_histogram* h, int64_t value)
 {
     int32_t bucket_index     = get_bucket_index(h, value);
     int32_t sub_bucket_index = get_sub_bucket_index(value, bucket_index, h->unit_magnitude);
 
     return counts_index(h, bucket_index, sub_bucket_index);
-}
-
-static int64_t value_from_index(int32_t bucket_index, int32_t sub_bucket_index, int32_t unit_magnitude)
-{
-    return ((int64_t) sub_bucket_index) << (bucket_index + unit_magnitude);
 }
 
 int64_t hdr_value_at_index(const struct hdr_histogram *h, int32_t index)
