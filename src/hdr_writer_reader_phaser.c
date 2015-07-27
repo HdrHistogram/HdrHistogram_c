@@ -4,6 +4,7 @@
  * as explained at http://creativecommons.org/publicdomain/zero/1.0/
  */
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdlib.h>
