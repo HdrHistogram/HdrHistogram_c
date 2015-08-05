@@ -26,8 +26,8 @@
 int64_t diff(struct timespec t0, struct timespec t1)
 {
     int64_t delta_us = 0;
-    delta_us = (t1.tv_sec - t0.tv_sec) * 1000000L;
-    delta_us += (t1.tv_nsec - t0.tv_nsec) / 1000L;
+    delta_us = (t1.tv_sec - t0.tv_sec) * 1000000;
+    delta_us += (t1.tv_nsec - t0.tv_nsec) / 1000;
 
     return delta_us;
 }
@@ -157,7 +157,7 @@ int main(int argc, char** argv)
     }
 
     if (0 != hdr_init(
-        1, 24L * 60 * 60 * 1000000, 3,
+        1, INT64_C(24) * 60 * 60 * 1000000, 3,
         (struct hdr_histogram**) &recorder.active))
     {
         fprintf(stderr, "%s\n", "Failed to init hdr_histogram");
@@ -165,7 +165,7 @@ int main(int argc, char** argv)
     }
 
     if (0 != hdr_init(
-        1, 24L * 60 * 60 * 1000000, 3, 
+        1, INT64_C(24) * 60 * 60 * 1000000, 3,
         (struct hdr_histogram**) &recorder.inactive))
     {
         fprintf(stderr, "%s\n", "Failed to init hdr_histogram");
