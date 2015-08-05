@@ -86,6 +86,14 @@ static void load_histograms()
     hdr_record_corrected_value(scaled_cor_histogram, 100000000 * scale, scaled_interval);
 }
 
+#if INTPTR_MAX == INT32_MAX
+    #define HDR_EXPECTED_SIZE 188508
+#elif INTPTR_MAX == INT64_MAX
+    #define HDR_EXPECTED_SIZE 188520
+#else
+    #error "Environment not 32 or 64-bit."
+#endif
+
 static char* test_create()
 {
     struct hdr_histogram* h = NULL;
@@ -95,7 +103,7 @@ static char* test_create()
     mu_assert("Failed to allocate hdr_histogram", r == 0);
     mu_assert("Failed to allocate hdr_histogram", h != NULL);
     mu_assert("Incorrect array length", compare_int64(h->counts_len, 23552));
-    mu_assert("Size is incorrect", compare_int64(s, 188520));
+    mu_assert("Size is incorrect", compare_int64(s, HDR_EXPECTED_SIZE));
 
     free(h);
 
