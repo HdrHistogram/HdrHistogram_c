@@ -154,14 +154,6 @@ int64_t hdr_value_at_index(const struct hdr_histogram *h, int32_t index)
     return value_from_index(bucket_index, sub_bucket_index, h->unit_magnitude);
 }
 
-static int64_t get_count_at_index(
-        const struct hdr_histogram* h,
-        int32_t bucket_index,
-        int32_t sub_bucket_index)
-{
-    return counts_get_normalised(h, counts_index(h, bucket_index, sub_bucket_index));
-}
-
 int64_t hdr_size_of_equivalent_value_range(const struct hdr_histogram* h, int64_t value)
 {
     int32_t bucket_index     = get_bucket_index(h, value);
@@ -725,17 +717,6 @@ static bool has_buckets(struct hdr_iter* iter)
 static bool has_next(struct hdr_iter* iter)
 {
     return iter->count_to_index < iter->h->total_count;
-}
-
-static void increment_bucket(const struct hdr_histogram* h, int32_t* bucket_index, int32_t* sub_bucket_index)
-{
-    (*sub_bucket_index)++;
-
-    if (*sub_bucket_index >= h->sub_bucket_count)
-    {
-        *sub_bucket_index = h->sub_bucket_half_count;
-        (*bucket_index)++;
-    }
 }
 
 static bool move_next(struct hdr_iter* iter)
