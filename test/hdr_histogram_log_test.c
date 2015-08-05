@@ -628,10 +628,10 @@ static char* test_string_encode_decode()
 
     char *data;
 
-    mu_assert("failed to encode histogram data", hdr_log_encode(histogram, &data) == 0);
-    mu_assert("failed to decode histogram data", hdr_log_decode(&hdr_new, data, strlen(data)) == 0);
+    mu_assert("Failed to encode histogram data", hdr_log_encode(histogram, &data) == 0);
+    mu_assert("Failed to decode histogram data", hdr_log_decode(&hdr_new, data, strlen(data)) == 0);
     mu_assert("Histograms should be the same", compare_histogram(histogram, hdr_new));
-    mu_assert("failed to be equal histogram after encode/decode", hdr_mean(histogram) == hdr_mean(hdr_new));
+    mu_assert("Mean different after encode/decode", compare_double(hdr_mean(histogram), hdr_mean(hdr_new), 0.001));
 
     return 0;
 }
