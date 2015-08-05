@@ -283,8 +283,7 @@ struct hdr_iter_log
 struct hdr_iter
 {
     const struct hdr_histogram* h;
-    int32_t bucket_index;
-    int32_t sub_bucket_index;
+    int32_t counts_index;
     int64_t count_at_index;
     int64_t count_to_index;
     int64_t value_from_index;

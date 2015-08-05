@@ -51,7 +51,7 @@ static int64_t counts_get_direct(const struct hdr_histogram* h, int32_t index)
     return h->counts[index];
 }
 
-static int32_t counts_get_normalised(const struct hdr_histogram* h, int32_t index)
+static int64_t counts_get_normalised(const struct hdr_histogram* h, int32_t index)
 {
     return counts_get_direct(h, normalize_index(h, index));
 }
@@ -719,7 +719,7 @@ int64_t hdr_count_at_index(const struct hdr_histogram* h, int32_t index)
 
 static bool has_buckets(struct hdr_iter* iter)
 {
-    return iter->bucket_index < iter->h->bucket_count;
+    return iter->counts_index < iter->h->counts_len;
 }
 
 static bool has_next(struct hdr_iter* iter)
@@ -740,17 +740,17 @@ static void increment_bucket(const struct hdr_histogram* h, int32_t* bucket_inde
 
 static bool move_next(struct hdr_iter* iter)
 {
-    increment_bucket(iter->h, &iter->bucket_index, &iter->sub_bucket_index);
+    iter->counts_index++;
 
     if (!has_buckets(iter))
     {
         return false;
     }
 
-    iter->count_at_index  = get_count_at_index(iter->h, iter->bucket_index, iter->sub_bucket_index);
+    iter->count_at_index  = counts_get_normalised(iter->h, iter->counts_index);
     iter->count_to_index += iter->count_at_index;
 
-    iter->value_from_index = value_from_index(iter->bucket_index, iter->sub_bucket_index, iter->h->unit_magnitude);
+    iter->value_from_index = hdr_value_at_index(iter->h, iter->counts_index);
     iter->highest_equivalent_value = highest_equivalent_value(iter->h, iter->value_from_index);
 
     return true;
@@ -758,12 +758,7 @@ static bool move_next(struct hdr_iter* iter)
 
 static int64_t peek_next_value_from_index(struct hdr_iter* iter)
 {
-    int32_t bucket_index     = iter->bucket_index;
-    int32_t sub_bucket_index = iter->sub_bucket_index;
-
-    increment_bucket(iter->h, &bucket_index, &sub_bucket_index);
-
-    return value_from_index(bucket_index, sub_bucket_index, iter->h->unit_magnitude);
+    return hdr_value_at_index(iter->h, iter->counts_index + 1);
 }
 
 bool _basic_iter_next(struct hdr_iter *iter)
@@ -782,11 +777,10 @@ void hdr_iter_init(struct hdr_iter* itr, const struct hdr_histogram* h)
 {
     itr->h = h;
 
-    itr->bucket_index       =  0;
-    itr->sub_bucket_index   = -1;
-    itr->count_at_index     =  0;
-    itr->count_to_index     =  0;
-    itr->value_from_index   =  0;
+    itr->counts_index     = -1;
+    itr->count_at_index   = 0;
+    itr->count_to_index   = 0;
+    itr->value_from_index = 0;
     itr->highest_equivalent_value = 0;
 
     itr->_next_fp = _basic_iter_next;
@@ -822,7 +816,7 @@ bool _percentile_iter_next(struct hdr_iter* iter)
         return true;
     }
 
-    if (iter->sub_bucket_index == -1 && !_basic_iter_next(iter))
+    if (iter->counts_index == -1 && !_basic_iter_next(iter))
     {
         return false;
     }
