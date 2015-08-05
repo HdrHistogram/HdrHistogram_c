@@ -294,7 +294,7 @@ static char* test_encode_and_decode_base64()
 
 static char* test_encode_and_decode_compressed_large()
 {
-    const int64_t limit = 3600L * 1000 * 1000;
+    const int64_t limit = INT64_C(3600) * 1000 * 1000;
     struct hdr_histogram* actual = NULL;
     struct hdr_histogram* expected = NULL;
     uint8_t* buffer = NULL;
