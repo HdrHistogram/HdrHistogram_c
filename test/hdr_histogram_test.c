@@ -35,9 +35,9 @@ static struct hdr_histogram* scaled_cor_histogram = NULL;
 
 static void load_histograms()
 {
-    const int64_t highest_trackable_value = 3600L * 1000 * 1000;
+    const int64_t highest_trackable_value = INT64_C(3600) * 1000 * 1000;
     const int32_t significant_figures = 3;
-    const int64_t interval = 10000L;
+    const int64_t interval = INT64_C(10000);
     const int64_t scale = 512;
     const int64_t scaled_interval = interval * scale;
 
@@ -72,24 +72,24 @@ static void load_histograms()
 
     for (i = 0; i < 10000; i++)
     {
-        hdr_record_value(raw_histogram, 1000L);
-        hdr_record_corrected_value(cor_histogram, 1000L, interval);
+        hdr_record_value(raw_histogram, 1000);
+        hdr_record_corrected_value(cor_histogram, 1000, interval);
 
-        hdr_record_value(scaled_raw_histogram, 1000L * scale);
-        hdr_record_corrected_value(scaled_cor_histogram, 1000L * scale, scaled_interval);
+        hdr_record_value(scaled_raw_histogram, 1000 * scale);
+        hdr_record_corrected_value(scaled_cor_histogram, 1000 * scale, scaled_interval);
     }
 
-    hdr_record_value(raw_histogram, 100000000L);
-    hdr_record_corrected_value(cor_histogram, 100000000L, 10000L);
+    hdr_record_value(raw_histogram, 100000000);
+    hdr_record_corrected_value(cor_histogram, 100000000, 10000L);
 
-    hdr_record_value(scaled_raw_histogram, 100000000L * scale);
-    hdr_record_corrected_value(scaled_cor_histogram, 100000000L * scale, scaled_interval);
+    hdr_record_value(scaled_raw_histogram, 100000000 * scale);
+    hdr_record_corrected_value(scaled_cor_histogram, 100000000 * scale, scaled_interval);
 }
 
 static char* test_create()
 {
     struct hdr_histogram* h = NULL;
-    int r = hdr_init(1, 3600000000, 3, &h);
+    int r = hdr_init(1, INT64_C(3600000000), 3, &h);
     size_t s = hdr_get_memory_size(h);
 
     mu_assert("Failed to allocate hdr_histogram", r == 0);
@@ -173,10 +173,10 @@ static char* test_get_max_value()
 
     int64_t actual_raw_max = hdr_max(raw_histogram);
     mu_assert("hdr_max(raw_histogram) != 100000000L",
-              hdr_values_are_equivalent(raw_histogram, actual_raw_max, 100000000L));
+              hdr_values_are_equivalent(raw_histogram, actual_raw_max, 100000000));
     int64_t actual_cor_max = hdr_max(cor_histogram);
     mu_assert("hdr_max(cor_histogram) != 100000000L",
-              hdr_values_are_equivalent(cor_histogram, actual_cor_max, 100000000L));
+              hdr_values_are_equivalent(cor_histogram, actual_cor_max, 100000000));
 
     return 0;
 }
@@ -185,8 +185,8 @@ static char* test_get_min_value()
 {
     load_histograms();
 
-    mu_assert("hdr_min(raw_histogram) != 1000", hdr_min(raw_histogram) == 1000L);
-    mu_assert("hdr_min(cor_histogram) != 1000", hdr_min(cor_histogram) == 1000L);
+    mu_assert("hdr_min(raw_histogram) != 1000", hdr_min(raw_histogram) == 1000);
+    mu_assert("hdr_min(cor_histogram) != 1000", hdr_min(cor_histogram) == 1000);
 
     return 0;
 }
