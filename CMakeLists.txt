@@ -5,8 +5,6 @@ project("hdr_histogram")
 
 ENABLE_TESTING()
 
-SET (CMAKE_C_COMPILER "clang")
-
 if(UNIX)
     set(CMAKE_C_FLAGS "-Wall -std=gnu99")
     set(CMAKE_C_FLAGS_DEBUG "-O0 -g")
