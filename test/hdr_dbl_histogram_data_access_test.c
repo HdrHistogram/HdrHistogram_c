@@ -7,7 +7,7 @@
 
 int tests_run = 0;
 
-const int64_t HIGHEST_TRACKABLE_VALUE = 3600L * 1000 * 1000; // 1 hour in usec units
+const int64_t HIGHEST_TRACKABLE_VALUE = INT64_C(3600) * 1000 * 1000; // 1 hour in usec units
 const int32_t SIGNIFICANT_FIGURES = 3; // Maintain at least 3 decimal points of accuracy
 
 static struct hdr_dbl_histogram* raw_histogram = NULL;
