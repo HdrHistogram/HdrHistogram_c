@@ -13,7 +13,7 @@
 
 int tests_run = 0;
 
-const int64_t TRACKABLE_VALUE_RANGE_SIZE = 3600L * 1000 * 1000; // e.g. for 1 hr in usec units
+const int64_t TRACKABLE_VALUE_RANGE_SIZE = INT64_C(3600) * 1000 * 1000; // e.g. for 1 hr in usec units
 const int32_t SIGNIFICANT_FIGURES = 3;
 const double TEST_VALUE_LEVEL = 4.0;
 
