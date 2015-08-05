@@ -152,17 +152,17 @@ static void load_histograms()
     free(raw_histogram);
     free(cor_histogram);
 
-    hdr_alloc(3600L * 1000 * 1000, 3, &raw_histogram);
-    hdr_alloc(3600L * 1000 * 1000, 3, &cor_histogram);
+    hdr_alloc(INT64_C(3600) * 1000 * 1000, 3, &raw_histogram);
+    hdr_alloc(INT64_C(3600) * 1000 * 1000, 3, &cor_histogram);
 
     for (int i = 0; i < 10000; i++)
     {
-        hdr_record_value(raw_histogram, 1000L);
-        hdr_record_corrected_value(cor_histogram, 1000L, 10000L);
+        hdr_record_value(raw_histogram, 1000);
+        hdr_record_corrected_value(cor_histogram, 1000, 10000);
     }
 
-    hdr_record_value(raw_histogram, 100000000L);
-    hdr_record_corrected_value(cor_histogram, 100000000L, 10000L);
+    hdr_record_value(raw_histogram, 100000000);
+    hdr_record_corrected_value(cor_histogram, 100000000, 10000);
 }
 
 static bool validate_return_code(int rc)
@@ -551,7 +551,7 @@ static char* log_reader_aggregates_into_single_histogram()
     log_file = fopen(file_name, "r");
 
     struct hdr_histogram* histogram;
-    hdr_alloc(3600L * 1000 * 1000, 3, &histogram);
+    hdr_alloc(INT64_C(3600) * 1000 * 1000, 3, &histogram);
 
     rc = hdr_log_read_header(&reader, log_file);
     mu_assert("Failed header read", validate_return_code(rc));
@@ -619,7 +619,7 @@ static char* log_reader_fails_with_incorrect_version()
 static char* test_string_encode_decode()
 {
     struct hdr_histogram *histogram, *hdr_new = NULL;
-    hdr_alloc(3600L * 1000 * 1000, 3, &histogram);
+    hdr_alloc(INT64_C(3600) * 1000 * 1000, 3, &histogram);
 
     for (int i = 1; i < 100; i++)
     {
