@@ -299,7 +299,7 @@ static char* test_linear_values()
 
         index++;
     }
-    mu_assert("Should of met 1000 values", index == 1000);
+    mu_assert("Should of met 1000 values", compare_int64(index, 1000));
 
     // Corrected Histogram
 

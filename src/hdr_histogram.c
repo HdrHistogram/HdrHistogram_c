@@ -742,7 +742,18 @@ static int64_t peek_next_value_from_index(struct hdr_iter* iter)
     return hdr_value_at_index(iter->h, iter->counts_index + 1);
 }
 
-bool _basic_iter_next(struct hdr_iter *iter)
+static bool next_value_greater_than_reporting_level_upper_bound(
+    struct hdr_iter *iter, int64_t reporting_level_upper_bound)
+{
+    if (iter->counts_index >= iter->h->counts_len)
+    {
+        return false;
+    }
+
+    return peek_next_value_from_index(iter) > reporting_level_upper_bound;
+}
+
+static bool _basic_iter_next(struct hdr_iter *iter)
 {
     if (!has_next(iter))
     {
@@ -902,7 +913,8 @@ bool _iter_linear_next(struct hdr_iter* iter)
     linear->count_added_in_this_iteration_step = 0;
 
     if (has_next(iter) ||
-        peek_next_value_from_index(iter) > linear->next_value_reporting_level_lowest_equivalent)
+        next_value_greater_than_reporting_level_upper_bound(
+            iter, linear->next_value_reporting_level_lowest_equivalent))
     {
         do
         {
@@ -954,7 +966,8 @@ bool _log_iter_next(struct hdr_iter *iter)
     logarithmic->count_added_in_this_iteration_step = 0;
 
     if (has_next(iter) ||
-        peek_next_value_from_index(iter) > logarithmic->next_value_reporting_level_lowest_equivalent)
+        next_value_greater_than_reporting_level_upper_bound(
+            iter, logarithmic->next_value_reporting_level_lowest_equivalent))
     {
         do
         {
