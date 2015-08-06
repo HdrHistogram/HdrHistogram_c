@@ -17,7 +17,7 @@ int main(int argc, char** argv)
         hdr_init(1, 100000, i, &h);
 
         printf(
-            "significant_figures: %"PRId64
+            "significant_figures: %"PRId32
             ", sub_bucket_half_count_magnitude: %d"
             ", sub_bucket_half_count: %d"
             ", sub_bucket_mask: %"PRId64

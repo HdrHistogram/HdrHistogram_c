@@ -19,7 +19,7 @@ struct hdr_histogram
     int64_t lowest_trackable_value;
     int64_t highest_trackable_value;
     int32_t unit_magnitude;
-    int64_t significant_figures;
+    int32_t significant_figures;
     int32_t sub_bucket_half_count_magnitude;
     int32_t sub_bucket_half_count;
     int64_t sub_bucket_mask;
