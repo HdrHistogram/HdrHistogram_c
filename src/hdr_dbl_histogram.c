@@ -320,21 +320,21 @@ void hdr_dbl_reset(struct hdr_dbl_histogram* h)
 
 double hdr_dbl_size_of_equivalent_value_range(const struct hdr_dbl_histogram* h, double value)
 {
-    int64_t value_as_long = (int64_t) value * h->dbl_to_int_conversion_ratio;
+    int64_t value_as_long = (int64_t) (value * h->dbl_to_int_conversion_ratio);
     int64_t range_size = hdr_size_of_equivalent_value_range(&h->values, value_as_long);
     return range_size * h->int_to_dbl_conversion_ratio;
 }
 
 double hdr_dbl_lowest_equivalent_value(const struct hdr_dbl_histogram* h, double value)
 {
-    int64_t value_as_long = (int64_t) value * h->dbl_to_int_conversion_ratio;
+    int64_t value_as_long = (int64_t) (value * h->dbl_to_int_conversion_ratio);
     int64_t lowest_value = hdr_lowest_equivalent_value(&h->values, value_as_long);
     return lowest_value * h->int_to_dbl_conversion_ratio;
 }
 
 double hdr_dbl_next_non_equivalent_value(const struct hdr_dbl_histogram* h, double value)
 {
-    int64_t value_as_long = (int64_t) value * h->dbl_to_int_conversion_ratio;
+    int64_t value_as_long = (int64_t) (value * h->dbl_to_int_conversion_ratio);
     int64_t next_non_equivalent_value = hdr_next_non_equivalent_value(&h->values, value_as_long);
     return next_non_equivalent_value * h->int_to_dbl_conversion_ratio;
 }
@@ -358,7 +358,7 @@ double hdr_dbl_highest_equivalent_value(const struct hdr_dbl_histogram* h, doubl
 
 double hdr_dbl_median_equivalent_value(const struct hdr_dbl_histogram* h, double value)
 {
-    int64_t value_as_long = (int64_t) value * h->dbl_to_int_conversion_ratio;
+    int64_t value_as_long = (int64_t) (value * h->dbl_to_int_conversion_ratio);
     int64_t median_value = hdr_median_equivalent_value(&h->values, value_as_long);
     return median_value * h->int_to_dbl_conversion_ratio;
 }
