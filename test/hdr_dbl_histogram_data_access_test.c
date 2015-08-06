@@ -261,6 +261,10 @@ char* test_get_value_at_percentile()
 
 char* test_get_value_linear()
 {
+    struct hdr_dbl_iter iter;
+
+    hdr_dbl_iter_linear_init(&iter, raw_histogram, 1000);
+
     return 0;
 }
 

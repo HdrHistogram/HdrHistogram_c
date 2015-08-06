@@ -425,3 +425,17 @@ double hdr_dbl_stddev(const struct hdr_dbl_histogram *h)
 {
     return hdr_stddev(&h->values) * h->int_to_dbl_conversion_ratio;
 }
+
+bool hdr_dbl_iter_next(struct hdr_dbl_iter* iter)
+{
+    return hdr_iter_next(&iter->iter);
+}
+
+void hdr_dbl_iter_linear_init(
+    struct hdr_dbl_iter* iter,
+    struct hdr_dbl_histogram* h,
+    const double units_per_bucket)
+{
+    hdr_iter_init(&iter->iter, &h->values);
+    iter->units_per_bucket = units_per_bucket;
+}
