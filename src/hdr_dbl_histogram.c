@@ -118,7 +118,6 @@ static bool shift_covered_range_left(struct hdr_dbl_histogram* h, int32_t shift)
     return false;
 }
 
-// TODO: This is synchronised in the Java version, should we do the same here.
 static bool adjust_range_for_value(struct hdr_dbl_histogram* h, double value)
 {
     if (0.0 == value)
