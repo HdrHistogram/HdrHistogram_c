@@ -1024,9 +1024,9 @@ static const char* format_head_string(format_type format)
 }
 
 static const char CLASSIC_FOOTER[] =
-        "#[Mean    = %12.3f, StdDeviation   = %12.3f]\n"
-                "#[Max     = %12.3f, Total count    = %12" PRIu64 "]\n"
-                "#[Buckets = %12d, SubBuckets     = %12d]\n";
+    "#[Mean    = %12.3f, StdDeviation   = %12.3f]\n"
+    "#[Max     = %12.3f, Total count    = %12" PRIu64 "]\n"
+    "#[Buckets = %12d, SubBuckets     = %12d]\n";
 
 int hdr_percentiles_print(
         struct hdr_histogram* h, FILE* stream, int32_t ticks_per_half_distance,
