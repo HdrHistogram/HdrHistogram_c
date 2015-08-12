@@ -469,7 +469,7 @@ int hdr_histogram_run_tests()
 
     printf("Tests run: %d\n", tests_run);
 
-    return (int) result.message;
+    return result.message == NULL ? 0 : -1;
 }
 
 int main(int argc, char **argv)
