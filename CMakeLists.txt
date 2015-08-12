@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 2.8)
-cmake_policy(SET CMP0042 NEW)
+
+if("${CMAKE_VERSION}" VERSION_GREATER 2.6.2)
+    cmake_policy(SET CMP0042 NEW)
+endif()
 
 project("hdr_histogram")
 
