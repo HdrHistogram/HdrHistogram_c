@@ -331,29 +331,25 @@ static void strm_init(z_stream* strm)
     strm->avail_in = 0;
 }
 
+union uint64_dbl_cvt
+{
+    uint64_t l;
+    double d;
+};
+
 static double int64_bits_to_double(int64_t i)
 {
-    union
-    {
-        uint64_t l;
-        double d;
-    } x;
-
+    union uint64_dbl_cvt x;
+    
     x.l = (uint64_t) i;
-
     return x.d;
 }
 
 static uint64_t double_to_int64_bits(double d)
 {
-    union
-    {
-        uint64_t l;
-        double d;
-    } x;
+    union uint64_dbl_cvt x;
 
     x.d = d;
-
     return x.l;
 }
 
