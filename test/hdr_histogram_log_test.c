@@ -636,6 +636,94 @@ static char* test_string_encode_decode()
     return 0;
 }
 
+static char* decode_v1_log()
+{
+    const char* v1_log = "jHiccup-2.0.6.logV1.hlog";
+
+    FILE* f = fopen(v1_log, "r");
+    mu_assert("Can not open v1 log file", f != NULL);
+
+    struct hdr_histogram* accum;
+    hdr_init(1, INT64_C(3600000000000), 3, &accum);
+
+    struct hdr_histogram* h = NULL;
+    struct hdr_log_reader reader;
+    struct timespec timestamp;
+    struct timespec interval;
+
+    hdr_log_reader_init(&reader);
+
+    int rc = hdr_log_read_header(&reader, f);
+    mu_assert("Failed to read header", rc == 0);
+
+    int histogram_count = 0;
+    int64_t total_count = 0;
+    while ((rc = hdr_log_read(&reader, f, &h, &timestamp, &interval)) != EOF)
+    {
+        mu_assert("Failed to read histogram", rc == 0);
+        histogram_count++;
+        total_count += h->total_count;
+        int64_t dropped = hdr_add(accum, h);
+        mu_assert("Dropped events", compare_int64(dropped, 0));
+
+        free(h);
+        h = NULL;
+    }
+
+    mu_assert("Wrong number of histograms", compare_int(histogram_count, 88));
+    mu_assert("Wrong total count", compare_int64(total_count, 65964));
+    mu_assert("99.9 percentile wrong", compare_int64(1829765119, hdr_value_at_percentile(accum, 99.9)));
+    mu_assert("max value wrong", compare_int64(1888485375, hdr_max(accum)));
+    mu_assert("Seconds wrong", compare_int64(1438867590, reader.start_timestamp.tv_sec));
+    mu_assert("Nanoseconds wrong", compare_int64(285000000, reader.start_timestamp.tv_nsec));
+
+    return 0;
+}
+
+static char* decode_v0_log()
+{
+    const char* v1_log = "jHiccup-2.0.1.logV0.hlog";
+
+    FILE* f = fopen(v1_log, "r");
+    mu_assert("Can not open v1 log file", f != NULL);
+
+    struct hdr_histogram* accum;
+    hdr_init(1, INT64_C(3600000000000), 3, &accum);
+
+    struct hdr_histogram* h = NULL;
+    struct hdr_log_reader reader;
+    struct timespec timestamp;
+    struct timespec interval;
+
+    hdr_log_reader_init(&reader);
+
+    int rc = hdr_log_read_header(&reader, f);
+    mu_assert("Failed to read header", rc == 0);
+
+    int histogram_count = 0;
+    int64_t total_count = 0;
+    while ((rc = hdr_log_read(&reader, f, &h, &timestamp, &interval)) != EOF)
+    {
+        mu_assert("Failed to read histogram", rc == 0);
+        histogram_count++;
+        total_count += h->total_count;
+        int64_t dropped = hdr_add(accum, h);
+        mu_assert("Dropped events", compare_int64(dropped, 0));
+
+        free(h);
+        h = NULL;
+    }
+
+    mu_assert("Wrong number of histograms", compare_int(histogram_count, 81));
+    mu_assert("Wrong total count", compare_int64(total_count, 61256));
+    mu_assert("99.9 percentile wrong", compare_int64(1510998015, hdr_value_at_percentile(accum, 99.9)));
+    mu_assert("max value wrong", compare_int64(1569718271, hdr_max(accum)));
+    mu_assert("Seconds wrong", compare_int64(1438869961, reader.start_timestamp.tv_sec));
+    mu_assert("Nanoseconds wrong", compare_int64(225000000, reader.start_timestamp.tv_nsec));
+
+    return 0;
+}
+
 static struct mu_result all_tests()
 {
     tests_run = 0;
@@ -661,6 +749,9 @@ static struct mu_result all_tests()
     mu_run_test(log_reader_fails_with_incorrect_version);
 
     mu_run_test(test_string_encode_decode);
+
+    mu_run_test(decode_v1_log);
+    mu_run_test(decode_v0_log);
 
     free(raw_histogram);
     free(cor_histogram);
