@@ -57,6 +57,8 @@ void* record_hiccups(void* thread_context)
     fd.events = POLLIN|POLLPRI|POLLRDHUP;
     fd.revents = 0;
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-noreturn"
     while (true)
     {
         timeout.it_value.tv_sec = 0;
@@ -72,6 +74,7 @@ void* record_hiccups(void* thread_context)
 
         hdr_interval_recorder_update(r, update_histogram, &delta_us);
     }
+#pragma clang diagnostic pop
 
     pthread_exit(NULL);
 }
@@ -182,6 +185,8 @@ int main(int argc, char** argv)
     hdr_log_writer_init(&log_writer);
     hdr_log_write_header(&log_writer, output, "foobar", &timestamp);
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-noreturn"
     while (true)
     {        
         sleep(config.interval);
@@ -197,6 +202,7 @@ int main(int argc, char** argv)
         hdr_log_write(&log_writer, output, &timestamp, &end_timestamp, h);
         fflush(output);
     }
+#pragma clang diagnostic pop
 
     pthread_exit(NULL);
 }
