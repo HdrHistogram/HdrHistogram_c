@@ -131,13 +131,13 @@ static bool compare_histogram(struct hdr_histogram* a, struct hdr_histogram* b)
 
     while (hdr_iter_next(&iter_a) && hdr_iter_next(&iter_b))
     {
-        if (iter_a.count_at_index != iter_b.count_at_index ||
-            iter_a.value_from_index != iter_b.value_from_index)
+        if (iter_a.count != iter_b.count ||
+            iter_a.value != iter_b.value)
         {
             printf(
                 "A - value: %"PRIu64", count: %"PRIu64", B - value: %"PRIu64", count: %"PRIu64"\n",
-                iter_a.value_from_index, iter_a.count_at_index,
-                iter_b.value_from_index, iter_b.count_at_index);
+                iter_a.value, iter_a.count,
+                iter_b.value, iter_b.count);
         }
     }
 
@@ -571,8 +571,8 @@ static char* log_reader_aggregates_into_single_histogram()
 
     while (hdr_iter_next(&iter))
     {
-        int64_t count = iter.count_at_index;
-        int64_t value = iter.value_from_index;
+        int64_t count = iter.count;
+        int64_t value = iter.value;
 
         int64_t expected_count =
             hdr_count_at_value(raw_histogram, value) +

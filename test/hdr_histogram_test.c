@@ -260,9 +260,9 @@ static char* test_recorded_values()
         {
             mu_assert("Count at 0 is not 10000", count_added_in_this_bucket == 10000);
         }
-        mu_assert("Count should not be 0", iter.count_at_index != 0);
+        mu_assert("Count should not be 0", iter.count != 0);
         mu_assert("Count at value iterated to should be count added in this step",
-                  iter.count_at_index == count_added_in_this_bucket);
+                  iter.count == count_added_in_this_bucket);
         total_added_count += count_added_in_this_bucket;
         index++;
     }

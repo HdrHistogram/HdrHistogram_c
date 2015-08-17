@@ -267,7 +267,6 @@ struct hdr_iter_linear
 
 struct hdr_iter_log
 {
-    int64_t value_units_first_bucket;
     double log_base;
     int64_t count_added_in_this_iteration_step;
     int64_t next_value_reporting_level;
@@ -279,15 +278,23 @@ struct hdr_iter_log
  * that supports all of the types of iteration.  Use
  * the appropriate initialiser to get the desired
  * iteration.
+ *
+ * @
  */
 struct hdr_iter
 {
     const struct hdr_histogram* h;
+    /** raw index into the counts array */
     int32_t counts_index;
-    int64_t count_at_index;
-    int64_t count_to_index;
-    int64_t value_from_index;
+    /** value directly from array for the current counts_index */
+    int64_t count;
+    /** sum of all of the counts up to and including the count at this index */
+    int64_t cumulative_count;
+    /** The current value based on counts_index */
+    int64_t value;
     int64_t highest_equivalent_value;
+    int64_t lowest_equivalent_value;
+    int64_t median_equivalent_value;
 
     union
     {
@@ -298,6 +305,7 @@ struct hdr_iter
     } specifics;
 
     bool (*_next_fp)(struct hdr_iter* iter);
+
 };
 
 /**

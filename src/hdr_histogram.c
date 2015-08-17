@@ -425,8 +425,8 @@ int64_t hdr_add(struct hdr_histogram* h, const struct hdr_histogram* from)
 
     while (hdr_iter_next(&iter))
     {
-        int64_t value = iter.value_from_index;
-        int64_t count = iter.count_at_index;
+        int64_t value = iter.value;
+        int64_t count = iter.count;
 
         if (!hdr_record_values(h, value, count))
         {
@@ -446,8 +446,8 @@ int64_t hdr_add_while_correcting_for_coordinated_omission(
     
     while (hdr_iter_next(&iter))
     {
-        int64_t value = iter.value_from_index;
-        int64_t count = iter.count_at_index;
+        int64_t value = iter.value;
+        int64_t count = iter.count;
 
         if (!hdr_record_corrected_values(h, value, count, expected_interval))
         {
@@ -502,11 +502,11 @@ int64_t hdr_value_at_percentile(const struct hdr_histogram* h, double percentile
 
     while (hdr_iter_next(&iter))
     {
-        total += iter.count_at_index;
+        total += iter.count;
 
         if (total >= count_at_percentile)
         {
-            int64_t value_from_index = iter.value_from_index;
+            int64_t value_from_index = iter.value;
             return highest_equivalent_value(h, value_from_index);
         }
     }
@@ -523,9 +523,9 @@ double hdr_mean(const struct hdr_histogram* h)
 
     while (hdr_iter_next(&iter))
     {
-        if (0 != iter.count_at_index)
+        if (0 != iter.count)
         {
-            total += iter.count_at_index * hdr_median_equivalent_value(h, iter.value_from_index);
+            total += iter.count * hdr_median_equivalent_value(h, iter.value);
         }
     }
 
@@ -542,10 +542,10 @@ double hdr_stddev(const struct hdr_histogram* h)
 
     while (hdr_iter_next(&iter))
     {
-        if (0 != iter.count_at_index)
+        if (0 != iter.count)
         {
-            double dev = (hdr_median_equivalent_value(h, iter.value_from_index) * 1.0) - mean;
-            geometric_dev_total += (dev * dev) * iter.count_at_index;
+            double dev = (hdr_median_equivalent_value(h, iter.value) * 1.0) - mean;
+            geometric_dev_total += (dev * dev) * iter.count;
         }
     }
 
@@ -589,7 +589,7 @@ static bool has_buckets(struct hdr_iter* iter)
 
 static bool has_next(struct hdr_iter* iter)
 {
-    return iter->count_to_index < iter->h->total_count;
+    return iter->cumulative_count < iter->h->total_count;
 }
 
 static bool move_next(struct hdr_iter* iter)
@@ -601,11 +601,13 @@ static bool move_next(struct hdr_iter* iter)
         return false;
     }
 
-    iter->count_at_index  = counts_get_normalised(iter->h, iter->counts_index);
-    iter->count_to_index += iter->count_at_index;
+    iter->count = counts_get_normalised(iter->h, iter->counts_index);
+    iter->cumulative_count += iter->count;
 
-    iter->value_from_index = hdr_value_at_index(iter->h, iter->counts_index);
-    iter->highest_equivalent_value = highest_equivalent_value(iter->h, iter->value_from_index);
+    iter->value = hdr_value_at_index(iter->h, iter->counts_index);
+    iter->highest_equivalent_value = highest_equivalent_value(iter->h, iter->value);
+    iter->lowest_equivalent_value = lowest_equivalent_value(iter->h, iter->value);
+    iter->median_equivalent_value = hdr_median_equivalent_value(iter->h, iter->value);
 
     return true;
 }
@@ -643,9 +645,9 @@ void hdr_iter_init(struct hdr_iter* itr, const struct hdr_histogram* h)
     itr->h = h;
 
     itr->counts_index     = -1;
-    itr->count_at_index   = 0;
-    itr->count_to_index   = 0;
-    itr->value_from_index = 0;
+    itr->count = 0;
+    itr->cumulative_count = 0;
+    itr->value = 0;
     itr->highest_equivalent_value = 0;
 
     itr->_next_fp = _basic_iter_next;
@@ -688,8 +690,8 @@ bool _percentile_iter_next(struct hdr_iter* iter)
 
     do
     {
-        double current_percentile = (100.0 * (double) iter->count_to_index) / iter->h->total_count;
-        if (iter->count_at_index != 0 &&
+        double current_percentile = (100.0 * (double) iter->cumulative_count) / iter->h->total_count;
+        if (iter->count != 0 &&
                 percentiles->percentile_to_iterate_to <= current_percentile)
         {
             percentiles->percentile = percentiles->percentile_to_iterate_to;
@@ -751,9 +753,9 @@ bool _recorded_iter_next(struct hdr_iter* iter)
 {
     while (_basic_iter_next(iter))
     {
-        if (iter->count_at_index != 0)
+        if (iter->count != 0)
         {
-            iter->specifics.recorded.count_added_in_this_iteration_step = iter->count_at_index;
+            iter->specifics.recorded.count_added_in_this_iteration_step = iter->count;
             return true;
         }
     }
@@ -791,7 +793,7 @@ bool _iter_linear_next(struct hdr_iter* iter)
     {
         do
         {
-            if (iter->value_from_index >= linear->next_value_reporting_level_lowest_equivalent)
+            if (iter->value >= linear->next_value_reporting_level_lowest_equivalent)
             {
                 linear->next_value_reporting_level += linear->value_units_per_bucket;
                 linear->next_value_reporting_level_lowest_equivalent = lowest_equivalent_value(iter->h, linear->next_value_reporting_level);
@@ -803,7 +805,7 @@ bool _iter_linear_next(struct hdr_iter* iter)
             {
                 break;
             }
-            linear->count_added_in_this_iteration_step += iter->count_at_index;
+            linear->count_added_in_this_iteration_step += iter->count;
         }
         while (true);
     }
@@ -844,7 +846,7 @@ bool _log_iter_next(struct hdr_iter *iter)
     {
         do
         {
-            if (iter->value_from_index >= logarithmic->next_value_reporting_level_lowest_equivalent)
+            if (iter->value >= logarithmic->next_value_reporting_level_lowest_equivalent)
             {
                 logarithmic->next_value_reporting_level *= logarithmic->log_base;
                 logarithmic->next_value_reporting_level_lowest_equivalent = lowest_equivalent_value(iter->h, logarithmic->next_value_reporting_level);
@@ -857,7 +859,7 @@ bool _log_iter_next(struct hdr_iter *iter)
                 break;
             }
 
-            logarithmic->count_added_in_this_iteration_step += iter->count_at_index;
+            logarithmic->count_added_in_this_iteration_step += iter->count;
         }
         while (true);
     }
@@ -873,7 +875,6 @@ void hdr_iter_log_init(
 {
     hdr_iter_init(iter, h);
     iter->specifics.log.count_added_in_this_iteration_step = 0;
-    iter->specifics.log.value_units_first_bucket = value_units_first_bucket;
     iter->specifics.log.log_base = log_base;
     iter->specifics.log.next_value_reporting_level = value_units_first_bucket;
     iter->specifics.log.next_value_reporting_level_lowest_equivalent = lowest_equivalent_value(h, value_units_first_bucket);
@@ -926,7 +927,7 @@ int hdr_percentiles_print(
     {
         double  value               = iter.highest_equivalent_value / value_scale;
         double  percentile          = percentiles->percentile / 100.0;
-        int64_t total_count         = iter.count_to_index;
+        int64_t total_count         = iter.cumulative_count;
         double  inverted_percentile = (1.0 / (1.0 - percentile));
 
         if (fprintf(
