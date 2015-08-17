@@ -640,17 +640,32 @@ static bool _basic_iter_next(struct hdr_iter *iter)
     return true;
 }
 
-void hdr_iter_init(struct hdr_iter* itr, const struct hdr_histogram* h)
+static bool _all_values_iter_next(struct hdr_iter* iter)
 {
-    itr->h = h;
+    bool result = move_next(iter);
 
-    itr->counts_index     = -1;
-    itr->count = 0;
-    itr->cumulative_count = 0;
-    itr->value = 0;
-    itr->highest_equivalent_value = 0;
+    if (result)
+    {
+        iter->value_iterated_from = iter->value_iterated_to;
+        iter->value_iterated_to = iter->value;
+    }
 
-    itr->_next_fp = _basic_iter_next;
+    return result;
+}
+
+void hdr_iter_init(struct hdr_iter* iter, const struct hdr_histogram* h)
+{
+    iter->h = h;
+
+    iter->counts_index = -1;
+    iter->count = 0;
+    iter->cumulative_count = 0;
+    iter->value = 0;
+    iter->highest_equivalent_value = 0;
+    iter->value_iterated_from = 0;
+    iter->value_iterated_to = 0;
+
+    iter->_next_fp = _all_values_iter_next;
 }
 
 bool hdr_iter_next(struct hdr_iter* iter)
@@ -694,9 +709,13 @@ bool _percentile_iter_next(struct hdr_iter* iter)
         if (iter->count != 0 &&
                 percentiles->percentile_to_iterate_to <= current_percentile)
         {
+            iter->value_iterated_from = iter->value_iterated_to;
+            iter->value_iterated_to = highest_equivalent_value(iter->h, iter->value);
+
             percentiles->percentile = percentiles->percentile_to_iterate_to;
 
-            int64_t half_distance = (int64_t) pow(2, (int64_t) (log(100 / (100.0 - (percentiles->percentile_to_iterate_to))) / log(2)) + 1);
+            int64_t half_distance =
+                (int64_t) pow(2, (int64_t) (log(100 / (100.0 - (percentiles->percentile_to_iterate_to))) / log(2)) + 1);
             int64_t percentile_reporting_ticks = percentiles->ticks_per_half_distance * half_distance;
             percentiles->percentile_to_iterate_to += 100.0 / percentile_reporting_ticks;
 
@@ -755,6 +774,9 @@ bool _recorded_iter_next(struct hdr_iter* iter)
     {
         if (iter->count != 0)
         {
+            iter->value_iterated_from = iter->value_iterated_to;
+            iter->value_iterated_to = iter->value;
+
             iter->specifics.recorded.count_added_in_this_iteration_step = iter->count;
             return true;
         }
@@ -795,8 +817,12 @@ bool _iter_linear_next(struct hdr_iter* iter)
         {
             if (iter->value >= linear->next_value_reporting_level_lowest_equivalent)
             {
+                iter->value_iterated_from = iter->value_iterated_to;
+                iter->value_iterated_to = linear->next_value_reporting_level;
+
                 linear->next_value_reporting_level += linear->value_units_per_bucket;
-                linear->next_value_reporting_level_lowest_equivalent = lowest_equivalent_value(iter->h, linear->next_value_reporting_level);
+                linear->next_value_reporting_level_lowest_equivalent =
+                    lowest_equivalent_value(iter->h, linear->next_value_reporting_level);
 
                 return true;
             }
@@ -848,6 +874,9 @@ bool _log_iter_next(struct hdr_iter *iter)
         {
             if (iter->value >= logarithmic->next_value_reporting_level_lowest_equivalent)
             {
+                iter->value_iterated_from = iter->value_iterated_to;
+                iter->value_iterated_to = logarithmic->next_value_reporting_level;
+
                 logarithmic->next_value_reporting_level *= logarithmic->log_base;
                 logarithmic->next_value_reporting_level_lowest_equivalent = lowest_equivalent_value(iter->h, logarithmic->next_value_reporting_level);
 

@@ -295,6 +295,8 @@ struct hdr_iter
     int64_t highest_equivalent_value;
     int64_t lowest_equivalent_value;
     int64_t median_equivalent_value;
+    int64_t value_iterated_from;
+    int64_t value_iterated_to;
 
     union
     {

@@ -222,6 +222,7 @@ static char* test_percentiles()
     return 0;
 }
 
+
 static char* test_recorded_values()
 {
     load_histograms();
