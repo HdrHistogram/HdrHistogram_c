@@ -640,14 +640,19 @@ static bool _basic_iter_next(struct hdr_iter *iter)
     return true;
 }
 
+static void _update_iterated_values(struct hdr_iter* iter, int64_t new_value_iterated_to)
+{
+    iter->value_iterated_from = iter->value_iterated_to;
+    iter->value_iterated_to = new_value_iterated_to;
+}
+
 static bool _all_values_iter_next(struct hdr_iter* iter)
 {
     bool result = move_next(iter);
 
     if (result)
     {
-        iter->value_iterated_from = iter->value_iterated_to;
-        iter->value_iterated_to = iter->value;
+        _update_iterated_values(iter, iter->value);
     }
 
     return result;
@@ -709,8 +714,7 @@ bool _percentile_iter_next(struct hdr_iter* iter)
         if (iter->count != 0 &&
                 percentiles->percentile_to_iterate_to <= current_percentile)
         {
-            iter->value_iterated_from = iter->value_iterated_to;
-            iter->value_iterated_to = highest_equivalent_value(iter->h, iter->value);
+            _update_iterated_values(iter, highest_equivalent_value(iter->h, iter->value));
 
             percentiles->percentile = percentiles->percentile_to_iterate_to;
 
@@ -774,8 +778,7 @@ bool _recorded_iter_next(struct hdr_iter* iter)
     {
         if (iter->count != 0)
         {
-            iter->value_iterated_from = iter->value_iterated_to;
-            iter->value_iterated_to = iter->value;
+            _update_iterated_values(iter, iter->value);
 
             iter->specifics.recorded.count_added_in_this_iteration_step = iter->count;
             return true;
@@ -817,8 +820,7 @@ bool _iter_linear_next(struct hdr_iter* iter)
         {
             if (iter->value >= linear->next_value_reporting_level_lowest_equivalent)
             {
-                iter->value_iterated_from = iter->value_iterated_to;
-                iter->value_iterated_to = linear->next_value_reporting_level;
+                _update_iterated_values(iter, linear->next_value_reporting_level);
 
                 linear->next_value_reporting_level += linear->value_units_per_bucket;
                 linear->next_value_reporting_level_lowest_equivalent =
@@ -874,8 +876,7 @@ bool _log_iter_next(struct hdr_iter *iter)
         {
             if (iter->value >= logarithmic->next_value_reporting_level_lowest_equivalent)
             {
-                iter->value_iterated_from = iter->value_iterated_to;
-                iter->value_iterated_to = logarithmic->next_value_reporting_level;
+                _update_iterated_values(iter, logarithmic->next_value_reporting_level);
 
                 logarithmic->next_value_reporting_level *= logarithmic->log_base;
                 logarithmic->next_value_reporting_level_lowest_equivalent = lowest_equivalent_value(iter->h, logarithmic->next_value_reporting_level);
