@@ -1,6 +1,5 @@
 add_executable(hdr_decoder hdr_decoder.c)
 target_link_libraries(hdr_decoder hdr_histogram m z)
-target_link_libraries(dump hdr_histogram m z)
 install(TARGETS hdr_decoder DESTINATION bin)
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
