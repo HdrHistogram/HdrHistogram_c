@@ -17,7 +17,7 @@
 #include <math.h>
 #include <time.h>
 
-
+#include "hdr_encoding.h"
 #include "hdr_histogram.h"
 #include "hdr_histogram_log.h"
 
@@ -274,7 +274,6 @@ int base64_decode(
     return 0;
 }
 
-
 // ######## ##    ##  ######   #######  ########  #### ##    ##  ######
 // ##       ###   ## ##    ## ##     ## ##     ##  ##  ###   ## ##    ##
 // ##       ####  ## ##       ##     ## ##     ##  ##  ####  ## ##
@@ -283,11 +282,14 @@ int base64_decode(
 // ##       ##   ### ##    ## ##     ## ##     ##  ##  ##   ### ##    ##
 // ######## ##    ##  ######   #######  ########  #### ##    ##  ######
 
-static const int32_t V0_ENCODING_COOKIE    = 0x1c849308;// + (8 << 4);
-static const int32_t V0_COMPRESSION_COOKIE = 0x1c849309;// + (8 << 4);
+static const int32_t V0_ENCODING_COOKIE    = 0x1c849308;
+static const int32_t V0_COMPRESSION_COOKIE = 0x1c849309;
 
-static const int32_t V1_ENCODING_COOKIE    = 0x1c849301;// + (8 << 4);
-static const int32_t V1_COMPRESSION_COOKIE = 0x1c849302;// + (8 << 4);
+static const int32_t V1_ENCODING_COOKIE    = 0x1c849301;
+static const int32_t V1_COMPRESSION_COOKIE = 0x1c849302;
+
+static const int32_t V2_ENCODING_COOKIE = 0x1c849303;
+static const int32_t V2_COMPRESSION_COOKIE = 0x1c849304;
 
 int32_t get_cookie_base(int32_t cookie)
 {
@@ -480,6 +482,39 @@ static void _apply_to_counts_64(struct hdr_histogram* h, const int64_t* counts_d
     }
 }
 
+static int _apply_to_counts_zz(struct hdr_histogram* h, const uint8_t* counts_data, const int32_t data_limit)
+{
+    int32_t data_index = 0;
+    int32_t counts_index = 0;
+    int64_t value;
+
+    while (data_index < data_limit)
+    {
+        data_index += zig_zag_decode_i64(&counts_data[data_index], &value);
+
+        int64_t host_value = (int64_t) le64toh(value);
+        if (host_value < INT32_MIN)
+        {
+            return HDR_TRAILING_ZEROS_INVALID;
+        }
+
+        int32_t trailing_zeros = 0;
+        if (host_value < 0)
+        {
+            trailing_zeros = (int32_t) host_value;
+
+            data_index += zig_zag_decode_i64(&counts_data[data_index], &value);
+            host_value = (int64_t) le64toh(value);
+        }
+
+        h->counts[counts_index] = host_value;
+        counts_index++;
+        counts_index += (-trailing_zeros);
+    }
+
+    return 0;
+}
+
 static int _apply_to_counts(
     struct hdr_histogram* h, const int32_t word_size, const uint8_t* counts_data, const int32_t counts_limit)
 {
@@ -496,6 +531,9 @@ static int _apply_to_counts(
         case 8:
             _apply_to_counts_64(h, (int64_t*) counts_data, counts_limit);
             return 0;
+
+        case 1:
+            _apply_to_counts_zz(h, counts_data, counts_limit);
 
         default:
             return -1;
@@ -695,6 +733,104 @@ cleanup:
     return result;
 }
 
+static int hdr_decode_compressed_v2(
+    _compression_flyweight* compression_flyweight,
+    size_t length,
+    struct hdr_histogram** histogram)
+{
+    struct hdr_histogram* h = NULL;
+    int result = 0;
+    uint8_t* counts_array = NULL;
+    _encoding_flyweight_v1 encoding_flyweight;
+    z_stream strm;
+
+    strm_init(&strm);
+    if (inflateInit(&strm) != Z_OK)
+    {
+        FAIL_AND_CLEANUP(cleanup, result, HDR_INFLATE_FAIL);
+    }
+
+    int32_t compressed_length = be32toh(compression_flyweight->length);
+
+    if (compressed_length < 0 || length - sizeof(_compression_flyweight) < compressed_length)
+    {
+        FAIL_AND_CLEANUP(cleanup, result, EINVAL);
+    }
+
+    strm.next_in = compression_flyweight->data;
+    strm.avail_in = (uInt) compressed_length;
+    strm.next_out = (uint8_t *) &encoding_flyweight;
+    strm.avail_out = sizeof(_encoding_flyweight_v1);
+
+    if (inflate(&strm, Z_SYNC_FLUSH) != Z_OK)
+    {
+        FAIL_AND_CLEANUP(cleanup, result, HDR_INFLATE_FAIL);
+    }
+
+    int32_t encoding_cookie = get_cookie_base(be32toh(encoding_flyweight.cookie));
+    if (V2_ENCODING_COOKIE != encoding_cookie)
+    {
+        FAIL_AND_CLEANUP(cleanup, result, HDR_ENCODING_COOKIE_MISMATCH);
+    }
+
+    int32_t word_size = 1;
+    int32_t counts_limit = be32toh(encoding_flyweight.payload_len);
+    int64_t lowest_trackable_value = be64toh(encoding_flyweight.lowest_trackable_value);
+    int64_t highest_trackable_value = be64toh(encoding_flyweight.highest_trackable_value);
+    int32_t significant_figures = be32toh(encoding_flyweight.significant_figures);
+
+    if (hdr_init(
+        lowest_trackable_value,
+        highest_trackable_value,
+        significant_figures,
+        &h) != 0)
+    {
+        FAIL_AND_CLEANUP(cleanup, result, ENOMEM);
+    }
+
+    // Give the temp uncompressed array a little bif of extra
+    int32_t counts_array_len = counts_limit * word_size;
+
+    if ((counts_array = calloc(1, (size_t) counts_array_len)) == NULL)
+    {
+        FAIL_AND_CLEANUP(cleanup, result, ENOMEM);
+    }
+
+    strm.next_out = counts_array;
+    strm.avail_out = (uInt) counts_array_len;
+
+    if (inflate(&strm, Z_FINISH) != Z_STREAM_END)
+    {
+        FAIL_AND_CLEANUP(cleanup, result, HDR_INFLATE_FAIL);
+    }
+
+    _apply_to_counts(h, word_size, counts_array, counts_limit);
+
+    h->normalizing_index_offset = be32toh(encoding_flyweight.normalizing_index_offset);
+    h->conversion_ratio = int64_bits_to_double(be64toh(encoding_flyweight.conversion_ratio_bits));
+    hdr_reset_internal_counters(h);
+
+    cleanup:
+    (void)inflateEnd(&strm);
+    free(counts_array);
+
+    if (result != 0)
+    {
+        free(h);
+    }
+    else if (NULL == *histogram)
+    {
+        *histogram = h;
+    }
+    else
+    {
+        hdr_add(*histogram, h);
+        free(h);
+    }
+
+    return result;
+}
+
 int hdr_decode_compressed(
     uint8_t* buffer, size_t length, struct hdr_histogram** histogram)
 {
@@ -713,6 +849,10 @@ int hdr_decode_compressed(
     else if (V1_COMPRESSION_COOKIE == compression_cookie)
     {
         return hdr_decode_compressed_v1(compression_flyweight, length, histogram);
+    }
+    else if (V2_COMPRESSION_COOKIE == compression_cookie)
+    {
+        return hdr_decode_compressed_v2(compression_flyweight, length, histogram);
     }
 
     return HDR_COMPRESSION_COOKIE_MISMATCH;
@@ -893,6 +1033,12 @@ static void scan_header_line(struct hdr_log_reader* reader, const char* line)
     scan_start_time(reader, line);
 }
 
+static bool validate_log_version(struct hdr_log_reader* reader)
+{
+    return reader->major_version == LOG_MAJOR_VERSION &&
+        (reader->minor_version == 0 || reader->minor_version == 1 || reader->minor_version == 2);
+}
+
 #define HEADER_LINE_LENGTH 128
 
 int hdr_log_read_header(struct hdr_log_reader* reader, FILE* file)
@@ -933,8 +1079,7 @@ int hdr_log_read_header(struct hdr_log_reader* reader, FILE* file)
     }
     while (parsing_header);
 
-    if (LOG_MAJOR_VERSION != reader->major_version ||
-        LOG_MINOR_VERSION != reader->minor_version)
+    if (!validate_log_version(reader))
     {
         return HDR_LOG_INVALID_VERSION;
     }

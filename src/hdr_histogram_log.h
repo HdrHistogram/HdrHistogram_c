@@ -17,6 +17,7 @@
 #define HDR_INFLATE_INIT_FAIL -29995
 #define HDR_INFLATE_FAIL -29994
 #define HDR_LOG_INVALID_VERSION -29993
+#define HDR_TRAILING_ZEROS_INVALID -29992
 
 #include <stdint.h>
 #include <stdbool.h>

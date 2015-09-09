@@ -592,7 +592,7 @@ static char* log_reader_fails_with_incorrect_version()
 {
     const char* log_with_invalid_version =
     "#[Test log]\n"
-    "#[Histogram log format version 1.00]\n"
+    "#[Histogram log format version 1.03]\n"
     "#[StartTime: 1404700005.222 (seconds since epoch), Mon Jul 02:26:45 GMT 2014]\n"
     "StartTimestamp\",\"EndTimestamp\",\"Interval_Max\",\"Interval_Compressed_Histogram\"\n";
     const char* file_name = "histogram_with_invalid_version.log";
@@ -680,6 +680,106 @@ static char* decode_v1_log()
     return 0;
 }
 
+/*
+    @Test
+    public void jHiccupV2Log() throws Exception {
+        InputStream readerStream = HistogramLogReaderWriterTest.class.getResourceAsStream("jHiccup-2.0.7S.logV2.hlog");
+        HistogramLogReader reader = new HistogramLogReader(readerStream);
+        int histogramCount = 0;
+        long totalCount = 0;
+        EncodableHistogram encodeableHistogram = null;
+        Histogram accumulatedHistogram = new Histogram(3);
+        while ((encodeableHistogram = reader.nextIntervalHistogram()) != null) {
+            histogramCount++;
+            Assert.assertTrue("Expected integer value histogramsin log file", encodeableHistogram instanceof Histogram);
+            Histogram histogram = (Histogram) encodeableHistogram;
+            totalCount += histogram.getTotalCount();
+            accumulatedHistogram.add(histogram);
+        }
+        Assert.assertEquals(38, histogramCount);
+        Assert.assertEquals(30874, totalCount);
+        Assert.assertEquals(956825599, accumulatedHistogram.getValueAtPercentile(99.9));
+        Assert.assertEquals(981991423, accumulatedHistogram.getMaxValue());
+        Assert.assertEquals(1441753532.570, reader.getStartTimeSec());
+
+        readerStream = HistogramLogReaderWriterTest.class.getResourceAsStream("jHiccup-2.0.7S.logV2.hlog");
+        reader = new HistogramLogReader(readerStream);
+        histogramCount = 0;
+        totalCount = 0;
+        accumulatedHistogram.reset();
+        while ((encodeableHistogram = reader.nextIntervalHistogram(5, 20)) != null) {
+            histogramCount++;
+            Histogram histogram = (Histogram) encodeableHistogram;
+            totalCount += histogram.getTotalCount();
+            accumulatedHistogram.add(histogram);
+        }
+        Assert.assertEquals(14, histogramCount);
+        Assert.assertEquals(12406, totalCount);
+        Assert.assertEquals(969408511, accumulatedHistogram.getValueAtPercentile(99.9));
+        Assert.assertEquals(981991423, accumulatedHistogram.getMaxValue());
+
+        readerStream = HistogramLogReaderWriterTest.class.getResourceAsStream("jHiccup-2.0.7S.logV2.hlog");
+        reader = new HistogramLogReader(readerStream);
+        histogramCount = 0;
+        totalCount = 0;
+        accumulatedHistogram.reset();
+        while ((encodeableHistogram = reader.nextIntervalHistogram(15, 32)) != null) {
+            histogramCount++;
+            Histogram histogram = (Histogram) encodeableHistogram;
+            totalCount += histogram.getTotalCount();
+            accumulatedHistogram.add(histogram);
+        }
+        Assert.assertEquals(17, histogramCount);
+        Assert.assertEquals(13754, totalCount);
+        Assert.assertEquals(969408511, accumulatedHistogram.getValueAtPercentile(99.9));
+        Assert.assertEquals(981991423, accumulatedHistogram.getMaxValue());
+    }
+ */
+
+static char* decode_v2_log()
+{
+    const char* v2_log = "jHiccup-2.0.7S.LogV2.hlog";
+
+    FILE* f = fopen(v2_log, "r");
+    mu_assert("Can not open v1 log file", f != NULL);
+
+    struct hdr_histogram* accum;
+    hdr_init(1, INT64_C(3600000000000), 3, &accum);
+
+    struct hdr_histogram* h = NULL;
+    struct hdr_log_reader reader;
+    struct timespec timestamp;
+    struct timespec interval;
+
+    hdr_log_reader_init(&reader);
+
+    int rc = hdr_log_read_header(&reader, f);
+    mu_assert("Failed to read header", validate_return_code(rc));
+
+    int histogram_count = 0;
+    int64_t total_count = 0;
+    while ((rc = hdr_log_read(&reader, f, &h, &timestamp, &interval)) != EOF)
+    {
+        mu_assert("Failed to read histogram", validate_return_code(rc));
+        histogram_count++;
+        total_count += h->total_count;
+        int64_t dropped = hdr_add(accum, h);
+        mu_assert("Dropped events", compare_int64(dropped, 0));
+
+        free(h);
+        h = NULL;
+    }
+
+    mu_assert("Wrong number of histograms", compare_int(histogram_count, 38));
+    mu_assert("Wrong total count", compare_int64(total_count, 30874));
+    mu_assert("99.9 percentile wrong", compare_int64(956825599, hdr_value_at_percentile(accum, 99.9)));
+    mu_assert("max value wrong", compare_int64(981991423, hdr_max(accum)));
+    mu_assert("Seconds wrong", compare_int64(1441753532, reader.start_timestamp.tv_sec));
+    mu_assert("Nanoseconds wrong", compare_int64(570000000, reader.start_timestamp.tv_nsec));
+
+    return 0;
+}
+
 static char* decode_v0_log()
 {
     const char* v1_log = "jHiccup-2.0.1.logV0.hlog";
@@ -750,6 +850,7 @@ static struct mu_result all_tests()
 
     mu_run_test(test_string_encode_decode);
 
+    mu_run_test(decode_v2_log);
     mu_run_test(decode_v1_log);
     mu_run_test(decode_v0_log);
 

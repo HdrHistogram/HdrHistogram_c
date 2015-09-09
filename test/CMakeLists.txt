@@ -24,3 +24,4 @@ add_test(HistogramLogging hdr_histogram_log_test)
 
 configure_file(jHiccup-2.0.1.logV0.hlog jHiccup-2.0.1.logV0.hlog COPYONLY)
 configure_file(jHiccup-2.0.6.logV1.hlog jHiccup-2.0.6.logV1.hlog COPYONLY)
+configure_file(jHiccup-2.0.7S.LogV2.hlog jHiccup-2.0.7S.LogV2.hlog COPYONLY)
