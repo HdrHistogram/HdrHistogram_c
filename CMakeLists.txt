@@ -20,5 +20,6 @@ add_subdirectory("${CMAKE_SOURCE_DIR}/test")
 add_subdirectory("${CMAKE_SOURCE_DIR}/examples")
 
 SET(CPACK_GENERATOR "TGZ")
+SET(CPACK_PACKAGE_VERSION "0.9.1")
 
 INCLUDE(CPack)
