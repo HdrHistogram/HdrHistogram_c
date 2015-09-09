@@ -368,7 +368,7 @@ static int _apply_to_counts(
             return 0;
 
         case 1:
-            _apply_to_counts_zz(h, counts_data, counts_limit);
+            return _apply_to_counts_zz(h, counts_data, counts_limit);
 
         default:
             return -1;
@@ -639,13 +639,17 @@ static int hdr_decode_compressed_v2(
         FAIL_AND_CLEANUP(cleanup, result, HDR_INFLATE_FAIL);
     }
 
-    _apply_to_counts(h, word_size, counts_array, counts_limit);
+    int r =_apply_to_counts(h, word_size, counts_array, counts_limit);
+    if (0 != r)
+    {
+        FAIL_AND_CLEANUP(cleanup, result, r);
+    }
 
     h->normalizing_index_offset = be32toh(encoding_flyweight.normalizing_index_offset);
     h->conversion_ratio = int64_bits_to_double(be64toh(encoding_flyweight.conversion_ratio_bits));
     hdr_reset_internal_counters(h);
 
-    cleanup:
+cleanup:
     (void)inflateEnd(&strm);
     free(counts_array);
 
