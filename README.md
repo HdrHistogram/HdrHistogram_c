@@ -67,8 +67,8 @@ hdr_percentiles_print(
 ## More examples
 
 For more detailed examples of recording and logging results look at the
-[hdr_decoder](https://github.com/HdrHistogram/HdrHistogram_c/blob/master/examples/hdr_decoder.c)
-and [hiccup](https://github.com/HdrHistogram/HdrHistogram_c/blob/master/examples/hiccup.c)
+[hdr_decoder](examples/hdr_decoder.c)
+and [hiccup](examples/hiccup.c)
 examples.  You can run hiccup and decoder
 and pipe the results of one into the other.
 
