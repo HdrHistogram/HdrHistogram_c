@@ -487,7 +487,7 @@ static char* writes_and_reads_log()
     rc = hdr_log_read_header(&reader, log_file);
     mu_assert("Failed header read", validate_return_code(rc));
     mu_assert("Incorrect major version", compare_int(reader.major_version, 1));
-    mu_assert("Incorrect minor version", compare_int(reader.minor_version, 1));
+    mu_assert("Incorrect minor version", compare_int(reader.minor_version, 2));
     mu_assert(
         "Incorrect start timestamp",
         compare_timespec(&reader.start_timestamp, &timestamp));

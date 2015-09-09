@@ -7,6 +7,8 @@
 
 #include <stdint.h>
 
+#define MAX_BYTES_LEB128 9
+
 /**
  * Writes a int64_t value to the given buffer in LEB128 ZigZag encoded format
  *

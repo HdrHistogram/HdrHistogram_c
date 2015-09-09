@@ -149,6 +149,8 @@ const char* hdr_strerror(int errnum)
             return "Inflate failed";
         case HDR_LOG_INVALID_VERSION:
             return "Log - invalid version in log header";
+        case HDR_TRAILING_ZEROS_INVALID:
+            return "Invalid number of trailing zeros";
         default:
             return strerror(errnum);
     }
@@ -204,7 +206,7 @@ typedef struct __attribute__((__packed__))
     int64_t lowest_trackable_value;
     int64_t highest_trackable_value;
     uint64_t conversion_ratio_bits;
-    int64_t counts[0];
+    uint8_t counts[0];
 } _encoding_flyweight_v1;
 
 typedef struct __attribute__((__packed__))
@@ -226,13 +228,40 @@ int hdr_encode_compressed(
     int32_t len_to_max = counts_index_for(h, h->max_value) + 1;
     int32_t counts_limit = len_to_max < h->counts_len ? len_to_max : h->counts_len;
 
-    size_t encoded_size =
-        sizeof(_encoding_flyweight_v1) + (sizeof(int64_t) * counts_limit);
-
-    if ((encoded = (_encoding_flyweight_v1*) malloc(encoded_size)) == NULL)
+    if ((encoded = (_encoding_flyweight_v1*) calloc(MAX_BYTES_LEB128 * (size_t) counts_limit, sizeof(uint8_t))) == NULL)
     {
         FAIL_AND_CLEANUP(cleanup, result, ENOMEM);
     }
+
+    int data_index = 0;
+    for (int i = 0; i < counts_limit;)
+    {
+        int64_t value = h->counts[i];
+        i++;
+
+        int32_t trailing_zeros = 0;
+        while (i < counts_limit && 0 == h->counts[i])
+        {
+            trailing_zeros++;
+            i++;
+        }
+
+        if (trailing_zeros != 0)
+        {
+            data_index += zig_zag_encode_i64(&encoded->counts[data_index], htole64(-trailing_zeros));
+        }
+        data_index += zig_zag_encode_i64(&encoded->counts[data_index], htole64(value));
+    }
+    size_t encoded_size = sizeof(_encoding_flyweight_v1) + data_index;
+
+    encoded->cookie                   = htobe32(V2_ENCODING_COOKIE | 0x10);
+    encoded->payload_len              = htobe32(encoded_size);
+    encoded->normalizing_index_offset = htobe32(h->normalizing_index_offset);
+    encoded->significant_figures      = htobe32(h->significant_figures);
+    encoded->lowest_trackable_value   = htobe64(h->lowest_trackable_value);
+    encoded->highest_trackable_value  = htobe64(h->highest_trackable_value);
+    encoded->conversion_ratio_bits    = htobe64(double_to_int64_bits(h->conversion_ratio));
+
 
     // Estimate the size of the compressed histogram.
     uLongf destLen = compressBound(encoded_size);
@@ -243,25 +272,12 @@ int hdr_encode_compressed(
         FAIL_AND_CLEANUP(cleanup, result, ENOMEM);
     }
 
-    encoded->cookie                   = htobe32(V1_ENCODING_COOKIE + (8 << 4));
-    encoded->payload_len              = htobe32(encoded_size);
-    encoded->normalizing_index_offset = htobe32(h->normalizing_index_offset);
-    encoded->significant_figures      = htobe32(h->significant_figures);
-    encoded->lowest_trackable_value   = htobe64(h->lowest_trackable_value);
-    encoded->highest_trackable_value  = htobe64(h->highest_trackable_value);
-    encoded->conversion_ratio_bits    = htobe64(double_to_int64_bits(h->conversion_ratio));
-
-    for (int i = 0; i < counts_limit; i++)
-    {
-        encoded->counts[i] = htobe64(h->counts[i]);
-    }
-
     if (Z_OK != compress(compressed->data, &destLen, (Bytef*) encoded, encoded_size))
     {
         FAIL_AND_CLEANUP(cleanup, result, HDR_DEFLATE_FAIL);
     }
 
-    compressed->cookie = htobe32(V1_COMPRESSION_COOKIE + (8 << 4));
+    compressed->cookie = htobe32(V2_COMPRESSION_COOKIE | 0x10);
     compressed->length = htobe32((int32_t)destLen);
 
     *compressed_histogram = (uint8_t*) compressed;
@@ -705,9 +721,8 @@ int hdr_log_writer_init(struct hdr_log_writer* writer)
     return 0;
 }
 
-#define LOG_VERSION "1.1"
+#define LOG_VERSION "1.2"
 #define LOG_MAJOR_VERSION 1
-#define LOG_MINOR_VERSION 1
 
 static int print_user_prefix(FILE* f, const char* prefix)
 {
