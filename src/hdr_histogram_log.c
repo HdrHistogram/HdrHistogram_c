@@ -54,10 +54,8 @@ int32_t counts_index_for(const struct hdr_histogram* h, int64_t value);
     }                       \
     while (0)
 
-enum zero_strategy { ZERO_ALL, ZERO_NONE };
-
 int realloc_buffer(
-    void** buffer, size_t nmemb, ssize_t size, enum zero_strategy zeroing)
+    void** buffer, size_t nmemb, ssize_t size)
 {
     size_t len = nmemb * size;
     if (NULL == *buffer)
@@ -75,10 +73,7 @@ int realloc_buffer(
     }
     else
     {
-        if (zeroing == ZERO_ALL)
-        {
-            memset(*buffer, 0, len);
-        }
+        memset(*buffer, 0, len);
         return 0;
     }
 }
@@ -975,15 +970,13 @@ int hdr_log_read(
     }
 
     int r;
-    r = realloc_buffer(
-        (void**)&base64_histogram, sizeof(char), read, ZERO_ALL);
+    r = realloc_buffer((void**)&base64_histogram, sizeof(char), read);
     if (r != 0)
     {
         FAIL_AND_CLEANUP(cleanup, result, ENOMEM);
     }
 
-    r = realloc_buffer(
-        (void**)&compressed_histogram, sizeof(uint8_t), read, ZERO_ALL);
+    r = realloc_buffer((void**)&compressed_histogram, sizeof(uint8_t), read);
     if (r != 0)
     {
         FAIL_AND_CLEANUP(cleanup, result, ENOMEM);
