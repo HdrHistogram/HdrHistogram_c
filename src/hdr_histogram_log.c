@@ -239,19 +239,24 @@ int hdr_encode_compressed(
         int64_t value = h->counts[i];
         i++;
 
-        int32_t trailing_zeros = 0;
-        while (i < counts_limit && 0 == h->counts[i])
+        if (value == 0)
         {
-            trailing_zeros++;
-            i++;
-        }
+            int32_t zeros = 1;
 
-        if (trailing_zeros != 0)
-        {
-            data_index += zig_zag_encode_i64(&encoded->counts[data_index], htole64(-trailing_zeros));
+            while (i < counts_limit && 0 == h->counts[i])
+            {
+                zeros++;
+                i++;
+            }
+
+            data_index += zig_zag_encode_i64(&encoded->counts[data_index], htole64(-zeros));
         }
-        data_index += zig_zag_encode_i64(&encoded->counts[data_index], htole64(value));
+        else
+        {
+            data_index += zig_zag_encode_i64(&encoded->counts[data_index], htole64(value));
+        }
     }
+    
     size_t encoded_size = sizeof(_encoding_flyweight_v1) + data_index;
 
     encoded->cookie                   = htobe32(V2_ENCODING_COOKIE | 0x10);
@@ -337,25 +342,23 @@ static int _apply_to_counts_zz(struct hdr_histogram* h, const uint8_t* counts_da
     while (data_index < data_limit)
     {
         data_index += zig_zag_decode_i64(&counts_data[data_index], &value);
-
         int64_t host_value = (int64_t) le64toh(value);
+
         if (host_value < INT32_MIN)
         {
             return HDR_TRAILING_ZEROS_INVALID;
         }
 
-        int32_t trailing_zeros = 0;
         if (host_value < 0)
         {
-            trailing_zeros = (int32_t) host_value;
-
-            data_index += zig_zag_decode_i64(&counts_data[data_index], &value);
-            host_value = (int64_t) le64toh(value);
+            int32_t zeros = -((int32_t) host_value);
+            counts_index += zeros;
         }
-
-        h->counts[counts_index] = host_value;
-        counts_index++;
-        counts_index += (-trailing_zeros);
+        else
+        {
+            h->counts[counts_index] = host_value;
+            counts_index++;
+        }
     }
 
     return 0;

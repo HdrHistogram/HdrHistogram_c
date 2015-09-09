@@ -680,65 +680,10 @@ static char* decode_v1_log()
     return 0;
 }
 
-/*
-    @Test
-    public void jHiccupV2Log() throws Exception {
-        InputStream readerStream = HistogramLogReaderWriterTest.class.getResourceAsStream("jHiccup-2.0.7S.logV2.hlog");
-        HistogramLogReader reader = new HistogramLogReader(readerStream);
-        int histogramCount = 0;
-        long totalCount = 0;
-        EncodableHistogram encodeableHistogram = null;
-        Histogram accumulatedHistogram = new Histogram(3);
-        while ((encodeableHistogram = reader.nextIntervalHistogram()) != null) {
-            histogramCount++;
-            Assert.assertTrue("Expected integer value histogramsin log file", encodeableHistogram instanceof Histogram);
-            Histogram histogram = (Histogram) encodeableHistogram;
-            totalCount += histogram.getTotalCount();
-            accumulatedHistogram.add(histogram);
-        }
-        Assert.assertEquals(38, histogramCount);
-        Assert.assertEquals(30874, totalCount);
-        Assert.assertEquals(956825599, accumulatedHistogram.getValueAtPercentile(99.9));
-        Assert.assertEquals(981991423, accumulatedHistogram.getMaxValue());
-        Assert.assertEquals(1441753532.570, reader.getStartTimeSec());
-
-        readerStream = HistogramLogReaderWriterTest.class.getResourceAsStream("jHiccup-2.0.7S.logV2.hlog");
-        reader = new HistogramLogReader(readerStream);
-        histogramCount = 0;
-        totalCount = 0;
-        accumulatedHistogram.reset();
-        while ((encodeableHistogram = reader.nextIntervalHistogram(5, 20)) != null) {
-            histogramCount++;
-            Histogram histogram = (Histogram) encodeableHistogram;
-            totalCount += histogram.getTotalCount();
-            accumulatedHistogram.add(histogram);
-        }
-        Assert.assertEquals(14, histogramCount);
-        Assert.assertEquals(12406, totalCount);
-        Assert.assertEquals(969408511, accumulatedHistogram.getValueAtPercentile(99.9));
-        Assert.assertEquals(981991423, accumulatedHistogram.getMaxValue());
-
-        readerStream = HistogramLogReaderWriterTest.class.getResourceAsStream("jHiccup-2.0.7S.logV2.hlog");
-        reader = new HistogramLogReader(readerStream);
-        histogramCount = 0;
-        totalCount = 0;
-        accumulatedHistogram.reset();
-        while ((encodeableHistogram = reader.nextIntervalHistogram(15, 32)) != null) {
-            histogramCount++;
-            Histogram histogram = (Histogram) encodeableHistogram;
-            totalCount += histogram.getTotalCount();
-            accumulatedHistogram.add(histogram);
-        }
-        Assert.assertEquals(17, histogramCount);
-        Assert.assertEquals(13754, totalCount);
-        Assert.assertEquals(969408511, accumulatedHistogram.getValueAtPercentile(99.9));
-        Assert.assertEquals(981991423, accumulatedHistogram.getMaxValue());
-    }
- */
 
 static char* decode_v2_log()
 {
-    const char* v2_log = "jHiccup-2.0.7S.LogV2.hlog";
+    const char* v2_log = "jHiccup-2.0.7S.logV2.hlog";
 
     FILE* f = fopen(v2_log, "r");
     mu_assert("Can not open v1 log file", f != NULL);
@@ -770,12 +715,12 @@ static char* decode_v2_log()
         h = NULL;
     }
 
-    mu_assert("Wrong number of histograms", compare_int(histogram_count, 38));
-    mu_assert("Wrong total count", compare_int64(total_count, 30874));
-    mu_assert("99.9 percentile wrong", compare_int64(956825599, hdr_value_at_percentile(accum, 99.9)));
-    mu_assert("max value wrong", compare_int64(981991423, hdr_max(accum)));
-    mu_assert("Seconds wrong", compare_int64(1441753532, reader.start_timestamp.tv_sec));
-    mu_assert("Nanoseconds wrong", compare_int64(570000000, reader.start_timestamp.tv_nsec));
+    mu_assert("Wrong number of histograms", compare_int(histogram_count, 62));
+    mu_assert("Wrong total count", compare_int64(total_count, 48761));
+    mu_assert("99.9 percentile wrong", compare_int64(1745879039, hdr_value_at_percentile(accum, 99.9)));
+    mu_assert("max value wrong", compare_int64(1796210687, hdr_max(accum)));
+    mu_assert("Seconds wrong", compare_int64(1441812279, reader.start_timestamp.tv_sec));
+    mu_assert("Nanoseconds wrong", compare_int64(474000000, reader.start_timestamp.tv_nsec));
 
     return 0;
 }
