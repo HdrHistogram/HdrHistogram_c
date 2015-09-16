@@ -17,6 +17,7 @@
 #include "hdr_time.h"
 #include <hdr_histogram.h>
 #include <hdr_histogram_log.h>
+#include <hdr_encoding.h>
 #include "minunit.h"
 
 int tests_run = 0;

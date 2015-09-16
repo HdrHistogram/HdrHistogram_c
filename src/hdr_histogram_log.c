@@ -342,21 +342,20 @@ static int _apply_to_counts_zz(struct hdr_histogram* h, const uint8_t* counts_da
     while (data_index < data_limit)
     {
         data_index += zig_zag_decode_i64(&counts_data[data_index], &value);
-        int64_t host_value = (int64_t) le64toh(value);
 
-        if (host_value < INT32_MIN)
+        if (value < INT32_MIN)
         {
             return HDR_TRAILING_ZEROS_INVALID;
         }
 
-        if (host_value < 0)
+        if (value < 0)
         {
-            int32_t zeros = -((int32_t) host_value);
+            int32_t zeros = -((int32_t) value);
             counts_index += zeros;
         }
         else
         {
-            h->counts[counts_index] = host_value;
+            h->counts[counts_index] = value;
             counts_index++;
         }
     }
@@ -622,7 +621,6 @@ static int hdr_decode_compressed_v2(
         FAIL_AND_CLEANUP(cleanup, result, HDR_ENCODING_COOKIE_MISMATCH);
     }
 
-    int32_t word_size = 1;
     int32_t counts_limit = be32toh(encoding_flyweight.payload_len);
     int64_t lowest_trackable_value = be64toh(encoding_flyweight.lowest_trackable_value);
     int64_t highest_trackable_value = be64toh(encoding_flyweight.highest_trackable_value);
@@ -637,23 +635,23 @@ static int hdr_decode_compressed_v2(
         FAIL_AND_CLEANUP(cleanup, result, ENOMEM);
     }
 
-    // Give the temp uncompressed array a little bif of extra
-    int32_t counts_array_len = counts_limit * word_size;
-
-    if ((counts_array = calloc(1, (size_t) counts_array_len)) == NULL)
+    // Make sure there at least 9 bytes to read
+    // if there is a corrupt value at the end
+    // of the array we won't read corrupt data or crash.
+    if ((counts_array = calloc(1, (size_t) counts_limit + 9)) == NULL)
     {
         FAIL_AND_CLEANUP(cleanup, result, ENOMEM);
     }
 
     strm.next_out = counts_array;
-    strm.avail_out = (uInt) counts_array_len;
+    strm.avail_out = (uInt) counts_limit;
 
     if (inflate(&strm, Z_FINISH) != Z_STREAM_END)
     {
         FAIL_AND_CLEANUP(cleanup, result, HDR_INFLATE_FAIL);
     }
 
-    int r =_apply_to_counts(h, word_size, counts_array, counts_limit);
+    int r = _apply_to_counts_zz(h, counts_array, counts_limit);
     if (0 != r)
     {
         FAIL_AND_CLEANUP(cleanup, result, r);
