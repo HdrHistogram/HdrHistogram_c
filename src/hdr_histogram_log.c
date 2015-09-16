@@ -249,14 +249,14 @@ int hdr_encode_compressed(
                 i++;
             }
 
-            data_index += zig_zag_encode_i64(&encoded->counts[data_index], htole64(-zeros));
+            data_index += zig_zag_encode_i64(&encoded->counts[data_index], -zeros);
         }
         else
         {
-            data_index += zig_zag_encode_i64(&encoded->counts[data_index], htole64(value));
+            data_index += zig_zag_encode_i64(&encoded->counts[data_index], value);
         }
     }
-    
+
     size_t encoded_size = sizeof(_encoding_flyweight_v1) + data_index;
 
     encoded->cookie                   = htobe32(V2_ENCODING_COOKIE | 0x10);
