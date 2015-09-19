@@ -4,7 +4,7 @@
  * as explained at http://creativecommons.org/publicdomain/zero/1.0/
  */
 
-#include <hdr_interval_recorder.h>
+#include "hdr_interval_recorder.h"
 
 int hdr_interval_recorder_init(struct hdr_interval_recorder* r)
 {

@@ -12,7 +12,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include <hdr_writer_reader_phaser.h>
+#include "hdr_writer_reader_phaser.h"
 
 int64_t _hdr_phaser_get_epoch(int64_t* field)
 {

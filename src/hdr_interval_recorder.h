@@ -7,7 +7,7 @@
 #ifndef HDR_INTERVAL_RECORDER_H
 #define HDR_INTERVAL_RECORDER_H 1
 
-#include <hdr_writer_reader_phaser.h>
+#include "hdr_writer_reader_phaser.h"
 
 struct hdr_interval_recorder
 {
