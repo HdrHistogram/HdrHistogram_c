@@ -18,6 +18,8 @@
 #define HDR_INFLATE_FAIL -29994
 #define HDR_LOG_INVALID_VERSION -29993
 #define HDR_TRAILING_ZEROS_INVALID -29992
+#define HDR_VALUE_TRUNCATED -29991
+#define HDR_ENCODED_INPUT_TOO_LONG -29990
 
 #include <stdint.h>
 #include <stdbool.h>

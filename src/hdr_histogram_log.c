@@ -151,6 +151,10 @@ const char* hdr_strerror(int errnum)
             return "Log - invalid version in log header";
         case HDR_TRAILING_ZEROS_INVALID:
             return "Invalid number of trailing zeros";
+        case HDR_VALUE_TRUNCATED:
+            return "Truncated value found when decoding";
+        case HDR_ENCODED_INPUT_TOO_LONG:
+            return "The encoded input exceeds the size of the histogram";
         default:
             return strerror(errnum);
     }
@@ -339,7 +343,7 @@ static int _apply_to_counts_zz(struct hdr_histogram* h, const uint8_t* counts_da
     int32_t counts_index = 0;
     int64_t value;
 
-    while (data_index < data_limit)
+    while (data_index < data_limit && counts_index < h->counts_len)
     {
         data_index += zig_zag_decode_i64(&counts_data[data_index], &value);
 
@@ -358,6 +362,15 @@ static int _apply_to_counts_zz(struct hdr_histogram* h, const uint8_t* counts_da
             h->counts[counts_index] = value;
             counts_index++;
         }
+    }
+
+    if (data_index > data_limit)
+    {
+        return HDR_VALUE_TRUNCATED;
+    }
+    else if (data_index < data_limit)
+    {
+        return HDR_ENCODED_INPUT_TOO_LONG;
     }
 
     return 0;
