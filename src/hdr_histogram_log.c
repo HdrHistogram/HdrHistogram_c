@@ -339,7 +339,7 @@ static void _apply_to_counts_64(struct hdr_histogram* h, const int64_t* counts_d
 
 static int _apply_to_counts_zz(struct hdr_histogram* h, const uint8_t* counts_data, const int32_t data_limit)
 {
-    int32_t data_index = 0;
+    int64_t data_index = 0;
     int32_t counts_index = 0;
     int64_t value;
 
@@ -347,15 +347,16 @@ static int _apply_to_counts_zz(struct hdr_histogram* h, const uint8_t* counts_da
     {
         data_index += zig_zag_decode_i64(&counts_data[data_index], &value);
 
-        if (value < INT32_MIN)
-        {
-            return HDR_TRAILING_ZEROS_INVALID;
-        }
-
         if (value < 0)
         {
-            int32_t zeros = -((int32_t) value);
-            counts_index += zeros;
+            int64_t zeros = -value;
+
+            if (value < INT32_MIN || counts_index + zeros > h->counts_len)
+            {
+                return HDR_TRAILING_ZEROS_INVALID;
+            }
+
+            counts_index += (int32_t) zeros;
         }
         else
         {
