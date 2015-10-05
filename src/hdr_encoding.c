@@ -197,17 +197,17 @@ static int from_base_64(int c)
     return EINVAL;
 }
 
-size_t base64_encoded_len(size_t decoded_size)
+size_t hdr_base64_encoded_len(size_t decoded_size)
 {
     return (size_t) (ceil(decoded_size / 3.0) * 4.0);
 }
 
-size_t base64_decoded_len(size_t encoded_size)
+size_t hdr_base64_decoded_len(size_t encoded_size)
 {
     return (encoded_size / 4) * 3;
 }
 
-void base64_encode_block_pad(const uint8_t* input, char* output, size_t pad)
+void hdr_base64_encode_block_pad(const uint8_t* input, char* output, size_t pad)
 {
     uint32_t _24_bit_value = 0;
 
@@ -242,7 +242,7 @@ void base64_encode_block_pad(const uint8_t* input, char* output, size_t pad)
 /**
  * Assumes that there is 3 input bytes and 4 output chars.
  */
-void base64_encode_block(const uint8_t* input, char* output)
+void hdr_base64_encode_block(const uint8_t* input, char* output)
 {
     uint32_t _24_bit_value = (input[0] << 16) + (input[1] << 8) + (input[2]);
 
@@ -252,10 +252,10 @@ void base64_encode_block(const uint8_t* input, char* output)
     output[3] = get_base_64(_24_bit_value,  0);
 }
 
-int base64_encode(
+int hdr_base64_encode(
     const uint8_t* input, size_t input_len, char* output, size_t output_len)
 {
-    if (base64_encoded_len(input_len) != output_len)
+    if (hdr_base64_encoded_len(input_len) != output_len)
     {
         return EINVAL;
     }
@@ -264,12 +264,12 @@ int base64_encode(
     int j = 0;
     for (; input_len - i >= 3 && j < output_len; i += 3, j += 4)
     {
-        base64_encode_block(&input[i], &output[j]);
+        hdr_base64_encode_block(&input[i], &output[j]);
     }
 
     size_t remaining = input_len - i;
 
-    base64_encode_block_pad(&input[i], &output[j], remaining);
+    hdr_base64_encode_block_pad(&input[i], &output[j], remaining);
 
     return 0;
 }
@@ -277,7 +277,7 @@ int base64_encode(
 /**
  * Assumes that there is 4 input chars available and 3 output chars.
  */
-void base64_decode_block(const char* input, uint8_t* output)
+void hdr_base64_decode_block(const char* input, uint8_t* output)
 {
     uint32_t _24_bit_value = 0;
 
@@ -291,7 +291,7 @@ void base64_decode_block(const char* input, uint8_t* output)
     output[2] = (uint8_t) ((_24_bit_value) & 0xFF);
 }
 
-int base64_decode(
+int hdr_base64_decode(
     const char* input, size_t input_len, uint8_t* output, size_t output_len)
 {
     if (input_len < 4 ||
@@ -303,7 +303,7 @@ int base64_decode(
 
     for (int i = 0, j = 0; i < input_len; i += 4, j += 3)
     {
-        base64_decode_block(&input[i], &output[j]);
+        hdr_base64_decode_block(&input[i], &output[j]);
     }
 
     return 0;

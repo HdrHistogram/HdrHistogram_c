@@ -33,7 +33,7 @@ int zig_zag_decode_i64(const uint8_t* buffer, int64_t* signed_value);
  * @param decoded_size the size of the unencoded values.
  * @return the encoded size
  */
-size_t base64_encoded_len(size_t decoded_size);
+size_t hdr_base64_encoded_len(size_t decoded_size);
 
 /**
  * Encode into base64.
@@ -43,7 +43,7 @@ size_t base64_encoded_len(size_t decoded_size);
  * @param output the buffer to write the output to
  * @param output_len the number of bytes to write to the output
  */
-int base64_encode(
+int hdr_base64_encode(
     const uint8_t* input, size_t input_len, char* output, size_t output_len);
 
 /**
@@ -53,7 +53,7 @@ int base64_encode(
  * @param encoded_size the size of the encoded value.
  * @return the decoded size
  */
-size_t base64_decoded_len(size_t encoded_size);
+size_t hdr_base64_decoded_len(size_t encoded_size);
 
 /**
  * Decode from base64.
@@ -63,7 +63,7 @@ size_t base64_decoded_len(size_t encoded_size);
  * @param output the buffer to write the decoded data to
  * @param output_len the number of bytes to write to the output data
  */
-int base64_decode(
+int hdr_base64_decode(
     const char* input, size_t input_len, uint8_t* output, size_t output_len);
 
 
