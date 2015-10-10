@@ -178,15 +178,9 @@ static bool validate_return_code(int rc)
 }
 
 // Prototypes to avoid exporting in header file.
-void base64_encode_block(const uint8_t* input, char* output);
-int base64_encode(
-    const uint8_t* input, size_t input_len, char* output, size_t output_len);
-size_t base64_encoded_len(size_t decoded_size);
-size_t base64_decoded_len(size_t encoded_size);
+void hdr_base64_encode_block(const uint8_t* input, char* output);
 
-void base64_decode_block(const char* input, uint8_t* output);
-int base64_decode(
-    const char* input, size_t input_len, uint8_t* output, size_t output_len);
+void hdr_base64_decode_block(const char* input, uint8_t* output);
 int hdr_encode_compressed(struct hdr_histogram* h, uint8_t** buffer, size_t* length);
 int hdr_decode_compressed(
     uint8_t* buffer, size_t length, struct hdr_histogram** histogram);
@@ -279,13 +273,13 @@ static char* test_encode_and_decode_base64()
     rc = hdr_encode_compressed(cor_histogram, &buffer, &len);
     mu_assert("Did not encode", validate_return_code(rc));
 
-    size_t encoded_len = base64_encoded_len(len);
-    size_t decoded_len = base64_decoded_len(encoded_len);
+    size_t encoded_len = hdr_base64_encoded_len(len);
+    size_t decoded_len = hdr_base64_decoded_len(encoded_len);
     encoded = calloc(encoded_len + 1, sizeof(char));
     decoded = calloc(decoded_len, sizeof(uint8_t));
 
-    base64_encode(buffer, len, encoded, encoded_len);
-    base64_decode(encoded, encoded_len, decoded, decoded_len);
+    hdr_base64_encode(buffer, len, encoded, encoded_len);
+    hdr_base64_decode(encoded, encoded_len, decoded, decoded_len);
 
     mu_assert("Should be same", memcmp(buffer, decoded, len) == 0);
 
@@ -335,7 +329,7 @@ static bool assert_base64_encode(const char* input, const char* expected)
 
     char* output = calloc(sizeof(char), output_len);
 
-    int r = base64_encode((uint8_t*)input, input_len, output, output_len);
+    int r = hdr_base64_encode((uint8_t*)input, input_len, output, output_len);
     bool result = r == 0 && compare_string(expected, output, output_len);
 
     free(output);
@@ -374,7 +368,7 @@ static char* base64_encode_fails_with_invalid_lengths()
 {
     mu_assert(
         "Output length not 4/3 of input length",
-        base64_encode(NULL, 9, NULL, 11));
+        hdr_base64_encode(NULL, 9, NULL, 11));
 
     return 0;
 }
@@ -383,7 +377,7 @@ static char* base64_encode_block_encodes_3_bytes()
 {
     char output[5] = { 0 };
 
-    base64_encode_block((uint8_t*)"Man", output);
+    hdr_base64_encode_block((uint8_t*)"Man", output);
     mu_assert("Encoding", compare_string("TWFu", output, 4));
 
     return 0;
@@ -393,7 +387,7 @@ static char* base64_decode_block_decodes_4_chars()
 {
     uint8_t output[4] = { 0 };
 
-    base64_decode_block("TWFu", output);
+    hdr_base64_decode_block("TWFu", output);
     mu_assert("Decoding", compare_string("Man", (char*) output, 3));
 
     return 0;
@@ -406,7 +400,7 @@ static bool assert_base64_decode(const char* base64_encoded, const char* expecte
 
     uint8_t* output = calloc(sizeof(uint8_t), output_len);
 
-    int result = base64_decode(base64_encoded, encoded_len, output, output_len);
+    int result = hdr_base64_decode(base64_encoded, encoded_len, output, output_len);
 
     return result == 0 && compare_string(expected, (char*)output, output_len);
 }
@@ -441,11 +435,11 @@ static char* base64_decode_decodes_strings_with_padding()
 
 static char* base64_decode_fails_with_invalid_lengths()
 {
-    mu_assert("Input length % 4 != 0", base64_decode(NULL, 5, NULL, 3) != 0);
-    mu_assert("Input length < 4", base64_decode(NULL, 3, NULL, 3) != 0);
+    mu_assert("Input length % 4 != 0", hdr_base64_decode(NULL, 5, NULL, 3) != 0);
+    mu_assert("Input length < 4", hdr_base64_decode(NULL, 3, NULL, 3) != 0);
     mu_assert(
         "Output length not 3/4 of input length",
-        base64_decode(NULL, 8, NULL, 7) != 0);
+        hdr_base64_decode(NULL, 8, NULL, 7) != 0);
 
     return 0;
 }
