@@ -351,7 +351,7 @@ static int _apply_to_counts_zz(struct hdr_histogram* h, const uint8_t* counts_da
         {
             int64_t zeros = -value;
 
-            if (value < INT32_MIN || counts_index + zeros > h->counts_len)
+            if (value <= INT32_MIN || counts_index + zeros > h->counts_len)
             {
                 return HDR_TRAILING_ZEROS_INVALID;
             }
