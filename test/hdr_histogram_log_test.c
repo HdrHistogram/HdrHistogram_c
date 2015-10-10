@@ -611,6 +611,23 @@ static char* log_reader_fails_with_incorrect_version()
     return 0;
 }
 
+static char* test_encode_decode_empty()
+{
+    struct hdr_histogram *histogram, *hdr_new = NULL;
+    hdr_alloc(INT64_C(3600) * 1000 * 1000, 3, &histogram);
+
+    char *data;
+
+    mu_assert("Failed to encode histogram data", hdr_log_encode(histogram, &data) == 0);
+    mu_assert("Failed to decode histogram data", hdr_log_decode(&hdr_new, data, strlen(data)) == 0);
+    mu_assert("Histograms should be the same", compare_histogram(histogram, hdr_new));
+    // mu_assert("Mean different after encode/decode", compare_double(hdr_mean(histogram), hdr_mean(hdr_new), 0.001));
+    free(histogram);
+    free(hdr_new);
+    free(data);
+    return 0;
+}
+
 static char* test_string_encode_decode()
 {
     struct hdr_histogram *histogram, *hdr_new = NULL;
@@ -768,6 +785,7 @@ static struct mu_result all_tests()
 {
     tests_run = 0;
 
+    mu_run_test(test_encode_decode_empty);
     mu_run_test(test_encode_and_decode_compressed);
     mu_run_test(test_encode_and_decode_compressed2);
     mu_run_test(test_encode_and_decode_compressed_large);

@@ -232,7 +232,8 @@ int hdr_encode_compressed(
     int32_t len_to_max = counts_index_for(h, h->max_value) + 1;
     int32_t counts_limit = len_to_max < h->counts_len ? len_to_max : h->counts_len;
 
-    if ((encoded = (_encoding_flyweight_v1*) calloc(MAX_BYTES_LEB128 * (size_t) counts_limit, sizeof(uint8_t))) == NULL)
+    const size_t encoded_len = sizeof(_encoding_flyweight_v1) + MAX_BYTES_LEB128 * (size_t) counts_limit;
+    if ((encoded = (_encoding_flyweight_v1*) calloc(encoded_len, sizeof(uint8_t))) == NULL)
     {
         FAIL_AND_CLEANUP(cleanup, result, ENOMEM);
     }
