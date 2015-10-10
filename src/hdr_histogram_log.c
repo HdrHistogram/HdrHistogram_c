@@ -4,8 +4,6 @@
  * as explained at http://creativecommons.org/publicdomain/zero/1.0/
  */
 
-#define _GNU_SOURCE
-
 #include <stdlib.h>
 #include <stdbool.h>
 #include <inttypes.h>
