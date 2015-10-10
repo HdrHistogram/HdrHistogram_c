@@ -422,7 +422,7 @@ static int hdr_decode_compressed_v0(
 
     int32_t compressed_length = be32toh(compression_flyweight->length);
 
-    if (compressed_length < 0 || length - sizeof(_compression_flyweight) < compressed_length)
+    if (compressed_length < 0 || length - sizeof(_compression_flyweight) < (size_t)compressed_length)
     {
         FAIL_AND_CLEANUP(cleanup, result, EINVAL);
     }
@@ -517,7 +517,7 @@ static int hdr_decode_compressed_v1(
 
     int32_t compressed_length = be32toh(compression_flyweight->length);
 
-    if (compressed_length < 0 || length - sizeof(_compression_flyweight) < compressed_length)
+    if (compressed_length < 0 || length - sizeof(_compression_flyweight) < (size_t)compressed_length)
     {
         FAIL_AND_CLEANUP(cleanup, result, EINVAL);
     }
@@ -615,7 +615,7 @@ static int hdr_decode_compressed_v2(
 
     int32_t compressed_length = be32toh(compression_flyweight->length);
 
-    if (compressed_length < 0 || length - sizeof(_compression_flyweight) < compressed_length)
+    if (compressed_length < 0 || length - sizeof(_compression_flyweight) < (size_t)compressed_length)
     {
         FAIL_AND_CLEANUP(cleanup, result, EINVAL);
     }
@@ -734,6 +734,7 @@ int hdr_decode_compressed(
 
 int hdr_log_writer_init(struct hdr_log_writer* writer)
 {
+	(void)writer;
     return 0;
 }
 
@@ -788,6 +789,8 @@ int hdr_log_write_header(
     struct hdr_log_writer* writer, FILE* file,
     const char* user_prefix, struct timespec* timestamp)
 {
+	(void)writer;
+
     if (print_user_prefix(file, user_prefix) < 0)
     {
         return EIO;
@@ -821,6 +824,8 @@ int hdr_log_write(
     int rc = 0;
     int result = 0;
     size_t encoded_len;
+
+	(void)writer;
 
     rc = hdr_encode_compressed(histogram, &compressed_histogram, &compressed_len);
     if (rc != 0)
@@ -980,6 +985,8 @@ int hdr_log_read(
     int end_ms = 0;
     int interval_max_s = 0;
     int interval_max_ms = 0;
+
+	(void)reader;
 
     ssize_t read = getline(&line, &line_len, file);
     if (-1 == read)

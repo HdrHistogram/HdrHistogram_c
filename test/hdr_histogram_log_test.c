@@ -836,7 +836,7 @@ int hdr_histogram_log_run_tests()
     return result.message == NULL ? 0 : -1;
 }
 
-int main(int argc, char **argv)
+int main()
 {
     return hdr_histogram_log_run_tests();
 }

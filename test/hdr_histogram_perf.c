@@ -35,7 +35,7 @@ void inc(struct hdr_histogram* h, int32_t index, int64_t value)
     h->total_count += value;
 }
 
-int main(int argc, char **argv)
+int main()
 {
     struct hdr_histogram* histogram;
     int64_t max_value = INT64_C(24) * 60 * 60 * 1000000;
