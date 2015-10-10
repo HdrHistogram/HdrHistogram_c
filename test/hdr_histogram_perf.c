@@ -13,7 +13,7 @@
 
 #include "hdr_time.h"
 
-struct timespec diff(struct timespec start, struct timespec end)
+static struct timespec diff(struct timespec start, struct timespec end)
 {
     struct timespec temp;
     if ((end.tv_nsec-start.tv_nsec) < 0)
@@ -27,12 +27,6 @@ struct timespec diff(struct timespec start, struct timespec end)
         temp.tv_nsec = end.tv_nsec - start.tv_nsec;
     }
     return temp;
-}
-
-void inc(struct hdr_histogram* h, int32_t index, int64_t value)
-{
-    h->counts[index] += value;
-    h->total_count += value;
 }
 
 int main()

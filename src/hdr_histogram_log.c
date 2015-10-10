@@ -20,6 +20,7 @@
 #include "hdr_encoding.h"
 #include "hdr_histogram.h"
 #include "hdr_histogram_log.h"
+#include "hdr_tests.h"
 
 #ifdef __APPLE__
 
@@ -54,7 +55,7 @@ int32_t counts_index_for(const struct hdr_histogram* h, int64_t value);
     }                       \
     while (0)
 
-int realloc_buffer(
+static int realloc_buffer(
     void** buffer, size_t nmemb, ssize_t size)
 {
     size_t len = nmemb * size;
@@ -86,7 +87,7 @@ int realloc_buffer(
 // ##    ##    ##    ##    ##   ##  ##   ### ##    ##  ##    ##
 //  ######     ##    ##     ## #### ##    ##  ######    ######
 
-ssize_t null_trailing_whitespace(char* s, ssize_t len)
+static ssize_t null_trailing_whitespace(char* s, ssize_t len)
 {
     ssize_t i = len;
     while (--i != -1)
@@ -121,12 +122,12 @@ static const int32_t V1_COMPRESSION_COOKIE = 0x1c849302;
 static const int32_t V2_ENCODING_COOKIE = 0x1c849303;
 static const int32_t V2_COMPRESSION_COOKIE = 0x1c849304;
 
-int32_t get_cookie_base(int32_t cookie)
+static int32_t get_cookie_base(int32_t cookie)
 {
     return (cookie & ~0xf0);
 }
 
-int32_t word_size_from_cookie(int32_t cookie)
+static int32_t word_size_from_cookie(int32_t cookie)
 {
     return (cookie & 0xf0) >> 4;
 }

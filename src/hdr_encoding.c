@@ -7,6 +7,7 @@
 #include <math.h>
 
 #include "hdr_encoding.h"
+#include "hdr_tests.h"
 
 int zig_zag_encode_i64(uint8_t* buffer, int64_t signed_value)
 {
@@ -207,7 +208,7 @@ size_t hdr_base64_decoded_len(size_t encoded_size)
     return (encoded_size / 4) * 3;
 }
 
-void hdr_base64_encode_block_pad(const uint8_t* input, char* output, size_t pad)
+static void hdr_base64_encode_block_pad(const uint8_t* input, char* output, size_t pad)
 {
     uint32_t _24_bit_value = 0;
 

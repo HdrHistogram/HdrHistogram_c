@@ -14,12 +14,12 @@
 
 #include "minunit.h"
 
-bool compare_values(double a, double b, double variation)
+static bool compare_values(double a, double b, double variation)
 {
     return compare_double(a, b, b * variation);
 }
 
-bool compare_percentile(int64_t a, double b, double variation)
+static bool compare_percentile(int64_t a, double b, double variation)
 {
     return compare_values((double) a, b, variation);
     // return fabs(a - b) <= b * variation;
@@ -425,7 +425,7 @@ static char* test_scaling_equivalence()
     return 0;
 }
 
-char* test_out_of_range_values()
+static char* test_out_of_range_values()
 {
     struct hdr_histogram *h;
     hdr_init(1, 1000, 4, &h);
@@ -455,7 +455,7 @@ static struct mu_result all_tests()
     mu_ok;
 }
 
-int hdr_histogram_run_tests()
+static int hdr_histogram_run_tests()
 {
     struct mu_result result = all_tests();
 

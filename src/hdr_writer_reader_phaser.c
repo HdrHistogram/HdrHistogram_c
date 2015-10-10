@@ -14,17 +14,17 @@
 
 #include "hdr_writer_reader_phaser.h"
 
-int64_t _hdr_phaser_get_epoch(int64_t* field)
+static int64_t _hdr_phaser_get_epoch(int64_t* field)
 {
     return __atomic_load_n(field, __ATOMIC_SEQ_CST);
 }
 
-void _hdr_phaser_set_epoch(int64_t* field, int64_t val)
+static void _hdr_phaser_set_epoch(int64_t* field, int64_t val)
 {
     __atomic_store_n(field, val, __ATOMIC_SEQ_CST);
 }
 
-int64_t _hdr_phaser_reset_epoch(int64_t* field, int64_t initial_value)
+static int64_t _hdr_phaser_reset_epoch(int64_t* field, int64_t initial_value)
 {
     return __atomic_exchange_n(field, initial_value, __ATOMIC_SEQ_CST);
 }
