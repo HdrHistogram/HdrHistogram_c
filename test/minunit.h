@@ -44,7 +44,7 @@ struct mu_result
 
 extern int tests_run;
 
-bool compare_double(double a, double b, double delta)
+static bool compare_double(double a, double b, double delta)
 {
     if (fabs(a - b) < delta)
     {

@@ -4,7 +4,6 @@
  * as explained at http://creativecommons.org/publicdomain/zero/1.0/
  */
 
-#define _GNU_SOURCE
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -23,7 +22,7 @@
 #include <hdr_interval_recorder.h>
 #include <hdr_time.h>
 
-int64_t diff(struct timespec t0, struct timespec t1)
+static int64_t diff(struct timespec t0, struct timespec t1)
 {
     int64_t delta_us = 0;
     delta_us = (t1.tv_sec - t0.tv_sec) * 1000000;
@@ -32,7 +31,7 @@ int64_t diff(struct timespec t0, struct timespec t1)
     return delta_us;
 }
 
-void update_histogram(void* data, void* arg)
+static void update_histogram(void* data, void* arg)
 {
     struct hdr_histogram* h = data;
     int64_t* values = arg;
@@ -40,7 +39,7 @@ void update_histogram(void* data, void* arg)
     hdr_record_value(h, values[0]);
 }
 
-void* record_hiccups(void* thread_context)
+static void* record_hiccups(void* thread_context)
 {
     struct pollfd fd;
     struct timespec t0;
@@ -90,7 +89,7 @@ const char* USAGE =
 "  interval: <number> Time in seconds between samples (default 1).\n"
 "  filename: <string> Name of the file to log to (default stdout).\n";
 
-int handle_opts(int argc, char** argv, struct config_t* config)
+static int handle_opts(int argc, char** argv, struct config_t* config)
 {
     int c;
     int interval = 1;

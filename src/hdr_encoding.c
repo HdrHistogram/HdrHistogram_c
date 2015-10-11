@@ -7,6 +7,7 @@
 #include <math.h>
 
 #include "hdr_encoding.h"
+#include "hdr_tests.h"
 
 int zig_zag_encode_i64(uint8_t* buffer, int64_t signed_value)
 {
@@ -207,7 +208,7 @@ size_t hdr_base64_decoded_len(size_t encoded_size)
     return (encoded_size / 4) * 3;
 }
 
-void hdr_base64_encode_block_pad(const uint8_t* input, char* output, size_t pad)
+static void hdr_base64_encode_block_pad(const uint8_t* input, char* output, size_t pad)
 {
     uint32_t _24_bit_value = 0;
 
@@ -260,8 +261,8 @@ int hdr_base64_encode(
         return EINVAL;
     }
 
-    int i = 0;
-    int j = 0;
+    size_t i = 0;
+    size_t j = 0;
     for (; input_len - i >= 3 && j < output_len; i += 3, j += 4)
     {
         hdr_base64_encode_block(&input[i], &output[j]);
@@ -294,6 +295,8 @@ void hdr_base64_decode_block(const char* input, uint8_t* output)
 int hdr_base64_decode(
     const char* input, size_t input_len, uint8_t* output, size_t output_len)
 {
+	size_t i, j;
+
     if (input_len < 4 ||
         (input_len & 3) != 0 ||
         (input_len / 4) * 3 != output_len)
@@ -301,7 +304,7 @@ int hdr_base64_decode(
         return EINVAL;
     }
 
-    for (int i = 0, j = 0; i < input_len; i += 4, j += 3)
+    for (i = 0, j = 0; i < input_len; i += 4, j += 3)
     {
         hdr_base64_decode_block(&input[i], &output[j]);
     }

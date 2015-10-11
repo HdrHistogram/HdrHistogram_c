@@ -4,8 +4,6 @@
  * as explained at http://creativecommons.org/publicdomain/zero/1.0/
  */
 
-#define _GNU_SOURCE
-
 #include <stdlib.h>
 #include <stdbool.h>
 #include <inttypes.h>
@@ -20,6 +18,7 @@
 #include "hdr_encoding.h"
 #include "hdr_histogram.h"
 #include "hdr_histogram_log.h"
+#include "hdr_tests.h"
 
 #ifdef __APPLE__
 
@@ -54,7 +53,7 @@ int32_t counts_index_for(const struct hdr_histogram* h, int64_t value);
     }                       \
     while (0)
 
-int realloc_buffer(
+static int realloc_buffer(
     void** buffer, size_t nmemb, ssize_t size)
 {
     size_t len = nmemb * size;
@@ -86,7 +85,7 @@ int realloc_buffer(
 // ##    ##    ##    ##    ##   ##  ##   ### ##    ##  ##    ##
 //  ######     ##    ##     ## #### ##    ##  ######    ######
 
-ssize_t null_trailing_whitespace(char* s, ssize_t len)
+static ssize_t null_trailing_whitespace(char* s, ssize_t len)
 {
     ssize_t i = len;
     while (--i != -1)
@@ -121,12 +120,12 @@ static const int32_t V1_COMPRESSION_COOKIE = 0x1c849302;
 static const int32_t V2_ENCODING_COOKIE = 0x1c849303;
 static const int32_t V2_COMPRESSION_COOKIE = 0x1c849304;
 
-int32_t get_cookie_base(int32_t cookie)
+static int32_t get_cookie_base(int32_t cookie)
 {
     return (cookie & ~0xf0);
 }
 
-int32_t word_size_from_cookie(int32_t cookie)
+static int32_t word_size_from_cookie(int32_t cookie)
 {
     return (cookie & 0xf0) >> 4;
 }
@@ -422,7 +421,7 @@ static int hdr_decode_compressed_v0(
 
     int32_t compressed_length = be32toh(compression_flyweight->length);
 
-    if (compressed_length < 0 || length - sizeof(_compression_flyweight) < compressed_length)
+    if (compressed_length < 0 || length - sizeof(_compression_flyweight) < (size_t)compressed_length)
     {
         FAIL_AND_CLEANUP(cleanup, result, EINVAL);
     }
@@ -517,7 +516,7 @@ static int hdr_decode_compressed_v1(
 
     int32_t compressed_length = be32toh(compression_flyweight->length);
 
-    if (compressed_length < 0 || length - sizeof(_compression_flyweight) < compressed_length)
+    if (compressed_length < 0 || length - sizeof(_compression_flyweight) < (size_t)compressed_length)
     {
         FAIL_AND_CLEANUP(cleanup, result, EINVAL);
     }
@@ -615,7 +614,7 @@ static int hdr_decode_compressed_v2(
 
     int32_t compressed_length = be32toh(compression_flyweight->length);
 
-    if (compressed_length < 0 || length - sizeof(_compression_flyweight) < compressed_length)
+    if (compressed_length < 0 || length - sizeof(_compression_flyweight) < (size_t)compressed_length)
     {
         FAIL_AND_CLEANUP(cleanup, result, EINVAL);
     }
@@ -734,6 +733,7 @@ int hdr_decode_compressed(
 
 int hdr_log_writer_init(struct hdr_log_writer* writer)
 {
+	(void)writer;
     return 0;
 }
 
@@ -788,6 +788,8 @@ int hdr_log_write_header(
     struct hdr_log_writer* writer, FILE* file,
     const char* user_prefix, struct timespec* timestamp)
 {
+	(void)writer;
+
     if (print_user_prefix(file, user_prefix) < 0)
     {
         return EIO;
@@ -821,6 +823,8 @@ int hdr_log_write(
     int rc = 0;
     int result = 0;
     size_t encoded_len;
+
+	(void)writer;
 
     rc = hdr_encode_compressed(histogram, &compressed_histogram, &compressed_len);
     if (rc != 0)
@@ -980,6 +984,8 @@ int hdr_log_read(
     int end_ms = 0;
     int interval_max_s = 0;
     int interval_max_ms = 0;
+
+	(void)reader;
 
     ssize_t read = getline(&line, &line_len, file);
     if (-1 == read)

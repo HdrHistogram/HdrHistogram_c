@@ -15,6 +15,7 @@
 #include <inttypes.h>
 
 #include "hdr_histogram.h"
+#include "hdr_tests.h"
 
 //  ######   #######  ##     ## ##    ## ########  ######  
 // ##    ## ##     ## ##     ## ###   ##    ##    ##    ## 
@@ -220,7 +221,7 @@ void hdr_reset_internal_counters(struct hdr_histogram* h)
     h->total_count = observed_total_count;
 }
 
-int32_t buckets_needed_to_cover_value(int64_t value, int32_t sub_bucket_count, int32_t unit_magnitude)
+static int32_t buckets_needed_to_cover_value(int64_t value, int32_t sub_bucket_count, int32_t unit_magnitude)
 {
     int64_t smallest_untrackable_value = ((int64_t) sub_bucket_count) << unit_magnitude;
     int32_t buckets_needed = 1;
@@ -686,7 +687,7 @@ bool hdr_iter_next(struct hdr_iter* iter)
 // ##        ##       ##    ##  ##    ## ##       ##   ###    ##     ##  ##       ##       ##    ##
 // ##        ######## ##     ##  ######  ######## ##    ##    ##    #### ######## ########  ######
 
-bool _percentile_iter_next(struct hdr_iter* iter)
+static bool _percentile_iter_next(struct hdr_iter* iter)
 {
     struct hdr_iter_percentiles* percentiles = &iter->specifics.percentiles;
 
@@ -772,7 +773,7 @@ static void format_line_string(char* str, size_t len, int significant_figures, f
 // ##     ## ########  ######   #######  ##     ## ########  ######## ########
 
 
-bool _recorded_iter_next(struct hdr_iter* iter)
+static bool _recorded_iter_next(struct hdr_iter* iter)
 {
     while (_basic_iter_next(iter))
     {
@@ -806,7 +807,7 @@ void hdr_iter_recorded_init(struct hdr_iter* iter, const struct hdr_histogram* h
 // ######## #### ##    ## ######## ##     ## ##     ##
 
 
-bool _iter_linear_next(struct hdr_iter* iter)
+static bool _iter_linear_next(struct hdr_iter* iter)
 {
     struct hdr_iter_linear* linear = &iter->specifics.linear;
 
@@ -862,7 +863,7 @@ void hdr_iter_linear_init(struct hdr_iter* iter, const struct hdr_histogram* h, 
 // ##       ##     ## ##    ##  ##     ## ##    ##   ##     ##    ##     ## ##     ##  ##  ##    ##
 // ########  #######   ######   ##     ## ##     ## ####    ##    ##     ## ##     ## ####  ######
 
-bool _log_iter_next(struct hdr_iter *iter)
+static bool _log_iter_next(struct hdr_iter *iter)
 {
     struct hdr_iter_log* logarithmic = &iter->specifics.log;
 

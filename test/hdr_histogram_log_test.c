@@ -818,7 +818,7 @@ static struct mu_result all_tests()
     mu_ok;
 }
 
-int hdr_histogram_log_run_tests()
+static int hdr_histogram_log_run_tests()
 {
     struct mu_result result = all_tests();
 
@@ -836,7 +836,7 @@ int hdr_histogram_log_run_tests()
     return result.message == NULL ? 0 : -1;
 }
 
-int main(int argc, char **argv)
+int main()
 {
     return hdr_histogram_log_run_tests();
 }
