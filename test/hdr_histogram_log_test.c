@@ -156,7 +156,8 @@ static void load_histograms()
     hdr_alloc(INT64_C(3600) * 1000 * 1000, 3, &raw_histogram);
     hdr_alloc(INT64_C(3600) * 1000 * 1000, 3, &cor_histogram);
 
-    for (int i = 0; i < 10000; i++)
+    int i;
+    for (i = 0; i < 10000; i++)
     {
         hdr_record_value(raw_histogram, 1000);
         hdr_record_corrected_value(cor_histogram, 1000, 10000);
@@ -298,7 +299,8 @@ static char* test_encode_and_decode_compressed_large()
     hdr_init(1, limit, 4, &expected);
     srand(5);
 
-    for (int i = 0; i < 8070; i++)
+    int i;
+    for (i = 0; i < 8070; i++)
     {
         hdr_record_value(expected, rand() % limit);
     }
@@ -633,7 +635,8 @@ static char* test_string_encode_decode()
     struct hdr_histogram *histogram, *hdr_new = NULL;
     hdr_alloc(INT64_C(3600) * 1000 * 1000, 3, &histogram);
 
-    for (int i = 1; i < 100; i++)
+    int i;
+    for (i = 1; i < 100; i++)
     {
         hdr_record_value(histogram, i*i);
     }

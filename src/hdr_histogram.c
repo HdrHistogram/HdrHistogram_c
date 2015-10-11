@@ -183,8 +183,9 @@ void hdr_reset_internal_counters(struct hdr_histogram* h)
     int min_non_zero_index = -1;
     int max_index = -1;
     int64_t observed_total_count = 0;
+    int i;
 
-    for (int i = 0; i < h->counts_len; i++)
+    for (i = 0; i < h->counts_len; i++)
     {
         int64_t count_at_index;
 
