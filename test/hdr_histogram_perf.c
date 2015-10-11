@@ -49,10 +49,12 @@ int main()
     setlocale(LC_NUMERIC, "");
     int64_t iterations = 400000000;
 
-    for (int i = 0; i < 100; i++)
+    int i;
+    for (i = 0; i < 100; i++)
     {
+        int64_t j;
         hdr_gettime(&t0);
-        for (int64_t j = 1; j < iterations; j++)
+        for (j = 1; j < iterations; j++)
         {
             hdr_record_value(histogram, j);
         }

@@ -238,7 +238,8 @@ int hdr_encode_compressed(
     }
 
     int data_index = 0;
-    for (int i = 0; i < counts_limit;)
+    int i;
+    for (i = 0; i < counts_limit;)
     {
         int64_t value = h->counts[i];
         i++;
@@ -315,7 +316,8 @@ void hdr_reset_internal_counters(struct hdr_histogram* h);
 
 static void _apply_to_counts_16(struct hdr_histogram* h, const int16_t* counts_data, const int32_t counts_limit)
 {
-    for (int i = 0; i < counts_limit; i++)
+    int i;
+    for (i = 0; i < counts_limit; i++)
     {
         h->counts[i] = be16toh(counts_data[i]);
     }
@@ -323,7 +325,8 @@ static void _apply_to_counts_16(struct hdr_histogram* h, const int16_t* counts_d
 
 static void _apply_to_counts_32(struct hdr_histogram* h, const int32_t* counts_data, const int32_t counts_limit)
 {
-    for (int i = 0; i < counts_limit; i++)
+    int i;
+    for (i = 0; i < counts_limit; i++)
     {
         h->counts[i] = be32toh(counts_data[i]);
     }
@@ -331,7 +334,8 @@ static void _apply_to_counts_32(struct hdr_histogram* h, const int32_t* counts_d
 
 static void _apply_to_counts_64(struct hdr_histogram* h, const int64_t* counts_data, const int32_t counts_limit)
 {
-    for (int i = 0; i < counts_limit; i++)
+    int i;
+    for (i = 0; i < counts_limit; i++)
     {
         h->counts[i] = be64toh(counts_data[i]);
     }
