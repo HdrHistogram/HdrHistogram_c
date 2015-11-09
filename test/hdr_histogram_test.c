@@ -435,6 +435,34 @@ static char* test_out_of_range_values()
     return 0;
 }
 
+static char* test_linear_iter_buckets_correctly()
+{
+    struct hdr_histogram *h;
+    hdr_init(1, 1000, 2, &h);
+
+    hdr_record_value(h, 193);
+    hdr_record_value(h, 0);
+    hdr_record_value(h, 1);
+    hdr_record_value(h, 64);
+    hdr_record_value(h, 128);
+
+    struct hdr_iter iter;
+    hdr_iter_linear_init(&iter, h, 64);
+
+    int step_count = 0;
+    int64_t total_count = 0;
+    while (hdr_iter_next(&iter))
+    {
+        total_count += iter.count;
+        step_count++;
+    }
+
+    mu_assert("Should have encountered 4 steps", compare_int64(4, step_count));
+    mu_assert("Should have encountered lots of counts", compare_int64(2, total_count));
+
+    return 0;
+}
+
 static struct mu_result all_tests()
 {
     mu_run_test(test_create);
@@ -451,6 +479,7 @@ static struct mu_result all_tests()
     mu_run_test(test_reset);
     mu_run_test(test_scaling_equivalence);
     mu_run_test(test_out_of_range_values);
+    mu_run_test(test_linear_iter_buckets_correctly);
 
     mu_ok;
 }
