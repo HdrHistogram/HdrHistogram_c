@@ -651,6 +651,30 @@ static char* test_string_encode_decode()
     return 0;
 }
 
+static char* test_string_encode_decode_2()
+{
+    struct hdr_histogram *histogram, *hdr_new = NULL;
+    hdr_alloc(1000, 3, &histogram);
+
+    int i;
+    for (i = 1; i < histogram->highest_trackable_value; i++)
+    {
+        hdr_record_value(histogram, i);
+    }
+
+    char *data;
+
+    mu_assert(
+        "Failed to encode histogram data", validate_return_code(hdr_log_encode(histogram, &data)));
+    mu_assert(
+        "Failed to decode histogram data", validate_return_code(hdr_log_decode(&hdr_new, data, strlen(data))));
+    mu_assert("Histograms should be the same", compare_histogram(histogram, hdr_new));
+    mu_assert("Mean different after encode/decode", compare_double(hdr_mean(histogram), hdr_mean(hdr_new), 0.001));
+
+    return 0;
+}
+
+
 static char* decode_v1_log()
 {
     const char* v1_log = "jHiccup-2.0.6.logV1.hlog";
@@ -701,7 +725,7 @@ static char* decode_v2_log()
     const char* v2_log = "jHiccup-2.0.7S.logV2.hlog";
 
     FILE* f = fopen(v2_log, "r");
-    mu_assert("Can not open v1 log file", f != NULL);
+    mu_assert("Can not open v2 log file", f != NULL);
 
     struct hdr_histogram* accum;
     hdr_init(1, INT64_C(3600000000000), 3, &accum);
@@ -810,6 +834,7 @@ static struct mu_result all_tests()
     mu_run_test(log_reader_fails_with_incorrect_version);
 
     mu_run_test(test_string_encode_decode);
+    mu_run_test(test_string_encode_decode_2);
 
     mu_run_test(decode_v2_log);
     mu_run_test(decode_v1_log);

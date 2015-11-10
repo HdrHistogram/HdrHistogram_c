@@ -262,10 +262,11 @@ int hdr_encode_compressed(
         }
     }
 
+    int32_t payload_len = data_index;
     size_t encoded_size = sizeof(_encoding_flyweight_v1) + data_index;
 
     encoded->cookie                   = htobe32(V2_ENCODING_COOKIE | 0x10);
-    encoded->payload_len              = htobe32(encoded_size);
+    encoded->payload_len              = htobe32(payload_len);
     encoded->normalizing_index_offset = htobe32(h->normalizing_index_offset);
     encoded->significant_figures      = htobe32(h->significant_figures);
     encoded->lowest_trackable_value   = htobe64(h->lowest_trackable_value);
