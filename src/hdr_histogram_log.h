@@ -28,6 +28,8 @@
 
 #include "hdr_histogram.h"
 
+__BEGIN_DECLS
+
 /**
  * Encode and compress the histogram with gzip.
  */
@@ -153,5 +155,7 @@ int hdr_log_read(
  * @return The user readable representation of the error.
  */
 const char* hdr_strerror(int errnum);
+
+__END_DECLS
 
 #endif

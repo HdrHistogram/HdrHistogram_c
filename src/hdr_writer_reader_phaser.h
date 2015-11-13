@@ -22,6 +22,8 @@ struct hdr_writer_reader_phaser
     pthread_mutex_t* reader_mutex;
 } __attribute__((aligned (8)));
 
+__BEGIN_DECLS
+
 int hdr_writer_reader_phaser_init(struct hdr_writer_reader_phaser* p);
 
 void hdr_writer_reader_phaser_destory(struct hdr_writer_reader_phaser* p);
@@ -37,5 +39,7 @@ void hdr_phaser_reader_unlock(struct hdr_writer_reader_phaser* p);
 
 void hdr_phaser_flip_phase(
     struct hdr_writer_reader_phaser* p, int64_t sleep_time_ns);
+
+__END_DECLS
 
 #endif

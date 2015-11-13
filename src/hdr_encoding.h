@@ -9,6 +9,8 @@
 
 #define MAX_BYTES_LEB128 9
 
+__BEGIN_DECLS
+
 /**
  * Writes a int64_t value to the given buffer in LEB128 ZigZag encoded format
  *
@@ -66,5 +68,6 @@ size_t hdr_base64_decoded_len(size_t encoded_size);
 int hdr_base64_decode(
     const char* input, size_t input_len, uint8_t* output, size_t output_len);
 
+__END_DECLS
 
 #endif //HDR_HISTOGRAM_HDR_ENCODING_H

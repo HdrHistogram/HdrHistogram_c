@@ -6,6 +6,8 @@
 
 #include <time.h>
 
+__BEGIN_DECLS
+
 #if defined(__APPLE__)
 #include <mach/clock.h>
 #include <mach/mach.h>
@@ -33,3 +35,5 @@ static void hdr_gettime(struct timespec* t)
 #warning "Platform not supported\n"
 
 #endif
+
+__END_DECLS
