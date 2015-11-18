@@ -438,9 +438,10 @@ static char* test_out_of_range_values()
 static char* test_linear_iter_buckets_correctly()
 {
     struct hdr_histogram *h;
-    hdr_init(1, 1000, 2, &h);
+    hdr_init(1, 255, 2, &h);
 
     hdr_record_value(h, 193);
+    hdr_record_value(h, 255);
     hdr_record_value(h, 0);
     hdr_record_value(h, 1);
     hdr_record_value(h, 64);
@@ -453,12 +454,12 @@ static char* test_linear_iter_buckets_correctly()
     int64_t total_count = 0;
     while (hdr_iter_next(&iter))
     {
-        total_count += iter.count;
+        total_count += iter.specifics.linear.count_added_in_this_iteration_step;
         step_count++;
     }
 
-    mu_assert("Should have encountered 4 steps", compare_int64(4, step_count));
-    mu_assert("Should have encountered lots of counts", compare_int64(2, total_count));
+    mu_assert("Number of steps", compare_int64(4, step_count));
+    mu_assert("Total count", compare_int64(6, total_count));
 
     return 0;
 }
