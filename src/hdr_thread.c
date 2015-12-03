@@ -1,20 +1,20 @@
 /**
-* hdr_histogram.c
+* hdr_thread.c
 * Written by Philip Orwig and released to the public domain,
 * as explained at http://creativecommons.org/publicdomain/zero/1.0/
 */
 
-#include "hdr_thread.h"
 #include <stdlib.h>
+#include "hdr_thread.h"
 
-struct hdr_mutex* hdr_mutex_alloc()
+struct hdr_mutex* hdr_mutex_alloc(void)
 {
-	return malloc(sizeof(hdr_mutex));
+    return (hdr_mutex*)malloc(sizeof(hdr_mutex));
 }
 
 void hdr_mutex_free(struct hdr_mutex* mutex)
 {
-	free(mutex);
+    free(mutex);
 }
 
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)

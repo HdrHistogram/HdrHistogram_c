@@ -9,17 +9,6 @@
 
 #include <stdint.h>
 
-typedef struct hdr_mutex;
-
-struct hdr_mutex* hdr_mutex_alloc();
-void hdr_mutex_free(struct hdr_mutex* mutex);
-
-int hdr_mutex_init(struct hdr_mutex* mutex);
-void hdr_mutex_destroy(struct hdr_mutex* mutex);
-
-void hdr_mutex_lock(struct hdr_mutex* mutex);
-void hdr_mutex_unlock(struct hdr_mutex* mutex);
-
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 
 
@@ -41,5 +30,14 @@ typedef struct hdr_mutex
     pthread_mutex_t _mutex;
 } hdr_mutex;
 #endif
+
+struct hdr_mutex* hdr_mutex_alloc(void);
+void hdr_mutex_free(struct hdr_mutex*);
+
+int hdr_mutex_init(struct hdr_mutex* mutex);
+void hdr_mutex_destroy(struct hdr_mutex* mutex);
+
+void hdr_mutex_lock(struct hdr_mutex* mutex);
+void hdr_mutex_unlock(struct hdr_mutex* mutex);
 
 #endif

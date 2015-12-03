@@ -22,6 +22,7 @@
 #include "hdr_tests.h"
 
 #if defined(_MSC_VER)
+#include <intsafe.h>
 typedef SSIZE_T ssize_t;
 #pragma comment(lib, "ws2_32.lib")
 #endif
@@ -1045,7 +1046,6 @@ int hdr_log_read(
     char* base64_histogram = NULL;
     uint8_t* compressed_histogram = NULL;
     char* line = NULL;
-    size_t line_len = 0;
     int result = 0;
 
     int begin_s = 0;

@@ -13,6 +13,8 @@
 #if defined(_MSC_VER)
 #include <WinSock2.h>
 #else
+#include <unistd.h>
+#include <sched.h>
 #endif
 
 #include "hdr_atomic.h"
@@ -22,17 +24,17 @@
 
 static int64_t _hdr_phaser_get_epoch(int64_t* field)
 {
-    return hdr_atomic_load(field);
+    return hdr_atomic_load_64(field);
 }
 
 static void _hdr_phaser_set_epoch(int64_t* field, int64_t val)
 {
-    hdr_atomic_store(field, val);
+    hdr_atomic_store_64(field, val);
 }
 
 static int64_t _hdr_phaser_reset_epoch(int64_t* field, int64_t initial_value)
 {
-    return hdr_atomic_exchange(field, initial_value);
+    return hdr_atomic_exchange_64(field, initial_value);
 }
 
 int hdr_writer_reader_phaser_init(struct hdr_writer_reader_phaser* p)
@@ -70,7 +72,7 @@ void hdr_writer_reader_phaser_destory(struct hdr_writer_reader_phaser* p)
 
 int64_t hdr_phaser_writer_enter(struct hdr_writer_reader_phaser* p)
 {
-    return hdr_atomic_fetch_add(&p->start_epoch, 1) + 1;
+    return hdr_atomic_fetch_add_64(&p->start_epoch, 1) + 1;
 }
 
 void hdr_phaser_writer_exit(
@@ -78,7 +80,7 @@ void hdr_phaser_writer_exit(
 {
     int64_t* end_epoch = 
         (critical_value_at_enter < 0) ? &p->odd_end_epoch : &p->even_end_epoch;
-    hdr_atomic_fetch_add(end_epoch, 1);
+    hdr_atomic_fetch_add_64(end_epoch, 1);
 }
 
 void hdr_phaser_reader_lock(struct hdr_writer_reader_phaser* p)

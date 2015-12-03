@@ -24,7 +24,7 @@ void hdr_interval_recorder_update(
 {
     int64_t val = hdr_phaser_writer_enter(&r->phaser);
 
-    void* active = (void*)hdr_atomic_load((int64_t*)&r->active);
+    void* active = hdr_atomic_load_pointer(&r->active);
 
     update_action(active, arg);
 
@@ -40,10 +40,10 @@ void* hdr_interval_recorder_sample(struct hdr_interval_recorder* r)
     temp = r->inactive;
 
     // volatile read
-    r->inactive = (void *)hdr_atomic_load((int64_t*)&r->active);
+    r->inactive = hdr_atomic_load_pointer(&r->active);
 
     // volatile write
-    hdr_atomic_store((int64_t*)&r->active, (int64_t)temp);
+    hdr_atomic_store_pointer(&r->active, temp);
 
     hdr_phaser_flip_phase(&r->phaser, 0);
 
