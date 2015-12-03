@@ -20,6 +20,11 @@
 #include <hdr_encoding.h>
 #include "minunit.h"
 
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable: 4996)
+#endif
+
 int tests_run = 0;
 
 static bool compare_int(int a, int b)
@@ -73,7 +78,7 @@ static bool compare_timespec(struct hdr_timespec* a, struct hdr_timespec* b)
     return false;
 }
 
-static bool compare_string(const char* a, const char* b, int len)
+static bool compare_string(const char* a, const char* b, size_t len)
 {
     if (strncmp(a, b, len) == 0)
     {
@@ -332,7 +337,7 @@ static char* test_encode_and_decode_compressed_large()
 
 static bool assert_base64_encode(const char* input, const char* expected)
 {
-    int input_len = strlen(input);
+    size_t input_len = strlen(input);
     int output_len = (int) (ceil(input_len / 3.0) * 4.0);
 
     char* output = calloc(sizeof(char), output_len);
@@ -403,8 +408,8 @@ static char* base64_decode_block_decodes_4_chars()
 
 static bool assert_base64_decode(const char* base64_encoded, const char* expected)
 {
-    int encoded_len = strlen(base64_encoded);
-    int output_len = (encoded_len / 4) * 3;
+    size_t encoded_len = strlen(base64_encoded);
+    size_t output_len = (encoded_len / 4) * 3;
 
     uint8_t* output = calloc(sizeof(uint8_t), output_len);
 
@@ -874,3 +879,7 @@ int main()
 {
     return hdr_histogram_log_run_tests();
 }
+
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif

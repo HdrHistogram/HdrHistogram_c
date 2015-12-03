@@ -25,6 +25,8 @@
 #include <intsafe.h>
 typedef SSIZE_T ssize_t;
 #pragma comment(lib, "ws2_32.lib")
+#pragma warning(push)
+#pragma warning(disable: 4996)
 #endif
 
 #include "hdr_endian.h"
@@ -253,7 +255,7 @@ int hdr_encode_compressed(
     }
 
     int32_t payload_len = data_index;
-    size_t encoded_size = sizeof(_encoding_flyweight_v1) + data_index;
+    uLong encoded_size = sizeof(_encoding_flyweight_v1) + data_index;
 
     encoded->cookie                   = htobe32(V2_ENCODING_COOKIE | 0x10);
     encoded->payload_len              = htobe32(payload_len);
@@ -1188,3 +1190,7 @@ cleanup:
 
     return result;
 }
+
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif

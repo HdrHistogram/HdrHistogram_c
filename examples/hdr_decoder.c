@@ -14,7 +14,10 @@
 #include <hdr_histogram.h>
 #include <hdr_histogram_log.h>
 
-
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable: 4996)
+#endif
 int main(int argc, char** argv)
 {
     int rc = 0;
@@ -74,3 +77,7 @@ int main(int argc, char** argv)
 
     return 0;
 }
+
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif

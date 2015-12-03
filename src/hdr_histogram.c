@@ -275,17 +275,17 @@ int hdr_calculate_bucket_config(
     cfg->highest_trackable_value = highest_trackable_value;
 
     int64_t largest_value_with_single_unit_resolution = 2 * power(10, significant_figures);
-    int32_t sub_bucket_count_magnitude = (int32_t) ceil(log(largest_value_with_single_unit_resolution) / log(2));
+    int32_t sub_bucket_count_magnitude = (int32_t) ceil(log((double)largest_value_with_single_unit_resolution) / log(2));
     cfg->sub_bucket_half_count_magnitude = ((sub_bucket_count_magnitude > 1) ? sub_bucket_count_magnitude : 1) - 1;
 
-    cfg->unit_magnitude = (int32_t) floor(log(lowest_trackable_value) / log(2));
+    cfg->unit_magnitude = (int32_t) floor(log((double)lowest_trackable_value) / log(2));
 
     cfg->sub_bucket_count      = (int32_t) pow(2, (cfg->sub_bucket_half_count_magnitude + 1));
     cfg->sub_bucket_half_count = cfg->sub_bucket_count / 2;
     cfg->sub_bucket_mask       = ((int64_t) cfg->sub_bucket_count - 1) << cfg->unit_magnitude;
 
     // determine exponent range needed to support the trackable value with no overflow:
-    cfg->bucket_count = buckets_needed_to_cover_value(highest_trackable_value, cfg->sub_bucket_count, cfg->unit_magnitude);
+    cfg->bucket_count = buckets_needed_to_cover_value(highest_trackable_value, cfg->sub_bucket_count, (int32_t)cfg->unit_magnitude);
     cfg->counts_len = (cfg->bucket_count + 1) * (cfg->sub_bucket_count / 2);
 
     return 0;
@@ -295,8 +295,8 @@ void hdr_init_preallocated(struct hdr_histogram* h, struct hdr_histogram_bucket_
 {
     h->lowest_trackable_value          = cfg->lowest_trackable_value;
     h->highest_trackable_value         = cfg->highest_trackable_value;
-    h->unit_magnitude                  = cfg->unit_magnitude;
-    h->significant_figures             = cfg->significant_figures;
+    h->unit_magnitude                  = (int32_t)cfg->unit_magnitude;
+    h->significant_figures             = (int32_t)cfg->significant_figures;
     h->sub_bucket_half_count_magnitude = cfg->sub_bucket_half_count_magnitude;
     h->sub_bucket_half_count           = cfg->sub_bucket_half_count;
     h->sub_bucket_mask                 = cfg->sub_bucket_mask;
@@ -726,9 +726,8 @@ static bool _percentile_iter_next(struct hdr_iter* iter)
             _update_iterated_values(iter, highest_equivalent_value(iter->h, iter->value));
 
             percentiles->percentile = percentiles->percentile_to_iterate_to;
-
-            int64_t half_distance =
-                (int64_t) pow(2, (int64_t) (log(100 / (100.0 - (percentiles->percentile_to_iterate_to))) / log(2)) + 1);
+            int64_t temp = (int64_t)(log(100 / (100.0 - (percentiles->percentile_to_iterate_to))) / log(2)) + 1;
+            int64_t half_distance = (int64_t) pow(2, (double) temp);
             int64_t percentile_reporting_ticks = percentiles->ticks_per_half_distance * half_distance;
             percentiles->percentile_to_iterate_to += 100.0 / percentile_reporting_ticks;
 
@@ -758,6 +757,8 @@ static void format_line_string(char* str, size_t len, int significant_figures, f
 {
 #if defined(_MSC_VER)
 #define snprintf _snprintf
+#pragma warning(push)
+#pragma warning(disable: 4996)
 #endif
     const char* format_str = "%s%d%s";
 
@@ -774,6 +775,7 @@ static void format_line_string(char* str, size_t len, int significant_figures, f
     }
 #if defined(_MSC_VER)
 #undef snprintf
+#pragma warning(pop)
 #endif
 }
 
@@ -893,7 +895,7 @@ static bool _log_iter_next(struct hdr_iter *iter)
             {
                 _update_iterated_values(iter, logarithmic->next_value_reporting_level);
 
-                logarithmic->next_value_reporting_level *= logarithmic->log_base;
+                logarithmic->next_value_reporting_level *= (int64_t)logarithmic->log_base;
                 logarithmic->next_value_reporting_level_lowest_equivalent = lowest_equivalent_value(iter->h, logarithmic->next_value_reporting_level);
 
                 return true;
