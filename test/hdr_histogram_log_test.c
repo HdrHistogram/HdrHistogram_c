@@ -38,7 +38,7 @@ static long ns_to_ms(long ns)
     return (ns / 1000000) * 1000000;
 }
 
-static bool compare_timespec(struct timespec* a, struct timespec* b)
+static bool compare_timespec(struct hdr_timespec* a, struct hdr_timespec* b)
 {
     char a_str[128];
     char b_str[128];
@@ -53,10 +53,16 @@ static bool compare_timespec(struct timespec* a, struct timespec* b)
 
     if (a->tv_sec != b->tv_sec)
     {
+#if defined(_MSC_VER)
+		_ctime32_s(a_str, sizeof(a_str), &a->tv_sec);
+		_ctime32_s(b_str, sizeof(b_str), &b->tv_sec);
+		printf("tv_sec: %s != %s\n", a_str, b_str);
+#else
         printf(
             "tv_sec: %s != %s\n",
             ctime_r(&a->tv_sec, a_str),
             ctime_r(&b->tv_sec, b_str));
+#endif
     }
 
     if (a_tv_msec == b_tv_msec)
@@ -449,8 +455,8 @@ static char* base64_decode_fails_with_invalid_lengths()
 static char* writes_and_reads_log()
 {
     const char* file_name = "histogram.log";
-    struct timespec timestamp;
-    struct timespec interval;
+    struct hdr_timespec timestamp;
+    struct hdr_timespec interval;
 
     hdr_gettime(&timestamp);
     interval.tv_sec = 5;
@@ -489,8 +495,8 @@ static char* writes_and_reads_log()
         "Incorrect start timestamp",
         compare_timespec(&reader.start_timestamp, &timestamp));
 
-    struct timespec actual_timestamp;
-    struct timespec actual_interval;
+    struct hdr_timespec actual_timestamp;
+    struct hdr_timespec actual_interval;
 
     rc = hdr_log_read(
         &reader, log_file, &read_cor_histogram,
@@ -524,8 +530,8 @@ static char* writes_and_reads_log()
 static char* log_reader_aggregates_into_single_histogram()
 {
     const char* file_name = "histogram.log";
-    struct timespec timestamp;
-    struct timespec interval;
+    struct hdr_timespec timestamp;
+    struct hdr_timespec interval;
 
     hdr_gettime(&timestamp);
     interval.tv_sec = 5;
@@ -687,8 +693,8 @@ static char* decode_v1_log()
 
     struct hdr_histogram* h = NULL;
     struct hdr_log_reader reader;
-    struct timespec timestamp;
-    struct timespec interval;
+    struct hdr_timespec timestamp;
+    struct hdr_timespec interval;
 
     hdr_log_reader_init(&reader);
 
@@ -732,8 +738,8 @@ static char* decode_v2_log()
 
     struct hdr_histogram* h = NULL;
     struct hdr_log_reader reader;
-    struct timespec timestamp;
-    struct timespec interval;
+    struct hdr_timespec timestamp;
+    struct hdr_timespec interval;
 
     hdr_log_reader_init(&reader);
 
@@ -776,8 +782,8 @@ static char* decode_v0_log()
 
     struct hdr_histogram* h = NULL;
     struct hdr_log_reader reader;
-    struct timespec timestamp;
-    struct timespec interval;
+    struct hdr_timespec timestamp;
+    struct hdr_timespec interval;
 
     hdr_log_reader_init(&reader);
 

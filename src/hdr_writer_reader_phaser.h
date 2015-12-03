@@ -10,17 +10,18 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <pthread.h>
-#include <unistd.h>
+#include <hdr_thread.h>
 #include <errno.h>
 
+HDR_ALIGN_PREFIX(8) 
 struct hdr_writer_reader_phaser
 {
     int64_t start_epoch;
     int64_t even_end_epoch;
     int64_t odd_end_epoch;
-    pthread_mutex_t* reader_mutex;
-} __attribute__((aligned (8)));
+    hdr_mutex* reader_mutex;
+} 
+HDR_ALIGN_SUFFIX(8);
 
 int hdr_writer_reader_phaser_init(struct hdr_writer_reader_phaser* p);
 

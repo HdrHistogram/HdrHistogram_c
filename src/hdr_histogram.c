@@ -81,7 +81,7 @@ static void update_min_max(struct hdr_histogram* h, int64_t value)
 
 static int64_t power(int64_t base, int64_t exp)
 {
-    int result = 1;
+    int64_t result = 1;
     while(exp)
     {
         result *= base; exp--;
@@ -91,7 +91,14 @@ static int64_t power(int64_t base, int64_t exp)
 
 static int32_t get_bucket_index(const struct hdr_histogram* h, int64_t value)
 {
+#if defined(_MSC_VER)
+	uint32_t leading_zero = 0;
+	_BitScanReverse64(&leading_zero, value | h->sub_bucket_mask);
+
+	int32_t pow2ceiling = 64 - (63 - leading_zero); // smallest power of 2 containing value
+#else
     int32_t pow2ceiling = 64 - __builtin_clzll(value | h->sub_bucket_mask); // smallest power of 2 containing value
+#endif
     return pow2ceiling - h->unit_magnitude - (h->sub_bucket_half_count_magnitude + 1);
 }
 
@@ -749,6 +756,9 @@ void hdr_iter_percentile_init(struct hdr_iter* iter, const struct hdr_histogram*
 
 static void format_line_string(char* str, size_t len, int significant_figures, format_type format)
 {
+#if defined(_MSC_VER)
+#define snprintf _snprintf
+#endif
     const char* format_str = "%s%d%s";
 
     switch (format)
@@ -762,6 +772,9 @@ static void format_line_string(char* str, size_t len, int significant_figures, f
         default:
             snprintf(str, len, format_str, "%12.", significant_figures, "f %12f %12d %12.2f\n");
     }
+#if defined(_MSC_VER)
+#undef snprintf
+#endif
 }
 
 

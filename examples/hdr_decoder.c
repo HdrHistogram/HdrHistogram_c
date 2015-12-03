@@ -43,8 +43,8 @@ int main(int argc, char** argv)
     }
 
     struct hdr_histogram* h = NULL;
-    struct timespec timestamp;
-    struct timespec interval;
+    struct hdr_timespec timestamp;
+    struct hdr_timespec interval;
 
     rc = hdr_log_read_header(&reader, f);
     if(rc)

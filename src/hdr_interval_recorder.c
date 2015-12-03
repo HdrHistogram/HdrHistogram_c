@@ -4,6 +4,7 @@
  * as explained at http://creativecommons.org/publicdomain/zero/1.0/
  */
 
+#include "hdr_atomic.h"
 #include "hdr_interval_recorder.h"
 
 int hdr_interval_recorder_init(struct hdr_interval_recorder* r)
@@ -23,7 +24,7 @@ void hdr_interval_recorder_update(
 {
     int64_t val = hdr_phaser_writer_enter(&r->phaser);
 
-    void* active = __atomic_load_n(&r->active, __ATOMIC_SEQ_CST);
+    void* active = (void*)hdr_atomic_load((int64_t*)&r->active);
 
     update_action(active, arg);
 
@@ -39,10 +40,10 @@ void* hdr_interval_recorder_sample(struct hdr_interval_recorder* r)
     temp = r->inactive;
 
     // volatile read
-    r->inactive = __atomic_load_n(&r->active, __ATOMIC_SEQ_CST);
+    r->inactive = (void *)hdr_atomic_load((int64_t*)&r->active);
 
     // volatile write
-    __atomic_store_n(&r->active, temp, __ATOMIC_SEQ_CST);
+    hdr_atomic_store((int64_t*)&r->active, (int64_t)temp);
 
     hdr_phaser_flip_phase(&r->phaser, 0);
 
