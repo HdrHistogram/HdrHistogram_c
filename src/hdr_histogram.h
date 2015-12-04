@@ -34,6 +34,10 @@ struct hdr_histogram
     int64_t counts[0];
 };
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * Allocate the memory and initialise the hdr_histogram.
  *
@@ -403,5 +407,9 @@ void hdr_init_preallocated(struct hdr_histogram* h, struct hdr_histogram_bucket_
 int64_t hdr_size_of_equivalent_value_range(const struct hdr_histogram *h, int64_t value);
 int64_t hdr_next_non_equivalent_value(const struct hdr_histogram *h, int64_t value);
 int64_t hdr_median_equivalent_value(const struct hdr_histogram *h, int64_t value);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

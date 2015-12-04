@@ -28,6 +28,10 @@
 #include "hdr_time.h"
 #include "hdr_histogram.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * Encode and compress the histogram with gzip.
  */
@@ -154,5 +158,9 @@ int hdr_log_read(
  * @return The user readable representation of the error.
  */
 const char* hdr_strerror(int errnum);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

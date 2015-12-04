@@ -18,6 +18,7 @@
 #pragma warning(push)
 #pragma warning(disable: 4996)
 #endif
+
 int main(int argc, char** argv)
 {
     int rc = 0;

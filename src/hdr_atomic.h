@@ -1,4 +1,8 @@
-#pragma once
+/**
+ * hdr_atomic.h
+ * Written by Philip Orwig and released to the public domain,
+ * as explained at http://creativecommons.org/publicdomain/zero/1.0/
+ */
 
 #ifndef HDR_ATOMIC_H__
 #define HDR_ATOMIC_H__

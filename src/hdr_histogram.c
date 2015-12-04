@@ -848,8 +848,9 @@ static bool _iter_linear_next(struct hdr_iter* iter)
 
             if (!move_next(iter))
             {
-                break;
+                return true;
             }
+
             linear->count_added_in_this_iteration_step += iter->count;
         }
         while (true);
@@ -903,7 +904,7 @@ static bool _log_iter_next(struct hdr_iter *iter)
 
             if (!move_next(iter))
             {
-                break;
+                return true;
             }
 
             logarithmic->count_added_in_this_iteration_step += iter->count;

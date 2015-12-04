@@ -18,6 +18,10 @@ struct hdr_interval_recorder
 } 
 HDR_ALIGN_SUFFIX(8);
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int hdr_interval_recorder_init(struct hdr_interval_recorder* r);
 
 void hdr_interval_recorder_destroy(struct hdr_interval_recorder* r);
@@ -28,5 +32,9 @@ void hdr_interval_recorder_update(
     void* arg);
 
 void* hdr_interval_recorder_sample(struct hdr_interval_recorder* r);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

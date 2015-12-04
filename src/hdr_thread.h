@@ -31,6 +31,10 @@ typedef struct hdr_mutex
 } hdr_mutex;
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct hdr_mutex* hdr_mutex_alloc(void);
 void hdr_mutex_free(struct hdr_mutex*);
 
@@ -40,4 +44,7 @@ void hdr_mutex_destroy(struct hdr_mutex* mutex);
 void hdr_mutex_lock(struct hdr_mutex* mutex);
 void hdr_mutex_unlock(struct hdr_mutex* mutex);
 
+#ifdef __cplusplus
+}
+#endif
 #endif

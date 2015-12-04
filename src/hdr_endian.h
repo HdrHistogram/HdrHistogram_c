@@ -1,3 +1,8 @@
+/**
+* hdr_time.h
+* Released to the public domain, as explained at http://creativecommons.org/publicdomain/zero/1.0/
+*/
+
 #ifndef HDR_ENDIAN_H__
 #define HDR_ENDIAN_H__
 

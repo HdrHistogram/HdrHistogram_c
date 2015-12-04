@@ -1,3 +1,9 @@
+/**
+* hdr_time.h
+* Written by Michael Barker and Philip Orwig and released to the public domain,
+* as explained at http://creativecommons.org/publicdomain/zero/1.0/
+*/
+
 #include "hdr_time.h"
 
 #if defined(_WIN32) || defined(_WIN64)
