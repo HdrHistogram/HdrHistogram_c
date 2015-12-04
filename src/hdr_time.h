@@ -4,36 +4,39 @@
  * as explained at http://creativecommons.org/publicdomain/zero/1.0/
  */
 
+#ifndef HDR_TIME_H__
+#define HDR_TIME_H__
+
+#include <math.h>
 #include <time.h>
 
-__BEGIN_DECLS
+#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 
-#if defined(__APPLE__)
-#include <mach/clock.h>
-#include <mach/mach.h>
-
-static void hdr_gettime(struct timespec* ts)
+typedef struct hdr_timespec
 {
-    clock_serv_t cclock;
-    mach_timespec_t mts;
-    host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
-    clock_get_time(cclock, &mts);
-    mach_port_deallocate(mach_task_self(), cclock);
-    ts->tv_sec = mts.tv_sec;
-    ts->tv_nsec = mts.tv_nsec;
-}
-
-#elif defined(__linux__)
-
-static void hdr_gettime(struct timespec* t)
-{
-    clock_gettime(CLOCK_MONOTONIC, t);
-}
+    long tv_sec;
+    long tv_nsec;
+} hdr_timespec;
 
 #else
 
-#warning "Platform not supported\n"
+typedef struct timespec hdr_timespec;
 
 #endif
 
-__END_DECLS
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#if defined(_MSC_VER)
+void hdr_gettime(hdr_timespec* t);
+#else
+inline void hdr_gettime(hdr_timespec* t);
+#endif
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+

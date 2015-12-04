@@ -14,6 +14,10 @@
 #include <hdr_histogram.h>
 #include <hdr_histogram_log.h>
 
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable: 4996)
+#endif
 
 int main(int argc, char** argv)
 {
@@ -43,8 +47,8 @@ int main(int argc, char** argv)
     }
 
     struct hdr_histogram* h = NULL;
-    struct timespec timestamp;
-    struct timespec interval;
+    struct hdr_timespec timestamp;
+    struct hdr_timespec interval;
 
     rc = hdr_log_read_header(&reader, f);
     if(rc)
@@ -74,3 +78,7 @@ int main(int argc, char** argv)
 
     return 0;
 }
+
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif

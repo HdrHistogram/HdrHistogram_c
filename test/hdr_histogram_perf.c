@@ -13,9 +13,20 @@
 
 #include "hdr_time.h"
 
-static struct timespec diff(struct timespec start, struct timespec end)
+#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+
+#if !defined(WIN32_LEAN_AND_MEAN)
+#define WIN32_LEAN_AND_MEAN
+#endif
+
+#include <windows.h>
+
+#endif
+
+
+static struct hdr_timespec diff(struct hdr_timespec start, struct hdr_timespec end)
 {
-    struct timespec temp;
+    struct hdr_timespec temp;
     if ((end.tv_nsec-start.tv_nsec) < 0)
     {
         temp.tv_sec = end.tv_sec - start.tv_sec - 1;
@@ -43,9 +54,8 @@ int main()
         return -1;
     }
 
-
-    struct timespec t0;
-    struct timespec t1;
+    struct hdr_timespec t0;
+    struct hdr_timespec t1;
     setlocale(LC_NUMERIC, "");
     int64_t iterations = 400000000;
 
@@ -60,12 +70,19 @@ int main()
         }
         hdr_gettime(&t1);
 
-
-        struct timespec taken = diff(t0, t1);
+        struct hdr_timespec taken = diff(t0, t1);
         double time_taken = taken.tv_sec + taken.tv_nsec / 1000000000.0;
         double ops_sec = (iterations - 1) / time_taken;
 
-        printf("%s - %d, ops/sec: %'.2f\n", "Iteration", i + 1, ops_sec);
+#if defined(_MSC_VER)
+		wchar_t unformatted[64];
+		_snwprintf_s(unformatted, sizeof(unformatted), sizeof(unformatted) - 1, L"%.2f", ops_sec);
+		wchar_t formatted[64];
+		int ret = GetNumberFormatEx(LOCALE_NAME_USER_DEFAULT, 0, unformatted, NULL, formatted, sizeof(formatted));
+		wprintf_s(L"%s - %d, ops/sec: %s\n", L"Iteration", i + 1, formatted);
+#else
+		printf("%s - %d, ops/sec: %'.2f\n", "Iteration", i + 1, ops_sec);
+#endif
     }
 
     return 0;

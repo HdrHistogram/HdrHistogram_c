@@ -20,6 +20,11 @@
 #include <hdr_encoding.h>
 #include "minunit.h"
 
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable: 4996)
+#endif
+
 int tests_run = 0;
 
 static bool compare_int(int a, int b)
@@ -38,7 +43,7 @@ static long ns_to_ms(long ns)
     return (ns / 1000000) * 1000000;
 }
 
-static bool compare_timespec(struct timespec* a, struct timespec* b)
+static bool compare_timespec(struct hdr_timespec* a, struct hdr_timespec* b)
 {
     char a_str[128];
     char b_str[128];
@@ -53,10 +58,16 @@ static bool compare_timespec(struct timespec* a, struct timespec* b)
 
     if (a->tv_sec != b->tv_sec)
     {
+#if defined(_MSC_VER)
+		_ctime32_s(a_str, sizeof(a_str), &a->tv_sec);
+		_ctime32_s(b_str, sizeof(b_str), &b->tv_sec);
+		printf("tv_sec: %s != %s\n", a_str, b_str);
+#else
         printf(
             "tv_sec: %s != %s\n",
             ctime_r(&a->tv_sec, a_str),
             ctime_r(&b->tv_sec, b_str));
+#endif
     }
 
     if (a_tv_msec == b_tv_msec)
@@ -67,7 +78,7 @@ static bool compare_timespec(struct timespec* a, struct timespec* b)
     return false;
 }
 
-static bool compare_string(const char* a, const char* b, int len)
+static bool compare_string(const char* a, const char* b, size_t len)
 {
     if (strncmp(a, b, len) == 0)
     {
@@ -326,7 +337,7 @@ static char* test_encode_and_decode_compressed_large()
 
 static bool assert_base64_encode(const char* input, const char* expected)
 {
-    int input_len = strlen(input);
+    size_t input_len = strlen(input);
     int output_len = (int) (ceil(input_len / 3.0) * 4.0);
 
     char* output = calloc(sizeof(char), output_len);
@@ -397,8 +408,8 @@ static char* base64_decode_block_decodes_4_chars()
 
 static bool assert_base64_decode(const char* base64_encoded, const char* expected)
 {
-    int encoded_len = strlen(base64_encoded);
-    int output_len = (encoded_len / 4) * 3;
+    size_t encoded_len = strlen(base64_encoded);
+    size_t output_len = (encoded_len / 4) * 3;
 
     uint8_t* output = calloc(sizeof(uint8_t), output_len);
 
@@ -449,8 +460,8 @@ static char* base64_decode_fails_with_invalid_lengths()
 static char* writes_and_reads_log()
 {
     const char* file_name = "histogram.log";
-    struct timespec timestamp;
-    struct timespec interval;
+    struct hdr_timespec timestamp;
+    struct hdr_timespec interval;
 
     hdr_gettime(&timestamp);
     interval.tv_sec = 5;
@@ -489,8 +500,8 @@ static char* writes_and_reads_log()
         "Incorrect start timestamp",
         compare_timespec(&reader.start_timestamp, &timestamp));
 
-    struct timespec actual_timestamp;
-    struct timespec actual_interval;
+    struct hdr_timespec actual_timestamp;
+    struct hdr_timespec actual_interval;
 
     rc = hdr_log_read(
         &reader, log_file, &read_cor_histogram,
@@ -524,8 +535,8 @@ static char* writes_and_reads_log()
 static char* log_reader_aggregates_into_single_histogram()
 {
     const char* file_name = "histogram.log";
-    struct timespec timestamp;
-    struct timespec interval;
+    struct hdr_timespec timestamp;
+    struct hdr_timespec interval;
 
     hdr_gettime(&timestamp);
     interval.tv_sec = 5;
@@ -687,8 +698,8 @@ static char* decode_v1_log()
 
     struct hdr_histogram* h = NULL;
     struct hdr_log_reader reader;
-    struct timespec timestamp;
-    struct timespec interval;
+    struct hdr_timespec timestamp;
+    struct hdr_timespec interval;
 
     hdr_log_reader_init(&reader);
 
@@ -732,8 +743,8 @@ static char* decode_v2_log()
 
     struct hdr_histogram* h = NULL;
     struct hdr_log_reader reader;
-    struct timespec timestamp;
-    struct timespec interval;
+    struct hdr_timespec timestamp;
+    struct hdr_timespec interval;
 
     hdr_log_reader_init(&reader);
 
@@ -776,8 +787,8 @@ static char* decode_v0_log()
 
     struct hdr_histogram* h = NULL;
     struct hdr_log_reader reader;
-    struct timespec timestamp;
-    struct timespec interval;
+    struct hdr_timespec timestamp;
+    struct hdr_timespec interval;
 
     hdr_log_reader_init(&reader);
 
@@ -868,3 +879,7 @@ int main()
 {
     return hdr_histogram_log_run_tests();
 }
+
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
