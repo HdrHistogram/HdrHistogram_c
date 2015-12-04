@@ -6,7 +6,6 @@
 
 #include <stdlib.h>
 #include "hdr_thread.h"
-#include <pthread.h>
 
 struct hdr_mutex* hdr_mutex_alloc(void)
 {
@@ -48,6 +47,7 @@ void hdr_mutex_unlock(struct hdr_mutex* mutex)
 }
 
 #else
+#include <pthread.h>
 
 int hdr_mutex_init(struct hdr_mutex* mutex)
 {
