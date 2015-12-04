@@ -70,7 +70,7 @@ int hdr_log_write_header(
     struct hdr_log_writer* writer,
     FILE* file,
     const char* user_prefix,
-    struct hdr_timespec* timestamp);
+    hdr_timespec* timestamp);
 
 /**
  * Write an hdr_histogram entry to the log.  It will be encoded in a similar
@@ -96,15 +96,15 @@ int hdr_log_write_header(
 int hdr_log_write(
     struct hdr_log_writer* writer,
     FILE* file,
-    const struct hdr_timespec* start_timestamp,
-    const struct hdr_timespec* end_timestamp,
+    const hdr_timespec* start_timestamp,
+    const hdr_timespec* end_timestamp,
     struct hdr_histogram* histogram);
 
 struct hdr_log_reader
 {
     int major_version;
     int minor_version;
-    struct hdr_timespec start_timestamp;
+    hdr_timespec start_timestamp;
 };
 
 /**
@@ -149,7 +149,7 @@ int hdr_log_read_header(struct hdr_log_reader* reader, FILE* file);
  */
 int hdr_log_read(
     struct hdr_log_reader* reader, FILE* file, struct hdr_histogram** histogram,
-    struct hdr_timespec* timestamp, struct hdr_timespec* interval);
+    hdr_timespec* timestamp, hdr_timespec* interval);
 
 /**
  * Returns a string representation of the error number.

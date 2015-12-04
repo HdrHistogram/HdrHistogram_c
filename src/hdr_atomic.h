@@ -42,19 +42,18 @@ static int64_t __inline hdr_atomic_exchange_64(volatile int64_t* field, int64_t 
 	return _InterlockedExchange64(field, initial);
 }
 
-static int64_t __inline hdr_atomic_fetch_add_64(volatile int64_t* field, int64_t value)
+static int64_t __inline hdr_atomic_add_fetch_64(volatile int64_t* field, int64_t value)
 {
-	return _InterlockedExchangeAdd64(field, value);
+	return _InterlockedExchangeAdd64(field, value) + value;
 }
 
 #else
-#include <stdatomic.h>
-#define hdr_atomic_load_pointer(x) atomic_load(x)
-#define hdr_atomic_store_pointer(f,v) atomic_store(f,v)
-#define hdr_atomic_load_64(x) atomic_load(x)
-#define hdr_atomic_store_64(f,v) atomic_store(f,v)
-#define hdr_atomic_exchange_64(f,i) atomic_exchange(f,i)
-#define hdr_atomic_fetch_add_64(field, value) atomic_fetch_add(field, value)
+#define hdr_atomic_load_pointer(x) __atomic_load_n(x, __ATOMIC_SEQ_CST)
+#define hdr_atomic_store_pointer(f,v) __atomic_store_n(f,v, __ATOMIC_SEQ_CST)
+#define hdr_atomic_load_64(x) __atomic_load_n(x, __ATOMIC_SEQ_CST)
+#define hdr_atomic_store_64(f,v) __atomic_store_n(f,v, __ATOMIC_SEQ_CST)
+#define hdr_atomic_exchange_64(f,i) __atomic_exchange_n(f,i, __ATOMIC_SEQ_CST)
+#define hdr_atomic_add_fetch_64(field, value) __atomic_add_fetch(field, value, __ATOMIC_SEQ_CST)
 #endif
 
 #endif /* HDR_ATOMIC_H__ */

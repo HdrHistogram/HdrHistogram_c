@@ -31,7 +31,7 @@ extern "C" {
 #if defined(_MSC_VER)
 void hdr_gettime(hdr_timespec* t);
 #else
-inline void hdr_gettime(hdr_timespec* t);
+void hdr_gettime(hdr_timespec* t);
 #endif
 
 #ifdef __cplusplus

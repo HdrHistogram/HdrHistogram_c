@@ -14,9 +14,11 @@ if(UNIX)
     set(CMAKE_C_FLAGS_RELEASE "-O3 -g")
 endif()
 
-find_package (zlib REQUIRED)
+if(WIN32)
+    find_package (zlib REQUIRED)
+    include_directories(${ZLIB_INCLUDE_DIRS})
+endif()
 
-include_directories(${ZLIB_INCLUDE_DIRS})
 include_directories("${CMAKE_SOURCE_DIR}/src")
 
 add_subdirectory("${CMAKE_SOURCE_DIR}/src")

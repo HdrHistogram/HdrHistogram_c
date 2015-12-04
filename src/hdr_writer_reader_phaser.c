@@ -72,7 +72,7 @@ void hdr_writer_reader_phaser_destory(struct hdr_writer_reader_phaser* p)
 
 int64_t hdr_phaser_writer_enter(struct hdr_writer_reader_phaser* p)
 {
-    return hdr_atomic_fetch_add_64(&p->start_epoch, 1) + 1;
+    return hdr_atomic_add_fetch_64(&p->start_epoch, 1);
 }
 
 void hdr_phaser_writer_exit(
@@ -80,7 +80,7 @@ void hdr_phaser_writer_exit(
 {
     int64_t* end_epoch = 
         (critical_value_at_enter < 0) ? &p->odd_end_epoch : &p->even_end_epoch;
-    hdr_atomic_fetch_add_64(end_epoch, 1);
+    hdr_atomic_add_fetch_64(end_epoch, 1);
 }
 
 void hdr_phaser_reader_lock(struct hdr_writer_reader_phaser* p)

@@ -24,9 +24,9 @@
 #endif
 
 
-static struct hdr_timespec diff(struct hdr_timespec start, struct hdr_timespec end)
+static hdr_timespec diff(hdr_timespec start, hdr_timespec end)
 {
-    struct hdr_timespec temp;
+    hdr_timespec temp;
     if ((end.tv_nsec-start.tv_nsec) < 0)
     {
         temp.tv_sec = end.tv_sec - start.tv_sec - 1;
@@ -54,8 +54,8 @@ int main()
         return -1;
     }
 
-    struct hdr_timespec t0;
-    struct hdr_timespec t1;
+    hdr_timespec t0;
+    hdr_timespec t1;
     setlocale(LC_NUMERIC, "");
     int64_t iterations = 400000000;
 
@@ -70,7 +70,7 @@ int main()
         }
         hdr_gettime(&t1);
 
-        struct hdr_timespec taken = diff(t0, t1);
+        hdr_timespec taken = diff(t0, t1);
         double time_taken = taken.tv_sec + taken.tv_nsec / 1000000000.0;
         double ops_sec = (iterations - 1) / time_taken;
 

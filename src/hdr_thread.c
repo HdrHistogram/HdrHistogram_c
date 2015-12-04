@@ -6,10 +6,11 @@
 
 #include <stdlib.h>
 #include "hdr_thread.h"
+#include <pthread.h>
 
 struct hdr_mutex* hdr_mutex_alloc(void)
 {
-    return (hdr_mutex*)malloc(sizeof(hdr_mutex));
+    return malloc(sizeof(hdr_mutex));
 }
 
 void hdr_mutex_free(struct hdr_mutex* mutex)
@@ -50,22 +51,22 @@ void hdr_mutex_unlock(struct hdr_mutex* mutex)
 
 int hdr_mutex_init(struct hdr_mutex* mutex)
 {
-	return pthread_mutex_init(mutex->_mutex, NULL);
+	return pthread_mutex_init(&mutex->_mutex, NULL);
 }
 
 void hdr_mutex_destroy(struct hdr_mutex* mutex)
 {
-	pthread_mutex_destroy(mutex->_mutex);
+	pthread_mutex_destroy(&mutex->_mutex);
 }
 
 void hdr_mutex_lock(struct hdr_mutex* mutex)
 {
-	pthread_mutex_lock(mutex->_mutex);
+	pthread_mutex_lock(&mutex->_mutex);
 }
 
 void hdr_mutex_unlock(struct hdr_mutex* mutex)
 {
-	pthread_mutex_unlock(mutex->_mutex);
+	pthread_mutex_unlock(&mutex->_mutex);
 }
 
 #endif
