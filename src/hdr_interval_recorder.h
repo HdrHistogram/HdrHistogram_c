@@ -9,14 +9,18 @@
 
 #include "hdr_writer_reader_phaser.h"
 
+HDR_ALIGN_PREFIX(8)
 struct hdr_interval_recorder
 {
     void* active;
     void* inactive;
     struct hdr_writer_reader_phaser phaser;
-} __attribute__((aligned (8)));
+} 
+HDR_ALIGN_SUFFIX(8);
 
-__BEGIN_DECLS
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 int hdr_interval_recorder_init(struct hdr_interval_recorder* r);
 
@@ -29,6 +33,8 @@ void hdr_interval_recorder_update(
 
 void* hdr_interval_recorder_sample(struct hdr_interval_recorder* r);
 
-__END_DECLS
+#ifdef __cplusplus
+}
+#endif
 
 #endif

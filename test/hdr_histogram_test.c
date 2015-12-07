@@ -336,7 +336,7 @@ static char* test_logarithmic_values()
 
     while(hdr_iter_next(&iter))
     {
-        long count_added_in_this_bucket = iter.specifics.log.count_added_in_this_iteration_step;
+        uint64_t count_added_in_this_bucket = iter.specifics.log.count_added_in_this_iteration_step;
         if (index == 0)
         {
             mu_assert("Raw Logarithmic 10 msec bucket # 0 added a count of 10000", 10000 == count_added_in_this_bucket);
@@ -357,10 +357,10 @@ static char* test_logarithmic_values()
 
     hdr_iter_log_init(&iter, cor_histogram, 10000, 2.0);
     index = 0;
-    int total_added_count = 0;
+    uint64_t total_added_count = 0;
     while (hdr_iter_next(&iter))
     {
-        long count_added_in_this_bucket = iter.specifics.log.count_added_in_this_iteration_step;
+        uint64_t count_added_in_this_bucket = iter.specifics.log.count_added_in_this_iteration_step;
 
         if (index == 0)
         {

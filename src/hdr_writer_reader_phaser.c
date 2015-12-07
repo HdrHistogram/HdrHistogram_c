@@ -8,25 +8,33 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <pthread.h>
-#include <unistd.h>
 #include <errno.h>
+
+#if defined(_MSC_VER)
+#include <WinSock2.h>
+#else
+#include <unistd.h>
+#include <sched.h>
+#endif
+
+#include "hdr_atomic.h"
+#include "hdr_thread.h"
 
 #include "hdr_writer_reader_phaser.h"
 
 static int64_t _hdr_phaser_get_epoch(int64_t* field)
 {
-    return __atomic_load_n(field, __ATOMIC_SEQ_CST);
+    return hdr_atomic_load_64(field);
 }
 
 static void _hdr_phaser_set_epoch(int64_t* field, int64_t val)
 {
-    __atomic_store_n(field, val, __ATOMIC_SEQ_CST);
+    hdr_atomic_store_64(field, val);
 }
 
 static int64_t _hdr_phaser_reset_epoch(int64_t* field, int64_t initial_value)
 {
-    return __atomic_exchange_n(field, initial_value, __ATOMIC_SEQ_CST);
+    return hdr_atomic_exchange_64(field, initial_value);
 }
 
 int hdr_writer_reader_phaser_init(struct hdr_writer_reader_phaser* p)
@@ -39,14 +47,14 @@ int hdr_writer_reader_phaser_init(struct hdr_writer_reader_phaser* p)
     p->start_epoch = 0;
     p->even_end_epoch = 0;
     p->odd_end_epoch = INT64_MIN;
-    p->reader_mutex = malloc(sizeof(pthread_mutex_t));
+	p->reader_mutex = hdr_mutex_alloc();
 
     if (!p->reader_mutex)
     {
         return ENOMEM;
     }
 
-    int rc = pthread_mutex_init(p->reader_mutex, NULL);
+    int rc = hdr_mutex_init(p->reader_mutex);
     if (0 != rc)
     {
         return rc;
@@ -59,12 +67,12 @@ int hdr_writer_reader_phaser_init(struct hdr_writer_reader_phaser* p)
 
 void hdr_writer_reader_phaser_destory(struct hdr_writer_reader_phaser* p)
 {
-    pthread_mutex_destroy(p->reader_mutex);
+    hdr_mutex_destroy(p->reader_mutex);
 }
 
 int64_t hdr_phaser_writer_enter(struct hdr_writer_reader_phaser* p)
 {
-    return __atomic_add_fetch(&p->start_epoch, 1, __ATOMIC_SEQ_CST);
+    return hdr_atomic_add_fetch_64(&p->start_epoch, 1);
 }
 
 void hdr_phaser_writer_exit(
@@ -72,17 +80,17 @@ void hdr_phaser_writer_exit(
 {
     int64_t* end_epoch = 
         (critical_value_at_enter < 0) ? &p->odd_end_epoch : &p->even_end_epoch;
-    __atomic_add_fetch(end_epoch, 1, __ATOMIC_SEQ_CST);
+    hdr_atomic_add_fetch_64(end_epoch, 1);
 }
 
 void hdr_phaser_reader_lock(struct hdr_writer_reader_phaser* p)
 {
-    pthread_mutex_lock(p->reader_mutex);
+    hdr_mutex_lock(p->reader_mutex);
 }
 
 void hdr_phaser_reader_unlock(struct hdr_writer_reader_phaser* p)
 {
-    pthread_mutex_unlock(p->reader_mutex);
+    hdr_mutex_unlock(p->reader_mutex);
 }
 
 void hdr_phaser_flip_phase(
@@ -123,11 +131,23 @@ void hdr_phaser_flip_phase(
         {
             if (sleep_time_ns == 0)
             {
+#if defined(_MSC_VER)
+				Sleep(0);
+#else
                 sched_yield();
+#endif
             }
             else
             {
+#if defined(_MSC_VER)
+				struct timeval tv;
+
+				tv.tv_sec = (long)sleep_time_ns / 1000000;
+				tv.tv_usec = sleep_time_ns % 1000000;				
+				select(0, NULL, NULL, NULL, &tv);
+#else
                 usleep(sleep_time_ns / 1000);
+#endif
             }
         }
     }

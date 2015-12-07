@@ -4,6 +4,7 @@
  * as explained at http://creativecommons.org/publicdomain/zero/1.0/
  */
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <inttypes.h>
@@ -20,26 +21,15 @@
 #include "hdr_histogram_log.h"
 #include "hdr_tests.h"
 
-#ifdef __APPLE__
-
-#include <libkern/OSByteOrder.h>
-
-#define htobe16(x) OSSwapHostToBigInt16(x)
-#define htole16(x) OSSwapHostToLittleInt16(x)
-#define be16toh(x) OSSwapBigToHostInt16(x)
-#define le16toh(x) OSSwapLittleToHostInt16(x)
-
-#define htobe32(x) OSSwapHostToBigInt32(x)
-#define htole32(x) OSSwapHostToLittleInt32(x)
-#define be32toh(x) OSSwapBigToHostInt32(x)
-#define le32toh(x) OSSwapLittleToHostInt32(x)
-
-#define htobe64(x) OSSwapHostToBigInt64(x)
-#define htole64(x) OSSwapHostToLittleInt64(x)
-#define be64toh(x) OSSwapBigToHostInt64(x)
-#define le64toh(x) OSSwapLittleToHostInt64(x)
-
+#if defined(_MSC_VER)
+#include <intsafe.h>
+typedef SSIZE_T ssize_t;
+#pragma comment(lib, "ws2_32.lib")
+#pragma warning(push)
+#pragma warning(disable: 4996)
 #endif
+
+#include "hdr_endian.h"
 
 // Private prototypes useful for the logger
 int32_t counts_index_for(const struct hdr_histogram* h, int64_t value);
@@ -190,7 +180,8 @@ static uint64_t double_to_int64_bits(double d)
     return x.l;
 }
 
-typedef struct __attribute__((__packed__))
+#pragma pack(push, 1)
+typedef struct /*__attribute__((__packed__))*/
 {
     int32_t cookie;
     int32_t significant_figures;
@@ -200,7 +191,7 @@ typedef struct __attribute__((__packed__))
     int64_t counts[0];
 } _encoding_flyweight_v0;
 
-typedef struct __attribute__((__packed__))
+typedef struct /*__attribute__((__packed__))*/
 {
     int32_t cookie;
     int32_t payload_len;
@@ -212,12 +203,13 @@ typedef struct __attribute__((__packed__))
     uint8_t counts[0];
 } _encoding_flyweight_v1;
 
-typedef struct __attribute__((__packed__))
+typedef struct /*__attribute__((__packed__))*/
 {
     int32_t cookie;
     int32_t length;
     uint8_t data[0];
 } _compression_flyweight;
+#pragma pack(pop)
 
 int hdr_encode_compressed(
     struct hdr_histogram* h,
@@ -263,7 +255,7 @@ int hdr_encode_compressed(
     }
 
     int32_t payload_len = data_index;
-    size_t encoded_size = sizeof(_encoding_flyweight_v1) + data_index;
+    uLong encoded_size = sizeof(_encoding_flyweight_v1) + data_index;
 
     encoded->cookie                   = htobe32(V2_ENCODING_COOKIE | 0x10);
     encoded->payload_len              = htobe32(payload_len);
@@ -760,7 +752,7 @@ static int print_version(FILE* f, const char* version)
     return fprintf(f, "#[Histogram log format version %s]\n", version);
 }
 
-static int print_time(FILE* f, struct timespec* timestamp)
+static int print_time(FILE* f, hdr_timespec* timestamp)
 {
     char time_str[128];
     struct tm date_time;
@@ -770,7 +762,11 @@ static int print_time(FILE* f, struct timespec* timestamp)
         return 0;
     }
 
+#if defined(__WINDOWS__)
+	_gmtime32_s(&date_time, &timestamp->tv_sec);
+#else
     gmtime_r(&timestamp->tv_sec, &date_time);
+#endif
     long ms = timestamp->tv_nsec / 1000000;
     strftime(time_str, 128, "%a %b %X %Z %Y", &date_time);
 
@@ -791,7 +787,7 @@ static int print_header(FILE* f)
 // "StartTimestamp","EndTimestamp","Interval_Max","Interval_Compressed_Histogram"
 int hdr_log_write_header(
     struct hdr_log_writer* writer, FILE* file,
-    const char* user_prefix, struct timespec* timestamp)
+    const char* user_prefix, hdr_timespec* timestamp)
 {
 	(void)writer;
 
@@ -818,8 +814,8 @@ int hdr_log_write_header(
 int hdr_log_write(
     struct hdr_log_writer* writer,
     FILE* file,
-    const struct timespec* start_timestamp,
-    const struct timespec* end_timestamp,
+    const hdr_timespec* start_timestamp,
+    const hdr_timespec* end_timestamp,
     struct hdr_histogram* histogram)
 {
     uint8_t* compressed_histogram = NULL;
@@ -961,7 +957,7 @@ int hdr_log_read_header(struct hdr_log_reader* reader, FILE* file)
     return 0;
 }
 
-static void update_timespec(struct timespec* ts, int time_s, int time_ms)
+static void update_timespec(hdr_timespec* ts, int time_s, int time_ms)
 {
     if (NULL == ts)
     {
@@ -972,15 +968,86 @@ static void update_timespec(struct timespec* ts, int time_s, int time_ms)
     ts->tv_nsec = time_ms * 1000000;
 }
 
+#if defined(_MSC_VER)
+
+static ssize_t hdr_read_chunk(char* buffer, size_t length, char terminator, FILE* stream)
+{
+	if (buffer == NULL || length == 0)
+	{
+		return -1;
+	}
+
+	for (size_t i = 0; i < length; ++i)
+	{
+		int c = fgetc(stream);
+		buffer[i] = (char)c;
+		if (c == (int) '\0' || c == (int) terminator || c == EOF)
+		{
+			buffer[i] = '\0';
+			return i;
+		}
+	}
+
+	return length;
+}
+
+/* Note that this version of getline assumes lineptr is valid. */
+static ssize_t hdr_getline(char** lineptr, FILE* stream)
+{
+	if (stream == NULL)
+	{
+		return -1;
+	}
+
+	size_t allocation = 128;
+	size_t used = 0;
+
+	char* scratch = NULL;
+	for (;;)
+	{
+		allocation += allocation;
+
+		char* before = scratch;
+		scratch = realloc(scratch, allocation);
+		if (scratch == NULL)
+		{
+			if (before)
+			{
+				free(before);
+			}
+			return -1;
+		}
+
+		size_t wanted = allocation - used - 1;
+		size_t read_length = hdr_read_chunk(scratch + used, wanted, '\n', stream);
+		used += read_length;
+
+
+		if (read_length < wanted || scratch[used - 1] == '\n' || scratch[used - 1] == '\0')
+		{
+			scratch[used] = '\0';
+			*lineptr = scratch;
+			return used;
+		}
+	}
+}
+
+#else
+static ssize_t hdr_getline(char** lineptr, FILE* stream)
+{
+	size_t line_length = 0;
+	return getline(lineptr, &line_length, stream);
+}
+#endif
+
 int hdr_log_read(
     struct hdr_log_reader* reader, FILE* file, struct hdr_histogram** histogram,
-    struct timespec* timestamp, struct timespec* interval)
+    hdr_timespec* timestamp, hdr_timespec* interval)
 {
     const char* format = "%d.%d,%d.%d,%d.%d,%s";
     char* base64_histogram = NULL;
     uint8_t* compressed_histogram = NULL;
     char* line = NULL;
-    size_t line_len = 0;
     int result = 0;
 
     int begin_s = 0;
@@ -992,7 +1059,7 @@ int hdr_log_read(
 
 	(void)reader;
 
-    ssize_t read = getline(&line, &line_len, file);
+    ssize_t read = hdr_getline(&line, file);
     if (-1 == read)
     {
         if (0 == errno)
@@ -1123,3 +1190,7 @@ cleanup:
 
     return result;
 }
+
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif

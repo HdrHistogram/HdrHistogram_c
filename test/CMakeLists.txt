@@ -5,9 +5,18 @@ add_executable(hdr_histogram_log_test hdr_histogram_log_test.c)
 
 add_executable(perftest hdr_histogram_perf.c)
 
-target_link_libraries(hdr_histogram_test hdr_histogram m)
-target_link_libraries(hdr_histogram_log_test hdr_histogram m z)
-target_link_libraries(perftest hdr_histogram m z)
+if (WIN32)
+    add_library(z STATIC IMPORTED)
+    set_property(TARGET z PROPERTY IMPORTED_LOCATION ${ZLIB_LIBRARIES})
+
+    target_link_libraries(hdr_histogram_test hdr_histogram_static)
+    target_link_libraries(hdr_histogram_log_test hdr_histogram_static z)
+    target_link_libraries(perftest hdr_histogram_static z)
+else()
+    target_link_libraries(hdr_histogram_test hdr_histogram_static m)
+    target_link_libraries(hdr_histogram_log_test hdr_histogram_static m z)
+    target_link_libraries(perftest hdr_histogram_static m z)
+endif()
 
 CHECK_LIBRARY_EXISTS(rt clock_gettime "" RT_EXISTS)
 if (RT_EXISTS)
