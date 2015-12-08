@@ -22,6 +22,8 @@ typedef struct hdr_mutex
 
 #else
 
+#include <pthread.h>
+
 #define HDR_ALIGN_PREFIX(alignment) 
 #define HDR_ALIGN_SUFFIX(alignment) __attribute__((aligned(alignment)))
 

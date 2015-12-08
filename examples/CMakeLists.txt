@@ -2,7 +2,7 @@ add_executable(hdr_decoder hdr_decoder.c)
 if (WIN32)
     target_link_libraries(hdr_decoder hdr_histogram_static ${ZLIB_LIBRARIES})
 else()
-    target_link_libraries(hdr_decoder hdr_histogram m rt z)
+    target_link_libraries(hdr_decoder hdr_histogram m z)
 endif()
 
 install(TARGETS hdr_decoder DESTINATION bin)
