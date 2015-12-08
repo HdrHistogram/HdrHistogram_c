@@ -3,7 +3,8 @@ version: 0.9.2.{build}
 clone_folder: c:\dev\HdrHistogram_c
 
 install:
-  - cd c:\dev
+  - md c:\dev\zlib-1.2.3
+  - cd c:\dev\zlib-1.2.3
   - ps: Start-FileDownload 'http://downloads.sourceforge.net/project/gnuwin32/zlib/1.2.3/zlib-1.2.3-lib.zip?r=&ts=1449557198&use_mirror=iweb'
   - 7z x zlib-1.2.3-lib.zip
 
@@ -13,7 +14,7 @@ build_script:
   - cd c:\dev\HdrHistogram_c
   - md build
   - cd build
-  - cmake -G"Visual Studio 11" ..
+  - cmake -D CMAKE_PREFIX_PATH=c:\dev\zlib-1.2.3 -G"Visual Studio 11" ..
   - msbuild /m /p:Configuration=Release /p:Platform="Win32" hdr_histogram.sln
 
 test_script:
