@@ -2,6 +2,9 @@ version: 0.9.2.{build}
 
 clone_folder: c:\dev\HdrHistogram_c
 
+install:
+  - ps: Start-FileDownload 'http://downloads.sourceforge.net/project/gnuwin32/zlib/1.2.3/zlib-1.2.3-lib.zip?r=&ts=1449557198&use_mirror=iweb'
+
 build:
 
 build_script:
