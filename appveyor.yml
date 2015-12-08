@@ -1,0 +1,15 @@
+version: 0.9.2.{build}
+
+clone_folder: c:\dev\HdrHistogram_c
+
+build:
+
+build_script:
+  - cd c:\dev\HdrHistogram_c
+  - md build
+  - cd build
+  - cmake -G"Visual Studio 11" ..
+  - msbuild /m /p:Configuration=Release /p:Platform="Win32" hdr_histogram.sln
+
+test_script:
+  - cmd: ctest
