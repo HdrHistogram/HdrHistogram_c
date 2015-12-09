@@ -20,7 +20,7 @@ build_script:
   - cd c:\dev\HdrHistogram_c
   - md build
   - cd build
-  - cmake -D CMAKE_PREFIX_PATH=c:\dev\zlib-1.2.8\build -G"Visual Studio 12 2013 Win64" ..
+  - cmake -D CMAKE_PREFIX_PATH=c:\dev\zlib-1.2.8\build\Debug -G"Visual Studio 12 2013 Win64" ..
   - msbuild /m /p:Configuration=Release hdr_histogram.sln
 
 test_script:
