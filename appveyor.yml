@@ -15,7 +15,7 @@ build_script:
   - md build
   - cd build
   - cmake -D CMAKE_PREFIX_PATH=c:\dev\zlib-1.2.8 -G"Visual Studio 12" ..
-  - msbuild /m /p:Configuration=Release /p:Platform="Win32" hdr_histogram.sln
+  - msbuild /m /p:Configuration=Release /p:Platform="Win64" hdr_histogram.sln
 
 test_script:
   - cmd: ctest
