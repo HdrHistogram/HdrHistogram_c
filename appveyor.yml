@@ -15,7 +15,7 @@ build_script:
   - cd c:\dev\zlib-1.2.8
   - md build
   - cd build
-  - cmake -DCMAKE_INSTALL_PREFIX=c:\dev\zlib -G"Visual Studio 12 2013 Win64" ..
+  - cmake -DCMAKE_INSTALL_PREFIX=c:\dev\zlib64 -G"Visual Studio 12 2013 Win64" ..
   - cmake --build . --target install
   - dir c:\dev\zlib64
   - cd c:\dev\HdrHistogram_c
