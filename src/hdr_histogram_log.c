@@ -10,6 +10,9 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
+#if defined(_MSC_VER)
+#undef HAVE_UNISTD_H
+#endif
 #include <zlib.h>
 #include <errno.h>
 #include <ctype.h>
