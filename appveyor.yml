@@ -4,7 +4,7 @@ clone_folder: c:\dev\HdrHistogram_c
 
 install:
   - cd c:\dev
-  - md c:\dev\zlib
+  - md c:\dev\zlib64
   - ps: Start-FileDownload 'http://zlib.net/zlib-1.2.8.tar.gz'
   - 7z x zlib-1.2.8.tar.gz
   - 7z x zlib-1.2.8.tar
@@ -17,13 +17,12 @@ build_script:
   - cd build
   - cmake -DCMAKE_INSTALL_PREFIX=c:\dev\zlib -G"Visual Studio 12 2013 Win64" ..
   - cmake --build . --target install
-  - dir c:\dev\zlib
-  - dir c:\Program Files
+  - dir c:\dev\zlib64
   - cd c:\dev\HdrHistogram_c
   - md build
   - cd build
-  - cmake -DCMAKE_PREFIX_PATH="c:\dev\zlib" -G"Visual Studio 12 2013 Win64" ..
-  - msbuild /m /p:Configuration=Release hdr_histogram.sln
+  - cmake -DCMAKE_PREFIX_PATH="c:\dev\zlib64" -G"Visual Studio 12 2013 Win64" ..
+  - cmake --build .
 
 test_script:
   - cmd: ctest
