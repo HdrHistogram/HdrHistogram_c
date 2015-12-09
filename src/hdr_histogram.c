@@ -89,11 +89,13 @@ static int64_t power(int64_t base, int64_t exp)
     return result;
 }
 
+#if defined(_MSC_VER)
+#pragma intrinsic(_BitScanReverse64)
+#endif
+
 static int32_t get_bucket_index(const struct hdr_histogram* h, int64_t value)
 {
 #if defined(_MSC_VER)
-    #pragma intrinsic(_BitScanReverse64)
-
     uint32_t leading_zero = 0;
 	_BitScanReverse64(&leading_zero, value | h->sub_bucket_mask);
 	int32_t pow2ceiling = 64 - (63 - leading_zero); // smallest power of 2 containing value
