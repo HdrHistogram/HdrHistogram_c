@@ -3,7 +3,6 @@ version: 0.9.2.{build}
 clone_folder: c:\dev\HdrHistogram_c
 
 install:
-  - md c:\dev
   - cd c:\dev
   - ps: Start-FileDownload 'http://zlib.net/zlib-1.2.8.tar.gz'
   - 7z x zlib-1.2.8.tar.gz
