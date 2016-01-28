@@ -10,8 +10,9 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <hdr_thread.h>
 #include <errno.h>
+
+#include "hdr_thread.h"
 
 HDR_ALIGN_PREFIX(8) 
 struct hdr_writer_reader_phaser
