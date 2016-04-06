@@ -46,7 +46,7 @@ hdr_record_value(
     value)  // Value to record
 
 // Record value n times
-hdr_record_value(
+hdr_record_values(
     histogram,  // Histogram to record to
     value,  // Value to record
     10)  // Record value 10 times
