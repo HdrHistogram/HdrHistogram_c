@@ -21,4 +21,4 @@ endif (WIN32)
 
 install(TARGETS hdr_histogram DESTINATION lib${LIB_SUFFIX})
 install(TARGETS hdr_histogram_static DESTINATION lib${LIB_SUFFIX})
-install(FILES hdr_histogram.h hdr_histogram_log.h hdr_time.h hdr_writer_reader_phaser.h hdr_interval_recorder.h DESTINATION include/hdr)
+install(FILES hdr_histogram.h hdr_histogram_log.h hdr_time.h hdr_writer_reader_phaser.h hdr_interval_recorder.h hdr_thread.h DESTINATION include/hdr)
