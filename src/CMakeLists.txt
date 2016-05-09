@@ -1,4 +1,5 @@
 FILE(GLOB histogram_files "*.c")
+FILE(GLOB HEADER "*.h")
 
 add_library(hdr_histogram SHARED ${histogram_files})
 add_library(hdr_histogram_static STATIC ${histogram_files})

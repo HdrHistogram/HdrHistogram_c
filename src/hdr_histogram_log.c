@@ -909,7 +909,8 @@ static void scan_header_line(struct hdr_log_reader* reader, const char* line)
 static bool validate_log_version(struct hdr_log_reader* reader)
 {
     return reader->major_version == LOG_MAJOR_VERSION &&
-        (reader->minor_version == 0 || reader->minor_version == 1 || reader->minor_version == 2);
+        (reader->minor_version == 0 || reader->minor_version == 1 ||
+            reader->minor_version == 2 || reader->minor_version == 3);
 }
 
 #define HEADER_LINE_LENGTH 128
@@ -1047,7 +1048,8 @@ int hdr_log_read(
     struct hdr_log_reader* reader, FILE* file, struct hdr_histogram** histogram,
     hdr_timespec* timestamp, hdr_timespec* interval)
 {
-    const char* format = "%d.%d,%d.%d,%d.%d,%s";
+    const char* format_v12 = "%d.%d,%d.%d,%d.%d,%s";
+    const char* format_v13 = "Tag=%*[^,],%d.%d,%d.%d,%d.%d,%s";
     char* base64_histogram = NULL;
     uint8_t* compressed_histogram = NULL;
     char* line = NULL;
@@ -1095,13 +1097,21 @@ int hdr_log_read(
     }
 
     int num_tokens = sscanf(
-        line, format, &begin_s, &begin_ms, &end_s, &end_ms,
+        line, format_v13, &begin_s, &begin_ms, &end_s, &end_ms,
         &interval_max_s, &interval_max_ms, base64_histogram);
 
     if (num_tokens != 7)
     {
-        FAIL_AND_CLEANUP(cleanup, result, EINVAL);
+        num_tokens = sscanf(
+            line, format_v12, &begin_s, &begin_ms, &end_s, &end_ms,
+            &interval_max_s, &interval_max_ms, base64_histogram);
+
+        if (num_tokens != 7)
+        {
+            FAIL_AND_CLEANUP(cleanup, result, EINVAL);
+        }
     }
+
 
     size_t base64_len = strlen(base64_histogram);
     size_t compressed_len = hdr_base64_decoded_len(base64_len);
@@ -1124,6 +1134,7 @@ int hdr_log_read(
     update_timespec(interval, end_s, end_ms);
 
 cleanup:
+//    free(tag);
     free(line);
     free(base64_histogram);
     free(compressed_histogram);
