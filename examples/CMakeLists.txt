@@ -5,6 +5,11 @@ else()
     target_link_libraries(hdr_decoder hdr_histogram m z)
 endif()
 
+CHECK_LIBRARY_EXISTS(rt clock_gettime "" RT_EXISTS)
+if (RT_EXISTS)
+    target_link_libraries(hdr_decoder rt)
+endif (RT_EXISTS)
+
 install(TARGETS hdr_decoder DESTINATION bin)
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
