@@ -307,9 +307,6 @@ int hdr_encode_compressed(
 // ##     ## ##       ##    ## ##     ## ##     ##  ##  ##   ### ##    ##
 // ########  ########  ######   #######  ########  #### ##    ##  ######
 
-// Prototype to avoid exposing in header
-void hdr_reset_internal_counters(struct hdr_histogram* h);
-
 static void _apply_to_counts_16(struct hdr_histogram* h, const int16_t* counts_data, const int32_t counts_limit)
 {
     int i;

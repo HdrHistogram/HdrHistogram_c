@@ -9,7 +9,6 @@
 extern "C" {
 #endif
 
-void hdr_reset_internal_counters(struct hdr_histogram* h);
 int32_t counts_index_for(const struct hdr_histogram* h, int64_t value);
 int hdr_encode_compressed(struct hdr_histogram* h, uint8_t** compressed_histogram, size_t* compressed_len);
 int hdr_decode_compressed(uint8_t* buffer, size_t length, struct hdr_histogram** histogram);
