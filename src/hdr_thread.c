@@ -27,23 +27,23 @@ void hdr_mutex_free(struct hdr_mutex* mutex)
 
 int hdr_mutex_init(struct hdr_mutex* mutex)
 {
-	InitializeCriticalSection((CRITICAL_SECTION*)(mutex->_critical_section));
-	return 0;
+    InitializeCriticalSection((CRITICAL_SECTION*)(mutex->_critical_section));
+    return 0;
 }
 
 void hdr_mutex_destroy(struct hdr_mutex* mutex)
 {
-	DeleteCriticalSection((CRITICAL_SECTION*)(mutex->_critical_section));
+    DeleteCriticalSection((CRITICAL_SECTION*)(mutex->_critical_section));
 }
 
 void hdr_mutex_lock(struct hdr_mutex* mutex)
 {
-	EnterCriticalSection((CRITICAL_SECTION*)(mutex->_critical_section));
+    EnterCriticalSection((CRITICAL_SECTION*)(mutex->_critical_section));
 }
 
 void hdr_mutex_unlock(struct hdr_mutex* mutex)
 {
-	LeaveCriticalSection((CRITICAL_SECTION*)(mutex->_critical_section));
+    LeaveCriticalSection((CRITICAL_SECTION*)(mutex->_critical_section));
 }
 
 #else
@@ -51,22 +51,22 @@ void hdr_mutex_unlock(struct hdr_mutex* mutex)
 
 int hdr_mutex_init(struct hdr_mutex* mutex)
 {
-	return pthread_mutex_init(&mutex->_mutex, NULL);
+    return pthread_mutex_init(&mutex->_mutex, NULL);
 }
 
 void hdr_mutex_destroy(struct hdr_mutex* mutex)
 {
-	pthread_mutex_destroy(&mutex->_mutex);
+    pthread_mutex_destroy(&mutex->_mutex);
 }
 
 void hdr_mutex_lock(struct hdr_mutex* mutex)
 {
-	pthread_mutex_lock(&mutex->_mutex);
+    pthread_mutex_lock(&mutex->_mutex);
 }
 
 void hdr_mutex_unlock(struct hdr_mutex* mutex)
 {
-	pthread_mutex_unlock(&mutex->_mutex);
+    pthread_mutex_unlock(&mutex->_mutex);
 }
 
 #endif

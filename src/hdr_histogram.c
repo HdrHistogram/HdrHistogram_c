@@ -97,8 +97,8 @@ static int32_t get_bucket_index(const struct hdr_histogram* h, int64_t value)
 {
 #if defined(_MSC_VER)
     uint32_t leading_zero = 0;
-	_BitScanReverse64(&leading_zero, value | h->sub_bucket_mask);
-	int32_t pow2ceiling = 64 - (63 - leading_zero); // smallest power of 2 containing value
+    _BitScanReverse64(&leading_zero, value | h->sub_bucket_mask);
+    int32_t pow2ceiling = 64 - (63 - leading_zero); // smallest power of 2 containing value
 #else
     int32_t pow2ceiling = 64 - __builtin_clzll(value | h->sub_bucket_mask); // smallest power of 2 containing value
 #endif

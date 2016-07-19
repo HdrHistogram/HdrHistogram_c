@@ -295,7 +295,7 @@ void hdr_base64_decode_block(const char* input, uint8_t* output)
 int hdr_base64_decode(
     const char* input, size_t input_len, uint8_t* output, size_t output_len)
 {
-	size_t i, j;
+    size_t i, j;
 
     if (input_len < 4 ||
         (input_len & 3) != 0 ||

@@ -44,7 +44,7 @@ int hdr_log_decode(struct hdr_histogram** histogram, char* base64_histogram, siz
 
 struct hdr_log_writer
 {
-	uint32_t nonce;
+    uint32_t nonce;
 };
 
 /**

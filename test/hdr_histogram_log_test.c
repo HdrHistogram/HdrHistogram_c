@@ -59,9 +59,9 @@ static bool compare_timespec(hdr_timespec* a, hdr_timespec* b)
     if (a->tv_sec != b->tv_sec)
     {
 #if defined(_MSC_VER)
-		_ctime32_s(a_str, sizeof(a_str), &a->tv_sec);
-		_ctime32_s(b_str, sizeof(b_str), &b->tv_sec);
-		printf("tv_sec: %s != %s\n", a_str, b_str);
+        _ctime32_s(a_str, sizeof(a_str), &a->tv_sec);
+        _ctime32_s(b_str, sizeof(b_str), &b->tv_sec);
+        printf("tv_sec: %s != %s\n", a_str, b_str);
 #else
         printf(
             "tv_sec: %s != %s\n",

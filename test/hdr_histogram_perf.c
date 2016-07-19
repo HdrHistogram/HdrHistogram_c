@@ -75,13 +75,13 @@ int main()
         double ops_sec = (iterations - 1) / time_taken;
 
 #if defined(_MSC_VER)
-		wchar_t unformatted[64];
-		_snwprintf_s(unformatted, sizeof(unformatted), sizeof(unformatted) - 1, L"%.2f", ops_sec);
-		wchar_t formatted[64];
-		int ret = GetNumberFormatEx(LOCALE_NAME_USER_DEFAULT, 0, unformatted, NULL, formatted, sizeof(formatted));
-		wprintf_s(L"%s - %d, ops/sec: %s\n", L"Iteration", i + 1, formatted);
+        wchar_t unformatted[64];
+        _snwprintf_s(unformatted, sizeof(unformatted), sizeof(unformatted) - 1, L"%.2f", ops_sec);
+        wchar_t formatted[64];
+        int ret = GetNumberFormatEx(LOCALE_NAME_USER_DEFAULT, 0, unformatted, NULL, formatted, sizeof(formatted));
+        wprintf_s(L"%s - %d, ops/sec: %s\n", L"Iteration", i + 1, formatted);
 #else
-		printf("%s - %d, ops/sec: %'.2f\n", "Iteration", i + 1, ops_sec);
+        printf("%s - %d, ops/sec: %'.2f\n", "Iteration", i + 1, ops_sec);
 #endif
     }
 

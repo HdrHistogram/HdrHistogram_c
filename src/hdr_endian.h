@@ -80,7 +80,7 @@
 
 #	elif BYTE_ORDER == BIG_ENDIAN
 
-		/* that would be xbox 360 */
+        /* that would be xbox 360 */
 #		define htobe16(x) (x)
 #		define htole16(x) __builtin_bswap16(x)
 #		define be16toh(x) (x)

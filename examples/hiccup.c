@@ -61,7 +61,7 @@ static void* record_hiccups(void* thread_context)
     while (true)
     {
         timeout.it_value.tv_sec = 0;
-          timeout.it_value.tv_nsec = 1000000;
+        timeout.it_value.tv_nsec = 1000000;
         timerfd_settime(fd.fd, 0, &timeout, NULL);
 
         hdr_gettime(&t0);

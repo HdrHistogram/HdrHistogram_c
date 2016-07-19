@@ -47,7 +47,7 @@ int hdr_writer_reader_phaser_init(struct hdr_writer_reader_phaser* p)
     p->start_epoch = 0;
     p->even_end_epoch = 0;
     p->odd_end_epoch = INT64_MIN;
-	p->reader_mutex = hdr_mutex_alloc();
+    p->reader_mutex = hdr_mutex_alloc();
 
     if (!p->reader_mutex)
     {
@@ -122,7 +122,7 @@ void hdr_phaser_flip_phase(
     bool caught_up = false;
     do
     {
-        int64_t* end_epoch = 
+        int64_t* end_epoch =
             next_phase_is_even ? &p->odd_end_epoch : &p->even_end_epoch;
 
         caught_up = _hdr_phaser_get_epoch(end_epoch) == start_value_at_flip;
@@ -132,7 +132,7 @@ void hdr_phaser_flip_phase(
             if (sleep_time_ns == 0)
             {
 #if defined(_MSC_VER)
-				Sleep(0);
+                Sleep(0);
 #else
                 sched_yield();
 #endif
@@ -140,11 +140,11 @@ void hdr_phaser_flip_phase(
             else
             {
 #if defined(_MSC_VER)
-				struct timeval tv;
+                struct timeval tv;
 
-				tv.tv_sec = (long)sleep_time_ns / 1000000;
-				tv.tv_usec = sleep_time_ns % 1000000;				
-				select(0, NULL, NULL, NULL, &tv);
+                tv.tv_sec = (long)sleep_time_ns / 1000000;
+                tv.tv_usec = sleep_time_ns % 1000000;
+                select(0, NULL, NULL, NULL, &tv);
 #else
                 usleep(sleep_time_ns / 1000);
 #endif

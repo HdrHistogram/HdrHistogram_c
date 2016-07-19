@@ -17,7 +17,7 @@
 
 typedef struct hdr_mutex
 {
-	uint8_t _critical_section[40];
+    uint8_t _critical_section[40];
 } hdr_mutex;
 
 #else
