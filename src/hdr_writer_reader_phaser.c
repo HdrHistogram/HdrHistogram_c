@@ -97,6 +97,7 @@ void hdr_phaser_flip_phase(
     struct hdr_writer_reader_phaser* p, int64_t sleep_time_ns)
 {
     // TODO: is_held_by_current_thread
+    unsigned int sleep_time_us = sleep_time_ns < 1000000000 ? (unsigned int) (sleep_time_ns / 1000) : 1000000;
 
     int64_t start_epoch = _hdr_phaser_get_epoch(&p->start_epoch);
 
@@ -129,25 +130,13 @@ void hdr_phaser_flip_phase(
 
         if (!caught_up)
         {
-            if (sleep_time_ns == 0)
+            if (sleep_time_us <= 0)
             {
-#if defined(_MSC_VER)
-                Sleep(0);
-#else
-                sched_yield();
-#endif
+                hdr_yield();
             }
             else
             {
-#if defined(_MSC_VER)
-                struct timeval tv;
-
-                tv.tv_sec = (long)sleep_time_ns / 1000000;
-                tv.tv_usec = sleep_time_ns % 1000000;
-                select(0, NULL, NULL, NULL, &tv);
-#else
-                usleep(sleep_time_ns / 1000);
-#endif
+                hdr_usleep(sleep_time_us);
             }
         }
     }

@@ -46,6 +46,9 @@ void hdr_mutex_destroy(struct hdr_mutex* mutex);
 void hdr_mutex_lock(struct hdr_mutex* mutex);
 void hdr_mutex_unlock(struct hdr_mutex* mutex);
 
+void hdr_yield();
+int hdr_usleep(unsigned int useconds);
+
 #ifdef __cplusplus
 }
 #endif

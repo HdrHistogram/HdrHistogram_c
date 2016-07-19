@@ -46,8 +46,26 @@ void hdr_mutex_unlock(struct hdr_mutex* mutex)
     LeaveCriticalSection((CRITICAL_SECTION*)(mutex->_critical_section));
 }
 
+void hdr_yield()
+{
+    Sleep(0);
+}
+
+int hdr_usleep(unsigned int useconds)
+{
+    struct timeval tv;
+
+    tv.tv_sec = (long)useconds / 1000000;
+    tv.tv_usec = useconds % 1000000;
+    select(0, NULL, NULL, NULL, &tv);
+
+    return 0;
+}
+
+
 #else
 #include <pthread.h>
+#include <unistd.h>
 
 int hdr_mutex_init(struct hdr_mutex* mutex)
 {
@@ -68,5 +86,16 @@ void hdr_mutex_unlock(struct hdr_mutex* mutex)
 {
     pthread_mutex_unlock(&mutex->_mutex);
 }
+
+void hdr_yield()
+{
+    sched_yield();
+}
+
+int hdr_usleep(unsigned int useconds)
+{
+    return usleep(useconds);
+}
+
 
 #endif
