@@ -24,6 +24,7 @@ void hdr_mutex_free(struct hdr_mutex* mutex)
 #endif
 
 #include <windows.h>
+#include <WinSock2.h>
 
 int hdr_mutex_init(struct hdr_mutex* mutex)
 {

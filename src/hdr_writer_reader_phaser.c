@@ -5,17 +5,8 @@
  */
 
 #include <stdint.h>
-#include <stdlib.h>
 #include <stdbool.h>
-#include <stdlib.h>
 #include <errno.h>
-
-#if defined(_MSC_VER)
-#include <WinSock2.h>
-#else
-#include <unistd.h>
-#include <sched.h>
-#endif
 
 #include "hdr_atomic.h"
 #include "hdr_thread.h"
