@@ -34,11 +34,11 @@ if(WIN32)
     include_directories(${ZLIB_INCLUDE_DIRS})
 endif()
 
-include_directories("${CMAKE_SOURCE_DIR}/src")
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}/src")
 
-add_subdirectory("${CMAKE_SOURCE_DIR}/src")
-add_subdirectory("${CMAKE_SOURCE_DIR}/test")
-add_subdirectory("${CMAKE_SOURCE_DIR}/examples")
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/src")
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/test")
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/examples")
 
 SET(CPACK_GENERATOR "TGZ")
 SET(CPACK_PACKAGE_VERSION "0.9.3")
