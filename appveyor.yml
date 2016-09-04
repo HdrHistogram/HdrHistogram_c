@@ -1,4 +1,4 @@
-version: 0.9.3.{build}
+version: 0.9.5.{build}
 
 clone_folder: c:\dev\HdrHistogram_c
 
