@@ -455,6 +455,12 @@ static char* test_linear_iter_buckets_correctly()
     while (hdr_iter_next(&iter))
     {
         total_count += iter.specifics.linear.count_added_in_this_iteration_step;
+        // start - changes to reproduce issue
+        if (step_count == 0)
+        {
+            hdr_record_value(h, 2);
+        }
+        // end - changes to reproduce issue
         step_count++;
     }
 

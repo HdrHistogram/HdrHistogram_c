@@ -601,7 +601,7 @@ static bool has_buckets(struct hdr_iter* iter)
 
 static bool has_next(struct hdr_iter* iter)
 {
-    return iter->cumulative_count < iter->h->total_count;
+    return iter->cumulative_count < iter->total_count;
 }
 
 static bool move_next(struct hdr_iter* iter)
@@ -675,6 +675,7 @@ void hdr_iter_init(struct hdr_iter* iter, const struct hdr_histogram* h)
     iter->h = h;
 
     iter->counts_index = -1;
+    iter->total_count = h->total_count;
     iter->count = 0;
     iter->cumulative_count = 0;
     iter->value = 0;
