@@ -51,7 +51,8 @@ static bool compare_timespec(hdr_timespec* a, hdr_timespec* b)
     long a_tv_msec = ns_to_ms(a->tv_nsec);
     long b_tv_msec = ns_to_ms(b->tv_nsec);
 
-    if (a->tv_sec == b->tv_sec && a_tv_msec == b_tv_msec)
+    // Allow off by 1 millisecond due to parsing and rounding.
+    if (a->tv_sec == b->tv_sec && labs(a_tv_msec - b_tv_msec) <= 1000000)
     {
         return true;
     }
@@ -464,6 +465,7 @@ static char* writes_and_reads_log()
     hdr_timespec interval;
 
     hdr_gettime(&timestamp);
+
     interval.tv_sec = 5;
     interval.tv_nsec = 2000000;
 

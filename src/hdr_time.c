@@ -68,3 +68,20 @@ void hdr_gettime(hdr_timespec* t)
 
 #endif
 
+double hdr_timespec_as_double(const hdr_timespec* t)
+{
+    double d = t->tv_sec;
+    return d + (t->tv_nsec / 1000000000.0);
+}
+
+void hdr_timespec_from_double(hdr_timespec* t, double value)
+{
+    int seconds = (int) value;
+    int milliseconds = (int) round((value - seconds) * 1000);
+
+    t->tv_sec = seconds;
+    t->tv_nsec = milliseconds * 1000000;
+}
+
+
+

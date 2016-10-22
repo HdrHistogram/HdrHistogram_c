@@ -767,12 +767,12 @@ static int print_time(FILE* f, hdr_timespec* timestamp)
 #else
     gmtime_r(&timestamp->tv_sec, &date_time);
 #endif
-    long ms = timestamp->tv_nsec / 1000000;
+
     strftime(time_str, 128, "%a %b %X %Z %Y", &date_time);
 
     return fprintf(
-        f, "#[StartTime: %d.%ld (seconds since epoch), %s]\n",
-        (int) timestamp->tv_sec, ms, time_str);
+        f, "#[StartTime: %.3f (seconds since epoch), %s]\n",
+        hdr_timespec_as_double(timestamp), time_str);
 }
 
 static int print_header(FILE* f)
@@ -844,9 +844,9 @@ int hdr_log_write(
     }
 
     if (fprintf(
-        file, "%d.%d,%d.%d,%"PRIu64".0,%s\n",
-        (int) start_timestamp->tv_sec, (int) (start_timestamp->tv_nsec / 1000000),
-        (int) end_timestamp->tv_sec, (int) (end_timestamp->tv_nsec / 1000000),
+        file, "%.3f,%.3f,%"PRIu64".0,%s\n",
+        hdr_timespec_as_double(start_timestamp),
+        hdr_timespec_as_double(end_timestamp),
         hdr_max(histogram),
         encoded_histogram) < 0)
     {
@@ -886,14 +886,12 @@ static void scan_log_format(struct hdr_log_reader* reader, const char* line)
 
 static void scan_start_time(struct hdr_log_reader* reader, const char* line)
 {
-    const char* format = "#[StartTime: %d.%d [^\n]";
-    int timestamp_s = 0;
-    int trailing_ms = 0;
+    const char* format = "#[StartTime: %lf [^\n]";
+    double timestamp = 0.0;
 
-    if (sscanf(line, format, &timestamp_s, &trailing_ms) == 2)
+    if (sscanf(line, format, &timestamp) == 1)
     {
-        reader->start_timestamp.tv_sec = timestamp_s;
-        reader->start_timestamp.tv_nsec = trailing_ms * 1000000;
+        hdr_timespec_from_double(&reader->start_timestamp, timestamp);
     }
 }
 
@@ -958,15 +956,14 @@ int hdr_log_read_header(struct hdr_log_reader* reader, FILE* file)
     return 0;
 }
 
-static void update_timespec(hdr_timespec* ts, int time_s, int time_ms)
+static void update_timespec(hdr_timespec* ts, double timestamp)
 {
     if (NULL == ts)
     {
         return;
     }
 
-    ts->tv_sec = time_s;
-    ts->tv_nsec = time_ms * 1000000;
+    hdr_timespec_from_double(ts, timestamp);
 }
 
 #if defined(_MSC_VER)
@@ -1045,17 +1042,15 @@ int hdr_log_read(
     struct hdr_log_reader* reader, FILE* file, struct hdr_histogram** histogram,
     hdr_timespec* timestamp, hdr_timespec* interval)
 {
-    const char* format_v12 = "%d.%d,%d.%d,%d.%d,%s";
-    const char* format_v13 = "Tag=%*[^,],%d.%d,%d.%d,%d.%d,%s";
+    const char* format_v12 = "%lf,%lf,%d.%d,%s";
+    const char* format_v13 = "Tag=%*[^,],%lf,%lf,%d.%d,%s";
     char* base64_histogram = NULL;
     uint8_t* compressed_histogram = NULL;
     char* line = NULL;
     int result = 0;
 
-    int begin_s = 0;
-    int begin_ms = 0;
-    int end_s = 0;
-    int end_ms = 0;
+    double begin_timestamp = 0.0;
+    double end_timestamp = 0.0;
     int interval_max_s = 0;
     int interval_max_ms = 0;
 
@@ -1094,21 +1089,20 @@ int hdr_log_read(
     }
 
     int num_tokens = sscanf(
-        line, format_v13, &begin_s, &begin_ms, &end_s, &end_ms,
+        line, format_v13, &begin_timestamp, &end_timestamp,
         &interval_max_s, &interval_max_ms, base64_histogram);
 
-    if (num_tokens != 7)
+    if (num_tokens != 5)
     {
         num_tokens = sscanf(
-            line, format_v12, &begin_s, &begin_ms, &end_s, &end_ms,
+            line, format_v12, &begin_timestamp, &end_timestamp,
             &interval_max_s, &interval_max_ms, base64_histogram);
 
-        if (num_tokens != 7)
+        if (num_tokens != 5)
         {
             FAIL_AND_CLEANUP(cleanup, result, EINVAL);
         }
     }
-
 
     size_t base64_len = strlen(base64_histogram);
     size_t compressed_len = hdr_base64_decoded_len(base64_len);
@@ -1127,8 +1121,8 @@ int hdr_log_read(
         FAIL_AND_CLEANUP(cleanup, result, r);
     }
 
-    update_timespec(timestamp, begin_s, begin_ms);
-    update_timespec(interval, end_s, end_ms);
+    update_timespec(timestamp, begin_timestamp);
+    update_timespec(interval, end_timestamp);
 
 cleanup:
 //    free(tag);
