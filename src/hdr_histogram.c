@@ -642,7 +642,7 @@ static bool next_value_greater_than_reporting_level_upper_bound(
 
 static bool _basic_iter_next(struct hdr_iter *iter)
 {
-    if (!has_next(iter))
+    if (!has_next(iter) || iter->counts_index >= iter->h->counts_len)
     {
         return false;
     }
