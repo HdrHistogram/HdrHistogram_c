@@ -5,14 +5,14 @@ clone_folder: c:\dev\HdrHistogram_c
 install:
   - cd c:\dev
   - md c:\dev\zlib64
-  - ps: Start-FileDownload 'http://zlib.net/zlib-1.2.8.tar.gz'
-  - 7z x zlib-1.2.8.tar.gz
-  - 7z x zlib-1.2.8.tar
+  - ps: Start-FileDownload 'http://zlib.net/zlib-1.2.11.tar.gz'
+  - 7z x zlib-1.2.11.tar.gz
+  - 7z x zlib-1.2.11.tar
 
 build:
 
 build_script:
-  - cd c:\dev\zlib-1.2.8
+  - cd c:\dev\zlib-1.2.11
   - md build
   - cd build
   - cmake -DCMAKE_INSTALL_PREFIX=c:\dev\zlib64 -G"Visual Studio 12 2013 Win64" ..
