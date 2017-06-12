@@ -12,6 +12,27 @@ int hdr_interval_recorder_init(struct hdr_interval_recorder* r)
     return hdr_writer_reader_phaser_init(&r->phaser);
 }
 
+int hdr_interval_recorder_init_all(
+    struct hdr_interval_recorder* r,
+    int64_t lowest_trackable_value,
+    int64_t highest_trackable_value,
+    int significant_figures)
+{
+    struct hdr_histogram** active = (struct hdr_histogram**) &r->active;
+    struct hdr_histogram** inactive = (struct hdr_histogram**) &r->inactive;
+
+    int result = hdr_writer_reader_phaser_init(&r->phaser);
+    result = result == 0
+        ? hdr_init(lowest_trackable_value, highest_trackable_value, significant_figures, active)
+        : result;
+
+    result = result == 0
+        ? hdr_init(lowest_trackable_value, highest_trackable_value, significant_figures, inactive)
+        : result;
+
+    return result;
+}
+
 void hdr_interval_recorder_destroy(struct hdr_interval_recorder* r)
 {
     hdr_writer_reader_phaser_destory(&r->phaser);

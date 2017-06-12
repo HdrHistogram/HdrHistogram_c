@@ -8,6 +8,7 @@
 #define HDR_INTERVAL_RECORDER_H 1
 
 #include "hdr_writer_reader_phaser.h"
+#include "hdr_histogram.h"
 
 HDR_ALIGN_PREFIX(8)
 struct hdr_interval_recorder
@@ -23,6 +24,12 @@ extern "C" {
 #endif
 
 int hdr_interval_recorder_init(struct hdr_interval_recorder* r);
+
+int hdr_interval_recorder_init_all(
+    struct hdr_interval_recorder* r,
+    int64_t lowest_trackable_value,
+    int64_t highest_trackable_value,
+    int significant_figures);
 
 void hdr_interval_recorder_destroy(struct hdr_interval_recorder* r);
 

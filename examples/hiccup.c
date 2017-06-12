@@ -152,25 +152,9 @@ int main(int argc, char** argv)
         }
     }
 
-    if (0 != hdr_interval_recorder_init(&recorder))
+    if (0 != hdr_interval_recorder_init_all(&recorder, 1, INT64_C(24) * 60 * 60 * 1000000, 3))
     {
         fprintf(stderr, "%s\n", "Failed to init phaser");
-        return -1;
-    }
-
-    if (0 != hdr_init(
-        1, INT64_C(24) * 60 * 60 * 1000000, 3,
-        (struct hdr_histogram**) &recorder.active))
-    {
-        fprintf(stderr, "%s\n", "Failed to init hdr_histogram");
-        return -1;
-    }
-
-    if (0 != hdr_init(
-        1, INT64_C(24) * 60 * 60 * 1000000, 3,
-        (struct hdr_histogram**) &recorder.inactive))
-    {
-        fprintf(stderr, "%s\n", "Failed to init hdr_histogram");
         return -1;
     }
 
