@@ -38,6 +38,30 @@ void hdr_interval_recorder_update(
     void(*update_action)(void*, void*), 
     void* arg);
 
+int64_t hdr_interval_recorder_record_value(
+    struct hdr_interval_recorder* r,
+    int64_t value
+);
+
+int64_t hdr_interval_recorder_record_values(
+    struct hdr_interval_recorder* r,
+    int64_t value,
+    int64_t count
+);
+
+int64_t hdr_interval_recorder_record_corrected_value(
+    struct hdr_interval_recorder* r,
+    int64_t value,
+    int64_t expected_interval
+);
+
+int64_t hdr_interval_recorder_record_corrected_values(
+    struct hdr_interval_recorder* r,
+    int64_t value,
+    int64_t count,
+    int64_t expected_interval
+);
+
 void* hdr_interval_recorder_sample(struct hdr_interval_recorder* r);
 
 #ifdef __cplusplus

@@ -72,3 +72,92 @@ void* hdr_interval_recorder_sample(struct hdr_interval_recorder* r)
 
     return r->inactive;
 }
+
+static void update_value(void* data, void* arg)
+{
+    struct hdr_histogram* h = data;
+    int64_t* params = arg;
+    params[1] = hdr_record_value(h, params[0]);
+}
+
+int64_t hdr_interval_recorder_record_value(
+    struct hdr_interval_recorder* r,
+    int64_t value
+)
+{
+    int64_t params[2];
+    params[0] = value;
+    params[1] = 0;
+
+    hdr_interval_recorder_update(r, update_value, &params[0]);
+    return params[1];
+}
+
+static void update_values(void* data, void* arg)
+{
+    struct hdr_histogram* h = data;
+    int64_t* params = arg;
+    params[2] = hdr_record_values(h, params[0], params[1]);
+}
+
+int64_t hdr_interval_recorder_record_values(
+    struct hdr_interval_recorder* r,
+    int64_t value,
+    int64_t count
+)
+{
+    int64_t params[3];
+    params[0] = value;
+    params[1] = count;
+    params[2] = 0;
+
+    hdr_interval_recorder_update(r, update_values, &params[0]);
+    return params[2];
+}
+
+static void update_corrected_value(void* data, void* arg)
+{
+    struct hdr_histogram* h = data;
+    int64_t* params = arg;
+    params[2] = hdr_record_corrected_value(h, params[0], params[1]);
+}
+
+int64_t hdr_interval_recorder_record_corrected_value(
+    struct hdr_interval_recorder* r,
+    int64_t value,
+    int64_t expected_interval
+)
+{
+    int64_t params[3];
+    params[0] = value;
+    params[1] = expected_interval;
+    params[2] = 0;
+
+    hdr_interval_recorder_update(r, update_corrected_value, &params[0]);
+    return params[2];
+}
+
+static void update_corrected_values(void* data, void* arg)
+{
+    struct hdr_histogram* h = data;
+    int64_t* params = arg;
+    params[3] = hdr_record_corrected_values(h, params[0], params[1], params[2]);
+}
+
+int64_t hdr_interval_recorder_record_corrected_values(
+    struct hdr_interval_recorder* r,
+    int64_t value,
+    int64_t count,
+    int64_t expected_interval
+)
+{
+    int64_t params[4];
+    params[0] = value;
+    params[1] = count;
+    params[2] = expected_interval;
+    params[3] = 0;
+
+    hdr_interval_recorder_update(r, update_corrected_values, &params[0]);
+    return params[3];
+
+}

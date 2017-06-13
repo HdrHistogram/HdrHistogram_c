@@ -31,14 +31,6 @@ static int64_t diff(struct timespec t0, struct timespec t1)
     return delta_us;
 }
 
-static void update_histogram(void* data, void* arg)
-{
-    struct hdr_histogram* h = data;
-    int64_t* values = arg;
-
-    hdr_record_value(h, values[0]);
-}
-
 static void* record_hiccups(void* thread_context)
 {
     struct pollfd fd;
@@ -71,7 +63,7 @@ static void* record_hiccups(void* thread_context)
         int64_t delta_us = diff(t0, t1) - 1000;
         delta_us = delta_us < 0 ? 0 : delta_us;
 
-        hdr_interval_recorder_update(r, update_histogram, &delta_us);
+        hdr_interval_recorder_record_value(r, delta_us);
     }
 #pragma clang diagnostic pop
 
