@@ -55,7 +55,8 @@ void hdr_gettime(hdr_timespec* ts)
 }
 
 
-void hdr_getnow(hdr_timespec* ts) {
+void hdr_getnow(hdr_timespec* ts)
+{
     hdr_gettime(ts);
 }
 
