@@ -34,6 +34,8 @@ void hdr_gettime(hdr_timespec* t);
 void hdr_gettime(hdr_timespec* t);
 #endif
 
+void hdr_getnow(hdr_timespec* t);
+
 double hdr_timespec_as_double(const hdr_timespec* t);
 
 // Assumes only millisecond accuracy.
