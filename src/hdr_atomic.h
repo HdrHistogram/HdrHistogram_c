@@ -7,7 +7,6 @@
 #ifndef HDR_ATOMIC_H__
 #define HDR_ATOMIC_H__
 
-
 #if defined(_MSC_VER)
 
 #include <stdint.h>
