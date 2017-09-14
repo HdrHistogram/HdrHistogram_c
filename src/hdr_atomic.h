@@ -7,7 +7,6 @@
 #ifndef HDR_ATOMIC_H__
 #define HDR_ATOMIC_H__
 
-
 #if defined(_MSC_VER)
 
 #include <stdint.h>
@@ -99,5 +98,7 @@ static int64_t inline hdr_atomic_add_fetch_64(volatile int64_t* field, int64_t v
 #else
 
 #error "Unable to determine atomic operations for your platform"
+
+#endif
 
 #endif /* HDR_ATOMIC_H__ */
