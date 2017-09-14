@@ -58,46 +58,48 @@ static int64_t __inline hdr_atomic_add_fetch_64(volatile int64_t* field, int64_t
 
 #elif defined(__x86_64__)
 
-static void inline * hdr_atomic_load_pointer(void** pointer)
+#include <stdint.h>
+
+static inline void* hdr_atomic_load_pointer(void** pointer)
 {
-   void* p =  *(volatile void**)pointer;
-	__asm__ volatile ("" ::: "memory");
+   void* p =  *pointer;
+	asm volatile ("" ::: "memory");
 	return p;
 }
 
-static void inline hdr_atomic_store_pointer(void** pointer, void* value)
+static inline void hdr_atomic_store_pointer(void** pointer, void* value)
 {
-    __asm__ volatile ("lock; xchg %0, %1" : "+q" (value) "+m" (*pointer));
+    asm volatile ("lock; xchgq %0, %1" : "+q" (value), "+m" (*pointer));
 }
 
-static int64_t inline hdr_atomic_load_64(int64_t* field)
+static inline int64_t hdr_atomic_load_64(int64_t* field)
 {
     int64_t i = *field;
-	__asm__ volatile ("" ::: "memory");
-	return *field;
+	asm volatile ("" ::: "memory");
+	return i;
 }
 
-static void inline hdr_atomic_store_64(int64_t* field, int64_t value)
+static inline void hdr_atomic_store_64(int64_t* field, int64_t value)
 {
-    __asm__ volatile ("lock; xchgq %0, %1" : "+q" (value) "+m" (*field));
+    asm volatile ("lock; xchgq %0, %1" : "+q" (value), "+m" (*field));
 }
 
-static int64_t inline hdr_atomic_exchange_64(volatile int64_t* field, int64_t initial)
+static inline int64_t hdr_atomic_exchange_64(volatile int64_t* field, int64_t value)
 {
     int64_t result = 0;
-    __asm__ volatile ("lock; xchgq %0, %1" : "=r" (result) "+q" (value) "+m" (*field));
+    asm volatile ("lock; xchgq %1, %2" : "=r" (result), "+q" (value), "+m" (*field));
     return result;
 }
 
-static int64_t inline hdr_atomic_add_fetch_64(volatile int64_t* field, int64_t value)
+static inline int64_t hdr_atomic_add_fetch_64(volatile int64_t* field, int64_t value)
 {
-    int64_t result;
-    __asm__ volatile("lock; xaddq %0, %1" : "=r"(result), "+m"(*field) : "0"(value));
-    return result;
+    return __sync_add_and_fetch(field, value);
 }
 
 #else
 
 #error "Unable to determine atomic operations for your platform"
+
+#endif
 
 #endif /* HDR_ATOMIC_H__ */

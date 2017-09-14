@@ -9,6 +9,7 @@
 
 #include <math.h>
 #include <inttypes.h>
+#include <stdbool.h>
 
 struct mu_result
 {
