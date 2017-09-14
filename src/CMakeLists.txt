@@ -19,6 +19,8 @@ else (WIN32)
     set_target_properties(hdr_histogram PROPERTIES VERSION ${HDR_VERSION} SOVERSION ${HDR_SOVERSION})
 endif (WIN32)
 
+target_include_directories(hdr_histogram SYSTEM PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(hdr_histogram_static SYSTEM PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 install(TARGETS hdr_histogram DESTINATION lib${LIB_SUFFIX})
 install(TARGETS hdr_histogram_static DESTINATION lib${LIB_SUFFIX})

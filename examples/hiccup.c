@@ -157,6 +157,7 @@ int main(int argc, char** argv)
     }
 
     hdr_gettime(&start_timestamp);
+    hdr_getnow(&timestamp);
     hdr_log_writer_init(&log_writer);
     hdr_log_write_header(&log_writer, output, "foobar", &timestamp);
 

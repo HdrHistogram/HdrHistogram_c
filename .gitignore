@@ -46,4 +46,5 @@ test/hdr_histogram_test
 test/perftest
 .gdb_history
 debug
+cmake-build-debug
 
