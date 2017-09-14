@@ -47,13 +47,57 @@ static int64_t __inline hdr_atomic_add_fetch_64(volatile int64_t* field, int64_t
 	return _InterlockedExchangeAdd64(field, value) + value;
 }
 
-#else
+#elif defined(__ATOMIC_SEQ_CST)
+
 #define hdr_atomic_load_pointer(x) __atomic_load_n(x, __ATOMIC_SEQ_CST)
 #define hdr_atomic_store_pointer(f,v) __atomic_store_n(f,v, __ATOMIC_SEQ_CST)
 #define hdr_atomic_load_64(x) __atomic_load_n(x, __ATOMIC_SEQ_CST)
 #define hdr_atomic_store_64(f,v) __atomic_store_n(f,v, __ATOMIC_SEQ_CST)
 #define hdr_atomic_exchange_64(f,i) __atomic_exchange_n(f,i, __ATOMIC_SEQ_CST)
 #define hdr_atomic_add_fetch_64(field, value) __atomic_add_fetch(field, value, __ATOMIC_SEQ_CST)
-#endif
+
+#elif defined(__x86_64__)
+
+static void inline * hdr_atomic_load_pointer(void** pointer)
+{
+   void* p =  *(volatile void**)pointer;
+	__asm__ volatile ("" ::: "memory");
+	return p;
+}
+
+static void inline hdr_atomic_store_pointer(void** pointer, void* value)
+{
+    __asm__ volatile ("lock; xchg %0, %1" : "+q" (value) "+m" (*pointer));
+}
+
+static int64_t inline hdr_atomic_load_64(int64_t* field)
+{
+    int64_t i = *field;
+	__asm__ volatile ("" ::: "memory");
+	return *field;
+}
+
+static void inline hdr_atomic_store_64(int64_t* field, int64_t value)
+{
+    __asm__ volatile ("lock; xchgq %0, %1" : "+q" (value) "+m" (*field));
+}
+
+static int64_t inline hdr_atomic_exchange_64(volatile int64_t* field, int64_t initial)
+{
+    int64_t result = 0;
+    __asm__ volatile ("lock; xchgq %0, %1" : "=r" (result) "+q" (value) "+m" (*field));
+    return result;
+}
+
+static int64_t inline hdr_atomic_add_fetch_64(volatile int64_t* field, int64_t value)
+{
+    int64_t result;
+    __asm__ volatile("lock; xaddq %0, %1" : "=r"(result), "+m"(*field) : "0"(value));
+    return result;
+}
+
+#else
+
+#error "Unable to determine atomic operations for your platform"
 
 #endif /* HDR_ATOMIC_H__ */
