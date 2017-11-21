@@ -45,7 +45,7 @@ struct mu_result
 
 extern int tests_run;
 
-static bool compare_double(double a, double b, double delta)
+static inline bool compare_double(double a, double b, double delta)
 {
     if (fabs(a - b) < delta)
     {
@@ -56,7 +56,7 @@ static bool compare_double(double a, double b, double delta)
     return false;
 }
 
-static bool compare_int64(int64_t a, int64_t b)
+static inline bool compare_int64(int64_t a, int64_t b)
 {
     if (a == b)
     {
