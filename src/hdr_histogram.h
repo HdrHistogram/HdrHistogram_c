@@ -31,7 +31,7 @@ struct hdr_histogram
     double conversion_ratio;
     int32_t counts_len;
     int64_t total_count;
-    int64_t counts[0];
+    int64_t* counts;
 };
 
 #ifdef __cplusplus
