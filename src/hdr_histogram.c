@@ -327,16 +327,15 @@ int hdr_init(
         return r;
     }
 
-    size_t histogram_size           = sizeof(struct hdr_histogram) + cfg.counts_len * sizeof(int64_t);
-    struct hdr_histogram* histogram = malloc(histogram_size);
+    int64_t* counts = calloc((size_t) cfg.counts_len, sizeof(int64_t));
+    struct hdr_histogram* histogram = calloc(1, sizeof(struct hdr_histogram));
 
-    if (!histogram)
+    if (!counts || !histogram)
     {
         return ENOMEM;
     }
 
-    // memset will ensure that all of the function pointers are null.
-    memset((void*) histogram, 0, histogram_size);
+    histogram->counts = counts;
 
     hdr_init_preallocated(histogram, &cfg);
     *result = histogram;
@@ -356,8 +355,7 @@ void hdr_reset(struct hdr_histogram *h)
      h->total_count=0;
      h->min_value = INT64_MAX;
      h->max_value = 0;
-     memset((void *) &h->counts, 0, (sizeof(int64_t) * h->counts_len));
-     return;
+     memset(h->counts, 0, (sizeof(int64_t) * h->counts_len));
 }
 
 size_t hdr_get_memory_size(struct hdr_histogram *h)
