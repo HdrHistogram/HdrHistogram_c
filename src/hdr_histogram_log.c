@@ -191,7 +191,7 @@ typedef struct /*__attribute__((__packed__))*/
     int64_t lowest_trackable_value;
     int64_t highest_trackable_value;
     int64_t total_count;
-    int64_t counts[0];
+    int64_t counts[1];
 } _encoding_flyweight_v0;
 
 typedef struct /*__attribute__((__packed__))*/
@@ -203,14 +203,14 @@ typedef struct /*__attribute__((__packed__))*/
     int64_t lowest_trackable_value;
     int64_t highest_trackable_value;
     uint64_t conversion_ratio_bits;
-    uint8_t counts[0];
+    uint8_t counts[1];
 } _encoding_flyweight_v1;
 
 typedef struct /*__attribute__((__packed__))*/
 {
     int32_t cookie;
     int32_t length;
-    uint8_t data[0];
+    uint8_t data[1];
 } _compression_flyweight;
 #pragma pack(pop)
 
