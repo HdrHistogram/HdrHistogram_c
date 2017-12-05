@@ -214,6 +214,10 @@ typedef struct /*__attribute__((__packed__))*/
 } _compression_flyweight;
 #pragma pack(pop)
 
+#define SIZEOF_ENCODING_FLYWEIGHT_V0 (sizeof(_encoding_flyweight_v0) - sizeof(int64_t))
+#define SIZEOF_ENCODING_FLYWEIGHT_V1 (sizeof(_encoding_flyweight_v1) - sizeof(uint8_t))
+#define SIZEOF_COMPRESSION_FLYWEIGHT (sizeof(_compression_flyweight) - sizeof(uint8_t))
+
 int hdr_encode_compressed(
     struct hdr_histogram* h,
     uint8_t** compressed_histogram,
@@ -226,7 +230,7 @@ int hdr_encode_compressed(
     int32_t len_to_max = counts_index_for(h, h->max_value) + 1;
     int32_t counts_limit = len_to_max < h->counts_len ? len_to_max : h->counts_len;
 
-    const size_t encoded_len = sizeof(_encoding_flyweight_v1) + MAX_BYTES_LEB128 * (size_t) counts_limit;
+    const size_t encoded_len = SIZEOF_ENCODING_FLYWEIGHT_V1 + MAX_BYTES_LEB128 * (size_t) counts_limit;
     if ((encoded = (_encoding_flyweight_v1*) calloc(encoded_len, sizeof(uint8_t))) == NULL)
     {
         FAIL_AND_CLEANUP(cleanup, result, ENOMEM);
@@ -258,7 +262,7 @@ int hdr_encode_compressed(
     }
 
     int32_t payload_len = data_index;
-    uLong encoded_size = sizeof(_encoding_flyweight_v1) + data_index;
+    uLong encoded_size = SIZEOF_ENCODING_FLYWEIGHT_V1 + data_index;
 
     encoded->cookie                   = htobe32(V2_ENCODING_COOKIE | 0x10);
     encoded->payload_len              = htobe32(payload_len);
@@ -271,7 +275,7 @@ int hdr_encode_compressed(
 
     // Estimate the size of the compressed histogram.
     uLongf destLen = compressBound(encoded_size);
-    size_t compressed_size = sizeof(_compression_flyweight) + destLen;
+    size_t compressed_size = SIZEOF_COMPRESSION_FLYWEIGHT + destLen;
 
     if ((compressed = (_compression_flyweight*) malloc(compressed_size)) == NULL)
     {
@@ -287,7 +291,7 @@ int hdr_encode_compressed(
     compressed->length = htobe32((int32_t)destLen);
 
     *compressed_histogram = (uint8_t*) compressed;
-    *compressed_len = sizeof(_compression_flyweight) + destLen;
+    *compressed_len = SIZEOF_COMPRESSION_FLYWEIGHT + destLen;
 
     cleanup:
     free(encoded);
@@ -418,7 +422,7 @@ static int hdr_decode_compressed_v0(
 
     int32_t compressed_length = be32toh(compression_flyweight->length);
 
-    if (compressed_length < 0 || length - sizeof(_compression_flyweight) < (size_t)compressed_length)
+    if (compressed_length < 0 || (length - SIZEOF_COMPRESSION_FLYWEIGHT) < (size_t)compressed_length)
     {
         FAIL_AND_CLEANUP(cleanup, result, EINVAL);
     }
@@ -426,7 +430,7 @@ static int hdr_decode_compressed_v0(
     strm.next_in = compression_flyweight->data;
     strm.avail_in = (uInt) compressed_length;
     strm.next_out = (uint8_t *) &encoding_flyweight;
-    strm.avail_out = sizeof(_encoding_flyweight_v0);
+    strm.avail_out = SIZEOF_ENCODING_FLYWEIGHT_V0;
 
     if (inflate(&strm, Z_SYNC_FLUSH) != Z_OK)
     {
@@ -513,7 +517,7 @@ static int hdr_decode_compressed_v1(
 
     int32_t compressed_length = be32toh(compression_flyweight->length);
 
-    if (compressed_length < 0 || length - sizeof(_compression_flyweight) < (size_t)compressed_length)
+    if (compressed_length < 0 || length - SIZEOF_COMPRESSION_FLYWEIGHT < (size_t)compressed_length)
     {
         FAIL_AND_CLEANUP(cleanup, result, EINVAL);
     }
@@ -521,7 +525,7 @@ static int hdr_decode_compressed_v1(
     strm.next_in = compression_flyweight->data;
     strm.avail_in = (uInt) compressed_length;
     strm.next_out = (uint8_t *) &encoding_flyweight;
-    strm.avail_out = sizeof(_encoding_flyweight_v1);
+    strm.avail_out = SIZEOF_ENCODING_FLYWEIGHT_V1;
 
     if (inflate(&strm, Z_SYNC_FLUSH) != Z_OK)
     {
@@ -611,7 +615,7 @@ static int hdr_decode_compressed_v2(
 
     int32_t compressed_length = be32toh(compression_flyweight->length);
 
-    if (compressed_length < 0 || length - sizeof(_compression_flyweight) < (size_t)compressed_length)
+    if (compressed_length < 0 || length - SIZEOF_COMPRESSION_FLYWEIGHT < (size_t)compressed_length)
     {
         FAIL_AND_CLEANUP(cleanup, result, EINVAL);
     }
@@ -619,7 +623,7 @@ static int hdr_decode_compressed_v2(
     strm.next_in = compression_flyweight->data;
     strm.avail_in = (uInt) compressed_length;
     strm.next_out = (uint8_t *) &encoding_flyweight;
-    strm.avail_out = sizeof(_encoding_flyweight_v1);
+    strm.avail_out = SIZEOF_ENCODING_FLYWEIGHT_V1;
 
     if (inflate(&strm, Z_SYNC_FLUSH) != Z_OK)
     {
@@ -696,7 +700,7 @@ cleanup:
 int hdr_decode_compressed(
     uint8_t* buffer, size_t length, struct hdr_histogram** histogram)
 {
-    if (length < sizeof(_compression_flyweight))
+    if (length < SIZEOF_COMPRESSION_FLYWEIGHT)
     {
         return EINVAL;
     }
