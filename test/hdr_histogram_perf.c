@@ -45,15 +45,13 @@ static char *format_double(double d)
 {
     static char buffer[30];
 
-    snprintf(buffer, 30, "%0.2f", d);
+    snprintf(buffer, sizeof(buffer), "%0.2f", d);
 
-    int length = strlen(buffer);
-
-    int p = length - 6;
+    int p = strlen(buffer) - 6;
 
     while (p > 0)
     {
-        memmove(buffer + p + 1, buffer + p, length - p + 1);
+        memmove(&buffer[p + 1], &buffer[p], strlen(buffer) - p + 1);
         buffer[p] = ',';
 
         p = p - 3;
