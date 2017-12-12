@@ -20,6 +20,7 @@
 #endif
 
 #include <windows.h>
+#define snprintf sprintf_s
 
 #endif
 
@@ -47,7 +48,7 @@ static char *format_double(double d)
 
     snprintf(buffer, sizeof(buffer), "%0.2f", d);
 
-    int p = strlen(buffer) - 6;
+    int p = (int) strlen(buffer) - 6;
 
     while (p > 0)
     {
