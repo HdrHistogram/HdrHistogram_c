@@ -9,7 +9,7 @@
 
 #include <stdio.h>
 #include <hdr_histogram.h>
-#include <locale.h>
+#include <string.h>
 
 #include "hdr_time.h"
 
@@ -20,6 +20,7 @@
 #endif
 
 #include <windows.h>
+#define snprintf sprintf_s
 
 #endif
 
@@ -40,6 +41,26 @@ static hdr_timespec diff(hdr_timespec start, hdr_timespec end)
     return temp;
 }
 
+/* Formats the given double with 2 dps, and , thousand separators */
+static char *format_double(double d)
+{
+    static char buffer[30];
+
+    snprintf(buffer, sizeof(buffer), "%0.2f", d);
+
+    int p = (int) strlen(buffer) - 6;
+
+    while (p > 0)
+    {
+        memmove(&buffer[p + 1], &buffer[p], strlen(buffer) - p + 1);
+        buffer[p] = ',';
+
+        p = p - 3;
+    }
+
+    return buffer;
+}
+
 int main()
 {
     struct hdr_histogram* histogram;
@@ -56,7 +77,6 @@ int main()
 
     hdr_timespec t0;
     hdr_timespec t1;
-    setlocale(LC_NUMERIC, "");
     int64_t iterations = 400000000;
 
     int i;
@@ -74,15 +94,7 @@ int main()
         double time_taken = taken.tv_sec + taken.tv_nsec / 1000000000.0;
         double ops_sec = (iterations - 1) / time_taken;
 
-#if defined(_MSC_VER)
-        wchar_t unformatted[64];
-        _snwprintf_s(unformatted, sizeof(unformatted), sizeof(unformatted) - 1, L"%.2f", ops_sec);
-        wchar_t formatted[64];
-        int ret = GetNumberFormatEx(LOCALE_NAME_USER_DEFAULT, 0, unformatted, NULL, formatted, sizeof(formatted));
-        wprintf_s(L"%s - %d, ops/sec: %s\n", L"Iteration", i + 1, formatted);
-#else
-        printf("%s - %d, ops/sec: %'.2f\n", "Iteration", i + 1, ops_sec);
-#endif
+        printf("%s - %d, ops/sec: %s\n", "Iteration", i + 1, format_double(ops_sec));
     }
 
     return 0;
