@@ -603,6 +603,7 @@ static int hdr_decode_compressed_v2(
 {
     struct hdr_histogram* h = NULL;
     int result = 0;
+    int rc = 0;
     uint8_t* counts_array = NULL;
     _encoding_flyweight_v1 encoding_flyweight;
     z_stream strm;
@@ -641,13 +642,10 @@ static int hdr_decode_compressed_v2(
     int64_t highest_trackable_value = be64toh(encoding_flyweight.highest_trackable_value);
     int32_t significant_figures = be32toh(encoding_flyweight.significant_figures);
 
-    if (hdr_init(
-        lowest_trackable_value,
-        highest_trackable_value,
-        significant_figures,
-        &h) != 0)
+    rc = hdr_init(lowest_trackable_value, highest_trackable_value, significant_figures, &h);
+    if (rc)
     {
-        FAIL_AND_CLEANUP(cleanup, result, ENOMEM);
+        FAIL_AND_CLEANUP(cleanup, result, rc);
     }
 
     // Make sure there at least 9 bytes to read
@@ -666,10 +664,10 @@ static int hdr_decode_compressed_v2(
         FAIL_AND_CLEANUP(cleanup, result, HDR_INFLATE_FAIL);
     }
 
-    int r = _apply_to_counts_zz(h, counts_array, counts_limit);
-    if (0 != r)
+    rc = _apply_to_counts_zz(h, counts_array, counts_limit);
+    if (rc)
     {
-        FAIL_AND_CLEANUP(cleanup, result, r);
+        FAIL_AND_CLEANUP(cleanup, result, rc);
     }
 
     h->normalizing_index_offset = be32toh(encoding_flyweight.normalizing_index_offset);

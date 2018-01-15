@@ -287,7 +287,11 @@ int hdr_calculate_bucket_config(
     cfg->sub_bucket_half_count = cfg->sub_bucket_count / 2;
     cfg->sub_bucket_mask       = ((int64_t) cfg->sub_bucket_count - 1) << cfg->unit_magnitude;
 
-    // determine exponent range needed to support the trackable value with no overflow:
+    if (cfg->unit_magnitude + cfg->sub_bucket_half_count_magnitude > 62)
+    {
+        return EINVAL;
+    }
+
     cfg->bucket_count = buckets_needed_to_cover_value(highest_trackable_value, cfg->sub_bucket_count, (int32_t)cfg->unit_magnitude);
     cfg->counts_len = (cfg->bucket_count + 1) * (cfg->sub_bucket_count / 2);
 
