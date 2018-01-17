@@ -287,7 +287,7 @@ int hdr_calculate_bucket_config(
     cfg->sub_bucket_half_count = cfg->sub_bucket_count / 2;
     cfg->sub_bucket_mask       = ((int64_t) cfg->sub_bucket_count - 1) << cfg->unit_magnitude;
 
-    if (cfg->unit_magnitude + cfg->sub_bucket_half_count_magnitude > 62)
+    if (cfg->unit_magnitude + cfg->sub_bucket_half_count_magnitude > 61)
     {
         return EINVAL;
     }
