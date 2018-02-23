@@ -66,6 +66,13 @@ int hdr_init(
     struct hdr_histogram** result);
 
 /**
+ * Free the memory and close the hdr_histogram.
+ *
+ * @param h The histogram you want to close.
+ */
+void hdr_close(struct hdr_histogram* h);
+
+/**
  * Allocate the memory and initialise the hdr_histogram.  This is the equivalent of calling
  * hdr_init(1, highest_trackable_value, significant_figures, result);
  *
