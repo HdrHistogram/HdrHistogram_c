@@ -56,7 +56,7 @@ int hdr_writer_reader_phaser_init(struct hdr_writer_reader_phaser* p)
     return 0;
 }
 
-void hdr_writer_reader_phaser_destory(struct hdr_writer_reader_phaser* p)
+void hdr_writer_reader_phaser_destroy(struct hdr_writer_reader_phaser* p)
 {
     hdr_mutex_destroy(p->reader_mutex);
     hdr_mutex_free(p->reader_mutex);

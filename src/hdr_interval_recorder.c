@@ -35,7 +35,7 @@ int hdr_interval_recorder_init_all(
 
 void hdr_interval_recorder_destroy(struct hdr_interval_recorder* r)
 {
-    hdr_writer_reader_phaser_destory(&r->phaser);
+    hdr_writer_reader_phaser_destroy(&r->phaser);
 }
 
 void hdr_interval_recorder_update(
