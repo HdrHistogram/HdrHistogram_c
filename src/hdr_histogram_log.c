@@ -384,15 +384,15 @@ static int _apply_to_counts(
     switch (word_size)
     {
         case 2:
-            _apply_to_counts_16(h, (int16_t*) counts_data, counts_limit);
+            _apply_to_counts_16(h, (const int16_t*) counts_data, counts_limit);
             return 0;
 
         case 4:
-            _apply_to_counts_32(h, (int32_t*) counts_data, counts_limit);
+            _apply_to_counts_32(h, (const int32_t*) counts_data, counts_limit);
             return 0;
 
         case 8:
-            _apply_to_counts_64(h, (int64_t*) counts_data, counts_limit);
+            _apply_to_counts_64(h, (const int64_t*) counts_data, counts_limit);
             return 0;
 
         case 1:
