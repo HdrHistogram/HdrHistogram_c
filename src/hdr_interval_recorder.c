@@ -18,16 +18,9 @@ int hdr_interval_recorder_init_all(
     int64_t highest_trackable_value,
     int significant_figures)
 {
-    struct hdr_histogram** active = (struct hdr_histogram**) &r->active;
-    struct hdr_histogram** inactive = (struct hdr_histogram**) &r->inactive;
-
     int result = hdr_writer_reader_phaser_init(&r->phaser);
     result = result == 0
-        ? hdr_init(lowest_trackable_value, highest_trackable_value, significant_figures, active)
-        : result;
-
-    result = result == 0
-        ? hdr_init(lowest_trackable_value, highest_trackable_value, significant_figures, inactive)
+        ? hdr_init(lowest_trackable_value, highest_trackable_value, significant_figures, &r->active)
         : result;
 
     return result;
@@ -36,11 +29,13 @@ int hdr_interval_recorder_init_all(
 void hdr_interval_recorder_destroy(struct hdr_interval_recorder* r)
 {
     hdr_writer_reader_phaser_destroy(&r->phaser);
+    free(r->active);
+    free(r->inactive);
 }
 
-void hdr_interval_recorder_update(
+static void hdr_interval_recorder_update(
     struct hdr_interval_recorder* r, 
-    void(*update_action)(void*, void*), 
+    void(*update_action)(struct hdr_histogram*, void*),
     void* arg)
 {
     int64_t val = hdr_phaser_writer_enter(&r->phaser);
@@ -52,28 +47,40 @@ void hdr_interval_recorder_update(
     hdr_phaser_writer_exit(&r->phaser, val);
 }
 
-void* hdr_interval_recorder_sample(struct hdr_interval_recorder* r)
+struct hdr_histogram* hdr_interval_recorder_sample_and_recycle(
+    struct hdr_interval_recorder* r,
+    struct hdr_histogram* inactive_histogram)
 {
-    void* temp;
+    if (NULL == inactive_histogram)
+    {
+        int64_t lo = r->active->lowest_trackable_value;
+        int64_t hi = r->active->highest_trackable_value;
+        int significant_figures = r->active->significant_figures;
+        hdr_init(lo, hi, significant_figures, &inactive_histogram);
+    }
 
     hdr_phaser_reader_lock(&r->phaser);
 
-    temp = r->inactive;
-
     // volatile read
-    r->inactive = hdr_atomic_load_pointer(&r->active);
+    struct hdr_histogram* old_active = hdr_atomic_load_pointer(&r->active);
 
     // volatile write
-    hdr_atomic_store_pointer(&r->active, temp);
+    hdr_atomic_store_pointer(&r->active, inactive_histogram);
 
     hdr_phaser_flip_phase(&r->phaser, 0);
 
     hdr_phaser_reader_unlock(&r->phaser);
 
+    return old_active;
+}
+
+struct hdr_histogram* hdr_interval_recorder_sample(struct hdr_interval_recorder* r)
+{
+    r->inactive = hdr_interval_recorder_sample_and_recycle(r, r->inactive);
     return r->inactive;
 }
 
-static void update_value(void* data, void* arg)
+static void update_value(struct hdr_histogram* data, void* arg)
 {
     struct hdr_histogram* h = data;
     int64_t* params = arg;
@@ -93,7 +100,7 @@ int64_t hdr_interval_recorder_record_value(
     return params[1];
 }
 
-static void update_values(void* data, void* arg)
+static void update_values(struct hdr_histogram* data, void* arg)
 {
     struct hdr_histogram* h = data;
     int64_t* params = arg;
@@ -115,7 +122,7 @@ int64_t hdr_interval_recorder_record_values(
     return params[2];
 }
 
-static void update_corrected_value(void* data, void* arg)
+static void update_corrected_value(struct hdr_histogram* data, void* arg)
 {
     struct hdr_histogram* h = data;
     int64_t* params = arg;
@@ -137,7 +144,7 @@ int64_t hdr_interval_recorder_record_corrected_value(
     return params[2];
 }
 
-static void update_corrected_values(void* data, void* arg)
+static void update_corrected_values(struct hdr_histogram* data, void* arg)
 {
     struct hdr_histogram* h = data;
     int64_t* params = arg;

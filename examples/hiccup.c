@@ -121,6 +121,7 @@ int main(int argc, char** argv)
     struct hdr_interval_recorder recorder;
     struct hdr_log_writer log_writer;
     struct config_t config;
+    struct hdr_histogram* inactive;
     pthread_t recording_thread;
     FILE* output = stdout;
 
@@ -167,16 +168,17 @@ int main(int argc, char** argv)
     {        
         sleep(config.interval);
 
-        hdr_reset(recorder.inactive);
-        struct hdr_histogram* h = hdr_interval_recorder_sample(&recorder);
+        inactive = hdr_interval_recorder_sample_and_recycle(&recorder, inactive);
 
         hdr_gettime(&end_timestamp);
         timestamp = start_timestamp;
 
         hdr_gettime(&start_timestamp);
 
-        hdr_log_write(&log_writer, output, &timestamp, &end_timestamp, h);
+        hdr_log_write(&log_writer, output, &timestamp, &end_timestamp, inactive);
         fflush(output);
+
+        hdr_reset(inactive);
     }
 #pragma clang diagnostic pop
 
