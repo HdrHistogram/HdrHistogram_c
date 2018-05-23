@@ -121,7 +121,7 @@ int main(int argc, char** argv)
     struct hdr_interval_recorder recorder;
     struct hdr_log_writer log_writer;
     struct config_t config;
-    struct hdr_histogram* inactive;
+    struct hdr_histogram* inactive = NULL;
     pthread_t recording_thread;
     FILE* output = stdout;
 
