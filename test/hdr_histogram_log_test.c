@@ -304,6 +304,33 @@ static char* test_encode_and_decode_base64()
     return 0;
 }
 
+static char* test_encode_and_decode_empty()
+{
+    free(raw_histogram);
+
+    mu_assert("allocation should be valid", 0 == hdr_init(1, 1000000, 1, &raw_histogram));
+
+    uint8_t* buffer = NULL;
+    uint8_t* decoded = NULL;
+    char* encoded = NULL;
+    size_t len = 0;
+    int rc = 0;
+
+    rc = hdr_encode_compressed(raw_histogram, &buffer, &len);
+    mu_assert("Did not encode", validate_return_code(rc));
+
+    size_t encoded_len = hdr_base64_encoded_len(len);
+    size_t decoded_len = hdr_base64_decoded_len(encoded_len);
+    encoded = calloc(encoded_len + 1, sizeof(char));
+    decoded = calloc(decoded_len, sizeof(uint8_t));
+
+    hdr_base64_encode(buffer, len, encoded, encoded_len);
+    hdr_base64_decode(encoded, encoded_len, decoded, decoded_len);
+
+    mu_assert("Should be same", memcmp(buffer, decoded, len) == 0);
+
+    return 0;
+}
 
 static char* test_encode_and_decode_compressed_large()
 {
@@ -914,6 +941,8 @@ static struct mu_result all_tests()
     mu_run_test(decode_v2_log);
     mu_run_test(decode_v1_log);
     mu_run_test(decode_v0_log);
+
+    mu_run_test(test_encode_and_decode_empty);
 
     free(raw_histogram);
     free(cor_histogram);
