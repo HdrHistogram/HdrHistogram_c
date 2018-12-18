@@ -37,6 +37,8 @@ struct hdr_histogram* hdr_interval_recorder_sample_and_recycle(
     struct hdr_interval_recorder* r,
     struct hdr_histogram* inactive_histogram)
 {
+    struct hdr_histogram* old_active;
+
     if (NULL == inactive_histogram)
     {
         int64_t lo = r->active->lowest_trackable_value;
@@ -47,10 +49,10 @@ struct hdr_histogram* hdr_interval_recorder_sample_and_recycle(
 
     hdr_phaser_reader_lock(&r->phaser);
 
-    // volatile read
-    struct hdr_histogram* old_active = hdr_atomic_load_pointer(&r->active);
+    /* volatile read */
+    old_active = hdr_atomic_load_pointer(&r->active);
 
-    // volatile write
+    /* volatile write */
     hdr_atomic_store_pointer(&r->active, inactive_histogram);
 
     hdr_phaser_flip_phase(&r->phaser, 0);

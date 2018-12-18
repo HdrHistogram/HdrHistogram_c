@@ -52,6 +52,8 @@ static void* record_hiccups(void* thread_context)
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
     while (true)
     {
+        int64_t delta_us;
+
         timeout.it_value.tv_sec = 0;
         timeout.it_value.tv_nsec = 1000000;
         timerfd_settime(fd.fd, 0, &timeout, NULL);
@@ -60,7 +62,7 @@ static void* record_hiccups(void* thread_context)
         poll(&fd, 1, -1);
         hdr_gettime(&t1);
 
-        int64_t delta_us = diff(t0, t1) - 1000;
+        delta_us = diff(t0, t1) - 1000;
         delta_us = delta_us < 0 ? 0 : delta_us;
 
         hdr_interval_recorder_record_value(r, delta_us);

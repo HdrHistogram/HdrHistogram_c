@@ -23,6 +23,9 @@ int main(int argc, char** argv)
 {
     int rc = 0;
     FILE* f;
+    struct hdr_log_reader reader;
+    struct hdr_histogram* h = NULL;
+    hdr_timespec timestamp, interval;
 
     if (argc == 1)
     {
@@ -39,16 +42,11 @@ int main(int argc, char** argv)
         return -1;
     }
 
-    struct hdr_log_reader reader;
     if (hdr_log_reader_init(&reader))
     {
         fprintf(stderr, "Failed to init reader\n");
         return -1;
     }
-
-    struct hdr_histogram* h = NULL;
-    hdr_timespec timestamp;
-    hdr_timespec interval;
 
     rc = hdr_log_read_header(&reader, f);
     if(rc)

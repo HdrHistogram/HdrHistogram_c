@@ -22,7 +22,6 @@ static bool compare_values(double a, double b, double variation)
 static bool compare_percentile(int64_t a, double b, double variation)
 {
     return compare_values((double) a, b, variation);
-    // return fabs(a - b) <= b * variation;
 }
 
 
@@ -166,13 +165,14 @@ static char* test_total_count()
 
 static char* test_get_max_value()
 {
+    int64_t actual_raw_max, actual_cor_max;
+
     load_histograms();
 
-
-    int64_t actual_raw_max = hdr_max(raw_histogram);
+    actual_raw_max = hdr_max(raw_histogram);
     mu_assert("hdr_max(raw_histogram) != 100000000L",
               hdr_values_are_equivalent(raw_histogram, actual_raw_max, 100000000));
-    int64_t actual_cor_max = hdr_max(cor_histogram);
+    actual_cor_max = hdr_max(cor_histogram);
     mu_assert("hdr_max(cor_histogram) != 100000000L",
               hdr_values_are_equivalent(cor_histogram, actual_cor_max, 100000000));
 
@@ -225,11 +225,13 @@ static char* test_percentiles()
 
 static char* test_recorded_values()
 {
-    load_histograms();
     struct hdr_iter iter;
     int index;
+    int64_t total_added_count = 0;
 
-    // Raw Histogram
+    load_histograms();
+
+    /* Raw Histogram */
     hdr_iter_recorded_init(&iter, raw_histogram);
 
     index = 0;
@@ -249,11 +251,10 @@ static char* test_recorded_values()
     }
     mu_assert("Should have encountered 2 values", index == 2);
 
-    // Corrected Histogram
+    /* Corrected Histogram */
     hdr_iter_recorded_init(&iter, cor_histogram);
 
     index = 0;
-    int64_t total_added_count = 0;
     while (hdr_iter_next(&iter))
     {
         int64_t count_added_in_this_bucket = iter.specifics.recorded.count_added_in_this_iteration_step;
@@ -274,11 +275,13 @@ static char* test_recorded_values()
 
 static char* test_linear_values()
 {
-    load_histograms();
     struct hdr_iter iter;
     int index;
+    int64_t total_added_count;
 
-    // Raw Histogram
+    load_histograms();
+
+    /* Raw Histogram */
     hdr_iter_linear_init(&iter, raw_histogram, 100000);
     index = 0;
     while (hdr_iter_next(&iter))
@@ -302,11 +305,11 @@ static char* test_linear_values()
     }
     mu_assert("Should of met 1000 values", compare_int64(index, 1000));
 
-    // Corrected Histogram
+    /* Corrected Histogram */
 
     hdr_iter_linear_init(&iter, cor_histogram, 10000);
     index = 0;
-    int64_t total_added_count = 0;
+    total_added_count = 0;
     while (hdr_iter_next(&iter))
     {
         int64_t count_added_in_this_bucket = iter.specifics.linear.count_added_in_this_iteration_step;
@@ -327,9 +330,11 @@ static char* test_linear_values()
 
 static char* test_logarithmic_values()
 {
-    load_histograms();
     struct hdr_iter iter;
     int index;
+    uint64_t total_added_count;
+
+    load_histograms();
 
     hdr_iter_log_init(&iter, raw_histogram, 10000, 2.0);
     index = 0;
@@ -357,7 +362,7 @@ static char* test_logarithmic_values()
 
     hdr_iter_log_init(&iter, cor_histogram, 10000, 2.0);
     index = 0;
-    uint64_t total_added_count = 0;
+    total_added_count = 0;
     while (hdr_iter_next(&iter))
     {
         uint64_t count_added_in_this_bucket = iter.specifics.log.count_added_in_this_iteration_step;
@@ -380,14 +385,12 @@ static char* test_reset()
 {
     load_histograms();
 
-    // before
     mu_assert("Value at 99% == 0.0", hdr_value_at_percentile(raw_histogram, 99.0) != 0);
     mu_assert("Value at 99% == 0.0", hdr_value_at_percentile(cor_histogram, 99.0) != 0);
 
     hdr_reset(raw_histogram);
     hdr_reset(cor_histogram);
 
-    //after
     mu_assert("Total raw count != 0",       raw_histogram->total_count == 0);
     mu_assert("Total corrected count != 0", cor_histogram->total_count == 0);
 
@@ -399,6 +402,7 @@ static char* test_reset()
 
 static char* test_scaling_equivalence()
 {
+    int64_t expected_99th, scaled_99th;
     load_histograms();
 
     mu_assert(
@@ -414,8 +418,8 @@ static char* test_scaling_equivalence()
                     cor_histogram->total_count,
                     scaled_cor_histogram->total_count));
 
-    int64_t expected_99th = hdr_value_at_percentile(cor_histogram, 99.0) * 512;
-    int64_t scaled_99th = hdr_value_at_percentile(scaled_cor_histogram, 99.0);
+    expected_99th = hdr_value_at_percentile(cor_histogram, 99.0) * 512;
+    scaled_99th = hdr_value_at_percentile(scaled_cor_histogram, 99.0);
     mu_assert(
             "99%'iles should be equivalent",
             compare_int64(
@@ -437,7 +441,11 @@ static char* test_out_of_range_values()
 
 static char* test_linear_iter_buckets_correctly()
 {
+    int step_count = 0;
+    int64_t total_count = 0;
     struct hdr_histogram *h;
+    struct hdr_iter iter;
+
     hdr_init(1, 255, 2, &h);
 
     hdr_record_value(h, 193);
@@ -447,20 +455,17 @@ static char* test_linear_iter_buckets_correctly()
     hdr_record_value(h, 64);
     hdr_record_value(h, 128);
 
-    struct hdr_iter iter;
     hdr_iter_linear_init(&iter, h, 64);
 
-    int step_count = 0;
-    int64_t total_count = 0;
     while (hdr_iter_next(&iter))
     {
         total_count += iter.specifics.linear.count_added_in_this_iteration_step;
-        // start - changes to reproduce issue
+        /* start - changes to reproduce issue */
         if (step_count == 0)
         {
             hdr_record_value(h, 2);
         }
-        // end - changes to reproduce issue
+        /* end - changes to reproduce issue */
         step_count++;
     }
 

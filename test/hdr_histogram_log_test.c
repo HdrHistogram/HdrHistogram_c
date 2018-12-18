@@ -51,7 +51,7 @@ static bool compare_timespec(hdr_timespec* a, hdr_timespec* b)
     long a_tv_msec = ns_to_ms(a->tv_nsec);
     long b_tv_msec = ns_to_ms(b->tv_nsec);
 
-    // Allow off by 1 millisecond due to parsing and rounding.
+    /* Allow off by 1 millisecond due to parsing and rounding. */
     if (a->tv_sec == b->tv_sec && labs(a_tv_msec - b_tv_msec) <= 1000000)
     {
         return true;
@@ -92,6 +92,10 @@ static bool compare_string(const char* a, const char* b, size_t len)
 
 static bool compare_histogram(struct hdr_histogram* a, struct hdr_histogram* b)
 {
+    int64_t a_max, b_max, a_min, b_min;
+    size_t a_size, b_size, counts_size;
+    struct hdr_iter iter_a, iter_b;
+
     if (a->counts_len != b->counts_len)
     {
         printf(
@@ -100,34 +104,32 @@ static bool compare_histogram(struct hdr_histogram* a, struct hdr_histogram* b)
         return false;
     }
 
-    int64_t a_max = hdr_max(a);
-    int64_t b_max = hdr_max(b);
+    a_max = hdr_max(a);
+    b_max = hdr_max(b);
 
     if (a_max != b_max)
     {
         printf("a.max = %"PRIu64", b.max = %"PRIu64"\n", a_max, b_max);
-//        return false;
     }
 
-    int64_t a_min = hdr_min(a);
-    int64_t b_min = hdr_min(b);
+    a_min = hdr_min(a);
+    b_min = hdr_min(b);
 
     if (a_min != b_min)
     {
         printf("a.min = %"PRIu64", b.min = %"PRIu64"\n", a_min, b_min);
-//        return false;
     }
 
-    size_t a_size = hdr_get_memory_size(a);
-    size_t b_size = hdr_get_memory_size(b);
+    a_size = hdr_get_memory_size(a);
+    b_size = hdr_get_memory_size(b);
 
     if (a_size != b_size)
     {
-        printf("a.size: %zu, b.size: %zu\n", a_size, b_size);
+        printf("a.size: %u, b.size: %u\n", (unsigned) a_size, (unsigned) b_size);
         return false;
     }
 
-    size_t counts_size = a->counts_len * sizeof(int64_t);
+    counts_size = a->counts_len * sizeof(int64_t);
 
     if (memcmp(a->counts, b->counts, counts_size) == 0)
     {
@@ -135,9 +137,6 @@ static bool compare_histogram(struct hdr_histogram* a, struct hdr_histogram* b)
     }
 
     printf("%s\n", "Counts incorrect");
-
-    struct hdr_iter iter_a;
-    struct hdr_iter iter_b;
 
     hdr_iter_init(&iter_a, a);
     hdr_iter_init(&iter_b, b);
@@ -162,13 +161,14 @@ static struct hdr_histogram* cor_histogram = NULL;
 
 static void load_histograms()
 {
+    int i;
+
     free(raw_histogram);
     free(cor_histogram);
 
     hdr_alloc(INT64_C(3600) * 1000 * 1000, 3, &raw_histogram);
     hdr_alloc(INT64_C(3600) * 1000 * 1000, 3, &cor_histogram);
 
-    int i;
     for (i = 0; i < 10000; i++)
     {
         hdr_record_value(raw_histogram, 1000);
@@ -190,7 +190,7 @@ static bool validate_return_code(int rc)
     return false;
 }
 
-// Prototypes to avoid exporting in header file.
+/* Prototypes to avoid exporting in header file. */
 void hdr_base64_encode_block(const uint8_t* input, char* output);
 
 void hdr_base64_decode_block(const char* input, uint8_t* output);
@@ -201,13 +201,15 @@ void hex_dump (char *desc, void *addr, int len);
 
 static char* test_encode_and_decode_compressed()
 {
-    load_histograms();
-
     uint8_t* buffer = NULL;
     size_t len = 0;
     int rc = 0;
     struct hdr_histogram* actual = NULL;
-    struct hdr_histogram* expected = raw_histogram;
+    struct hdr_histogram* expected;
+
+    load_histograms();
+
+    expected = raw_histogram;
 
     rc = hdr_encode_compressed(expected, &buffer, &len);
     mu_assert("Did not encode", validate_return_code(rc));
@@ -228,13 +230,15 @@ static char* test_encode_and_decode_compressed()
 
 static char* test_encode_and_decode_compressed2()
 {
-    load_histograms();
-
     uint8_t* buffer = NULL;
     size_t len = 0;
     int rc = 0;
     struct hdr_histogram* actual = NULL;
-    struct hdr_histogram* expected = cor_histogram;
+    struct hdr_histogram* expected;
+
+    load_histograms();
+
+    expected = cor_histogram;
 
     rc = hdr_encode_compressed(expected, &buffer, &len);
     mu_assert("Did not encode", validate_return_code(rc));
@@ -255,13 +259,13 @@ static char* test_encode_and_decode_compressed2()
 
 static char* test_bounds_check_on_decode()
 {
-    load_histograms();
-
     uint8_t* buffer = NULL;
     size_t len = 0;
     int rc = 0;
     struct hdr_histogram* actual = NULL;
     struct hdr_histogram* expected = cor_histogram;
+
+    load_histograms();
 
     rc = hdr_encode_compressed(expected, &buffer, &len);
     mu_assert("Did not encode", validate_return_code(rc));
@@ -275,19 +279,20 @@ static char* test_bounds_check_on_decode()
 
 static char* test_encode_and_decode_base64()
 {
-    load_histograms();
-
     uint8_t* buffer = NULL;
     uint8_t* decoded = NULL;
     char* encoded = NULL;
+    size_t encoded_len, decoded_len;
     size_t len = 0;
     int rc = 0;
+
+    load_histograms();
 
     rc = hdr_encode_compressed(cor_histogram, &buffer, &len);
     mu_assert("Did not encode", validate_return_code(rc));
 
-    size_t encoded_len = hdr_base64_encoded_len(len);
-    size_t decoded_len = hdr_base64_decoded_len(encoded_len);
+    encoded_len = hdr_base64_encoded_len(len);
+    decoded_len = hdr_base64_decoded_len(encoded_len);
     encoded = calloc(encoded_len + 1, sizeof(char));
     decoded = calloc(decoded_len, sizeof(uint8_t));
 
@@ -307,11 +312,12 @@ static char* test_encode_and_decode_compressed_large()
     struct hdr_histogram* expected = NULL;
     uint8_t* buffer = NULL;
     size_t len = 0;
+    int i;
     int rc = 0;
+
     hdr_init(1, limit, 4, &expected);
     srand(5);
 
-    int i;
     for (i = 0; i < 8070; i++)
     {
         hdr_record_value(expected, rand() % limit);
@@ -460,22 +466,26 @@ static char* base64_decode_fails_with_invalid_lengths()
 
 static char* writes_and_reads_log()
 {
+    struct hdr_log_writer writer;
+    struct hdr_log_reader reader;
+    struct hdr_histogram* read_cor_histogram;
+    struct hdr_histogram* read_raw_histogram;
     const char* file_name = "histogram.log";
     hdr_timespec timestamp;
     hdr_timespec interval;
+    int rc = 0;
+    FILE* log_file;
+    hdr_timespec actual_timestamp, actual_interval;
 
     hdr_gettime(&timestamp);
 
     interval.tv_sec = 5;
     interval.tv_nsec = 2000000;
 
-    struct hdr_log_writer writer;
-    struct hdr_log_reader reader;
     hdr_log_writer_init(&writer);
     hdr_log_reader_init(&reader);
-    int rc = 0;
 
-    FILE* log_file = fopen(file_name, "w+");
+    log_file = fopen(file_name, "w+");
 
     rc = hdr_log_write_header(&writer, log_file, "Test log", &timestamp);
     mu_assert("Failed header write", validate_return_code(rc));
@@ -491,8 +501,8 @@ static char* writes_and_reads_log()
 
     log_file = fopen(file_name, "r");
 
-    struct hdr_histogram* read_cor_histogram = NULL;
-    struct hdr_histogram* read_raw_histogram = NULL;
+    read_cor_histogram = NULL;
+    read_raw_histogram = NULL;
 
     rc = hdr_log_read_header(&reader, log_file);
     mu_assert("Failed header read", validate_return_code(rc));
@@ -502,8 +512,6 @@ static char* writes_and_reads_log()
         "Incorrect start timestamp",
         compare_timespec(&reader.start_timestamp, &timestamp));
 
-    hdr_timespec actual_timestamp;
-    hdr_timespec actual_interval;
 
     rc = hdr_log_read(
         &reader, log_file, &read_cor_histogram,
@@ -539,18 +547,22 @@ static char* log_reader_aggregates_into_single_histogram()
     const char* file_name = "histogram.log";
     hdr_timespec timestamp;
     hdr_timespec interval;
+    struct hdr_log_writer writer;
+    struct hdr_log_reader reader;
+    int rc = 0;
+    FILE* log_file;
+    struct hdr_histogram* histogram;
+    struct hdr_iter iter;
+    int64_t expected_total_count;
 
     hdr_gettime(&timestamp);
     interval.tv_sec = 5;
     interval.tv_nsec = 2000000;
 
-    struct hdr_log_writer writer;
-    struct hdr_log_reader reader;
     hdr_log_writer_init(&writer);
     hdr_log_reader_init(&reader);
-    int rc = 0;
 
-    FILE* log_file = fopen(file_name, "w+");
+    log_file = fopen(file_name, "w+");
 
     hdr_log_write_header(&writer, log_file, "Test log", &timestamp);
     hdr_log_write(&writer, log_file, &timestamp, &interval, cor_histogram);
@@ -560,7 +572,6 @@ static char* log_reader_aggregates_into_single_histogram()
 
     log_file = fopen(file_name, "r");
 
-    struct hdr_histogram* histogram;
     hdr_alloc(INT64_C(3600) * 1000 * 1000, 3, &histogram);
 
     rc = hdr_log_read_header(&reader, log_file);
@@ -570,10 +581,8 @@ static char* log_reader_aggregates_into_single_histogram()
     rc = hdr_log_read(&reader, log_file, &histogram, NULL, NULL);
     mu_assert("Failed raw read", validate_return_code(rc));
 
-    struct hdr_iter iter;
     hdr_iter_recorded_init(&iter, histogram);
-    int64_t expected_total_count =
-        raw_histogram->total_count + cor_histogram->total_count;
+    expected_total_count = raw_histogram->total_count + cor_histogram->total_count;
 
     mu_assert(
         "Total counts incorrect",
@@ -608,6 +617,7 @@ static char* log_reader_fails_with_incorrect_version()
     const char* file_name = "histogram_with_invalid_version.log";
     struct hdr_log_reader reader;
     FILE* log_file;
+    int r;
 
     log_file = fopen(file_name, "w+");
     fprintf(log_file, "%s", log_with_invalid_version);
@@ -616,7 +626,7 @@ static char* log_reader_fails_with_incorrect_version()
 
     log_file = fopen(file_name, "r");
     hdr_log_reader_init(&reader);
-    int r = hdr_log_read_header(&reader, log_file);
+    r = hdr_log_read_header(&reader, log_file);
 
     mu_assert("Should error with incorrect version", r == HDR_LOG_INVALID_VERSION);
 
@@ -628,15 +638,14 @@ static char* log_reader_fails_with_incorrect_version()
 
 static char* test_encode_decode_empty()
 {
-    struct hdr_histogram *histogram, *hdr_new = NULL;
-    hdr_alloc(INT64_C(3600) * 1000 * 1000, 3, &histogram);
-
     char *data;
+    struct hdr_histogram *histogram, *hdr_new = NULL;
+
+    hdr_alloc(INT64_C(3600) * 1000 * 1000, 3, &histogram);
 
     mu_assert("Failed to encode histogram data", hdr_log_encode(histogram, &data) == 0);
     mu_assert("Failed to decode histogram data", hdr_log_decode(&hdr_new, data, strlen(data)) == 0);
     mu_assert("Histograms should be the same", compare_histogram(histogram, hdr_new));
-    // mu_assert("Mean different after encode/decode", compare_double(hdr_mean(histogram), hdr_mean(hdr_new), 0.001));
     free(histogram);
     free(hdr_new);
     free(data);
@@ -645,16 +654,16 @@ static char* test_encode_decode_empty()
 
 static char* test_string_encode_decode()
 {
+    int i;
+    char *data;
     struct hdr_histogram *histogram, *hdr_new = NULL;
+
     hdr_alloc(INT64_C(3600) * 1000 * 1000, 3, &histogram);
 
-    int i;
     for (i = 1; i < 100; i++)
     {
         hdr_record_value(histogram, i*i);
     }
-
-    char *data;
 
     mu_assert("Failed to encode histogram data", hdr_log_encode(histogram, &data) == 0);
     mu_assert("Failed to decode histogram data", hdr_log_decode(&hdr_new, data, strlen(data)) == 0);
@@ -666,16 +675,17 @@ static char* test_string_encode_decode()
 
 static char* test_string_encode_decode_2()
 {
+    int i;
+    char *data;
+
     struct hdr_histogram *histogram, *hdr_new = NULL;
+
     hdr_alloc(1000, 3, &histogram);
 
-    int i;
     for (i = 1; i < histogram->highest_trackable_value; i++)
     {
         hdr_record_value(histogram, i);
     }
-
-    char *data;
 
     mu_assert(
         "Failed to encode histogram data", validate_return_code(hdr_log_encode(histogram, &data)));
@@ -691,31 +701,33 @@ static char* test_string_encode_decode_2()
 static char* decode_v1_log()
 {
     const char* v1_log = "jHiccup-2.0.6.logV1.hlog";
+    struct hdr_histogram* accum;
+    struct hdr_histogram* h = NULL;
+    struct hdr_log_reader reader;
+    hdr_timespec timestamp, interval;
+    int rc;
+    int64_t total_count = 0;
+    int histogram_count = 0;
 
     FILE* f = fopen(v1_log, "r");
     mu_assert("Can not open v1 log file", f != NULL);
 
-    struct hdr_histogram* accum;
     hdr_init(1, INT64_C(3600000000000), 3, &accum);
 
-    struct hdr_histogram* h = NULL;
-    struct hdr_log_reader reader;
-    hdr_timespec timestamp;
-    hdr_timespec interval;
 
     hdr_log_reader_init(&reader);
 
-    int rc = hdr_log_read_header(&reader, f);
+    rc = hdr_log_read_header(&reader, f);
     mu_assert("Failed to read header", rc == 0);
 
-    int histogram_count = 0;
-    int64_t total_count = 0;
     while ((rc = hdr_log_read(&reader, f, &h, &timestamp, &interval)) != EOF)
     {
+        int64_t dropped;
+
         mu_assert("Failed to read histogram", rc == 0);
         histogram_count++;
         total_count += h->total_count;
-        int64_t dropped = hdr_add(accum, h);
+        dropped = hdr_add(accum, h);
         mu_assert("Dropped events", compare_int64(dropped, 0));
 
         free(h);
@@ -735,32 +747,34 @@ static char* decode_v1_log()
 
 static char* decode_v2_log()
 {
+    struct hdr_histogram* accum;
+    struct hdr_histogram* h = NULL;
+    struct hdr_log_reader reader;
+    hdr_timespec timestamp, interval;
+    int histogram_count = 0;
+    int64_t total_count = 0;
+    int rc;
+
     const char* v2_log = "jHiccup-2.0.7S.logV2.hlog";
 
     FILE* f = fopen(v2_log, "r");
     mu_assert("Can not open v2 log file", f != NULL);
 
-    struct hdr_histogram* accum;
     hdr_init(1, INT64_C(3600000000000), 3, &accum);
-
-    struct hdr_histogram* h = NULL;
-    struct hdr_log_reader reader;
-    hdr_timespec timestamp;
-    hdr_timespec interval;
 
     hdr_log_reader_init(&reader);
 
-    int rc = hdr_log_read_header(&reader, f);
+    rc = hdr_log_read_header(&reader, f);
     mu_assert("Failed to read header", validate_return_code(rc));
 
-    int histogram_count = 0;
-    int64_t total_count = 0;
     while ((rc = hdr_log_read(&reader, f, &h, &timestamp, &interval)) != EOF)
     {
+        int64_t dropped;
+
         mu_assert("Failed to read histogram", validate_return_code(rc));
         histogram_count++;
         total_count += h->total_count;
-        int64_t dropped = hdr_add(accum, h);
+        dropped = hdr_add(accum, h);
         mu_assert("Dropped events", compare_int64(dropped, 0));
 
         free(h);
@@ -779,32 +793,34 @@ static char* decode_v2_log()
 
 static char* decode_v3_log()
 {
+    struct hdr_histogram* accum;
+    struct hdr_histogram* h = NULL;
+    struct hdr_log_reader reader;
+    hdr_timespec timestamp;
+    hdr_timespec interval;
+    int rc;
+    int histogram_count = 0;
+    int64_t total_count = 0;
+
     const char* v3_log = "jHiccup-2.0.7S.logV3.hlog";
 
     FILE* f = fopen(v3_log, "r");
     mu_assert("Can not open v3 log file", f != NULL);
 
-    struct hdr_histogram* accum;
     hdr_init(1, INT64_C(3600000000000), 3, &accum);
-
-    struct hdr_histogram* h = NULL;
-    struct hdr_log_reader reader;
-    hdr_timespec timestamp;
-    hdr_timespec interval;
 
     hdr_log_reader_init(&reader);
 
-    int rc = hdr_log_read_header(&reader, f);
+    rc = hdr_log_read_header(&reader, f);
     mu_assert("Failed to read header", validate_return_code(rc));
 
-    int histogram_count = 0;
-    int64_t total_count = 0;
     while ((rc = hdr_log_read(&reader, f, &h, &timestamp, &interval)) != EOF)
     {
+        int64_t dropped;
         mu_assert("Failed to read histogram", validate_return_code(rc));
         histogram_count++;
         total_count += h->total_count;
-        int64_t dropped = hdr_add(accum, h);
+        dropped = hdr_add(accum, h);
         mu_assert("Dropped events", compare_int64(dropped, 0));
 
         free(h);
@@ -823,32 +839,33 @@ static char* decode_v3_log()
 
 static char* decode_v0_log()
 {
-    const char* v1_log = "jHiccup-2.0.1.logV0.hlog";
-
-    FILE* f = fopen(v1_log, "r");
-    mu_assert("Can not open v1 log file", f != NULL);
-
     struct hdr_histogram* accum;
-    hdr_init(1, INT64_C(3600000000000), 3, &accum);
-
+    const char* v1_log = "jHiccup-2.0.1.logV0.hlog";
     struct hdr_histogram* h = NULL;
     struct hdr_log_reader reader;
     hdr_timespec timestamp;
     hdr_timespec interval;
+    int rc;
+    int histogram_count = 0;
+    int64_t total_count = 0;
+
+    FILE* f = fopen(v1_log, "r");
+    mu_assert("Can not open v1 log file", f != NULL);
+
+    hdr_init(1, INT64_C(3600000000000), 3, &accum);
 
     hdr_log_reader_init(&reader);
 
-    int rc = hdr_log_read_header(&reader, f);
+    rc = hdr_log_read_header(&reader, f);
     mu_assert("Failed to read header", rc == 0);
 
-    int histogram_count = 0;
-    int64_t total_count = 0;
     while ((rc = hdr_log_read(&reader, f, &h, &timestamp, &interval)) != EOF)
     {
+        int64_t dropped;
         mu_assert("Failed to read histogram", rc == 0);
         histogram_count++;
         total_count += h->total_count;
-        int64_t dropped = hdr_add(accum, h);
+        dropped = hdr_add(accum, h);
         mu_assert("Dropped events", compare_int64(dropped, 0));
 
         free(h);

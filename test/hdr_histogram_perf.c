@@ -44,11 +44,12 @@ static hdr_timespec diff(hdr_timespec start, hdr_timespec end)
 /* Formats the given double with 2 dps, and , thousand separators */
 static char *format_double(double d)
 {
+    int p;
     static char buffer[30];
 
     snprintf(buffer, sizeof(buffer), "%0.2f", d);
 
-    int p = (int) strlen(buffer) - 6;
+    p = (int) strlen(buffer) - 6;
 
     while (p > 0)
     {
@@ -64,9 +65,11 @@ static char *format_double(double d)
 int main()
 {
     struct hdr_histogram* histogram;
+    hdr_timespec t0, t1;
+    int result, i;
+    int64_t iterations;
     int64_t max_value = INT64_C(24) * 60 * 60 * 1000000;
     int64_t min_value = 1;
-    int result = -1;
 
     result = hdr_init(min_value, max_value, 4, &histogram);
     if (result != 0)
@@ -75,14 +78,14 @@ int main()
         return -1;
     }
 
-    hdr_timespec t0;
-    hdr_timespec t1;
-    int64_t iterations = 400000000;
+    iterations = 400000000;
 
-    int i;
     for (i = 0; i < 100; i++)
     {
         int64_t j;
+        hdr_timespec taken;
+        double time_taken, ops_sec;
+
         hdr_gettime(&t0);
         for (j = 1; j < iterations; j++)
         {
@@ -90,9 +93,9 @@ int main()
         }
         hdr_gettime(&t1);
 
-        hdr_timespec taken = diff(t0, t1);
-        double time_taken = taken.tv_sec + taken.tv_nsec / 1000000000.0;
-        double ops_sec = (iterations - 1) / time_taken;
+        taken = diff(t0, t1);
+        time_taken = taken.tv_sec + taken.tv_nsec / 1000000000.0;
+        ops_sec = (iterations - 1) / time_taken;
 
         printf("%s - %d, ops/sec: %s\n", "Iteration", i + 1, format_double(ops_sec));
     }
