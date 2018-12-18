@@ -170,7 +170,7 @@ int main(int argc, char** argv)
     {        
         sleep(config.interval);
 
-        inactive = hdr_interval_recorder_sample_and_recycle(&recorder, inactive);
+        inactive = hdr_interval_recorder_sample(&recorder);
 
         hdr_gettime(&end_timestamp);
         timestamp = start_timestamp;
