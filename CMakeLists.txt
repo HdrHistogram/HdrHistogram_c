@@ -31,7 +31,8 @@ endif()
 
 if(WIN32)
     find_package (zlib REQUIRED)
-    include_directories(${ZLIB_INCLUDE_DIRS})
+else()
+    find_package (ZLIB REQUIRED)
 endif()
 
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/src")
