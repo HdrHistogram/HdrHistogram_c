@@ -360,9 +360,13 @@ int hdr_init(
     }
 
     counts = calloc((size_t) cfg.counts_len, sizeof(int64_t));
-    histogram = calloc(1, sizeof(struct hdr_histogram));
+    if (!counts)
+    {
+        return ENOMEM;
+    }
 
-    if (!counts || !histogram)
+    histogram = calloc(1, sizeof(struct hdr_histogram));
+    if (!histogram)
     {
         return ENOMEM;
     }
