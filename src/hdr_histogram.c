@@ -91,18 +91,40 @@ static int64_t power(int64_t base, int64_t exp)
 }
 
 #if defined(_MSC_VER)
-#pragma intrinsic(_BitScanReverse64)
+#   if defined(_WIN64)
+#       pragma intrinsic(_BitScanReverse64)
+#   else
+#       pragma intrinsic(_BitScanReverse)
+#   endif
 #endif
 
-static int32_t get_bucket_index(const struct hdr_histogram* h, int64_t value)
+static int32_t count_leading_zeros_64(int64_t value)
 {
 #if defined(_MSC_VER)
     uint32_t leading_zero = 0;
-    _BitScanReverse64(&leading_zero, value | h->sub_bucket_mask);
-    int32_t pow2ceiling = 64 - (63 - leading_zero); /* smallest power of 2 containing value */
+#if defined(_WIN64)
+    _BitScanReverse64(&leading_zero, value);
 #else
-    int32_t pow2ceiling = 64 - __builtin_clzll(value | h->sub_bucket_mask); /* smallest power of 2 containing value */
+    uint32_t high = value >> 32;
+    if  (_BitScanReverse(&leading_zero, high))
+    {
+        leading_zero += 32;
+    }
+    else
+    {
+        uint32_t low = value & 0x00000000FFFFFFFF;
+        _BitScanReverse(&leading_zero, low);
+    }
 #endif
+    return 64 - (63 - leading_zero); /* smallest power of 2 containing value */
+#else
+    return __builtin_clzll(value); /* smallest power of 2 containing value */
+#endif
+}
+
+static int32_t get_bucket_index(const struct hdr_histogram* h, int64_t value)
+{
+    int32_t pow2ceiling = 64 - count_leading_zeros_64(value | h->sub_bucket_mask); /* smallest power of 2 containing value */
     return pow2ceiling - h->unit_magnitude - (h->sub_bucket_half_count_magnitude + 1);
 }
 
