@@ -1,5 +1,9 @@
 version: 0.9.9.{build}
 
+image:
+  - Visual Studio 2017
+  - Visual Studio 2013
+
 platform:
   - Win32
   - x64
@@ -7,6 +11,11 @@ platform:
 matrix:
   allow_failures:
     - platform: Win32
+  exclude:
+    - platform: Win32
+      image: Visual Studio 2013
+    - platform: x64
+      image: Visual Studio 2017
 
 clone_folder: c:\dev\HdrHistogram_c
 
