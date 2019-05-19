@@ -116,7 +116,7 @@ static int32_t count_leading_zeros_64(int64_t value)
         _BitScanReverse(&leading_zero, low);
     }
 #endif
-    return 64 - (63 - leading_zero); /* smallest power of 2 containing value */
+    return 63 - leading_zero; /* smallest power of 2 containing value */
 #else
     return __builtin_clzll(value); /* smallest power of 2 containing value */
 #endif
