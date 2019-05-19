@@ -1,5 +1,9 @@
 version: 0.9.9.{build}
 
+platform:
+  - x86
+  - x64
+
 clone_folder: c:\dev\HdrHistogram_c
 
 install:
