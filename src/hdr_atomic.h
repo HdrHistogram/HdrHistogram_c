@@ -37,14 +37,40 @@ static void __inline hdr_atomic_store_64(int64_t* field, int64_t value)
 	*field = value;
 }
 
-static int64_t __inline hdr_atomic_exchange_64(volatile int64_t* field, int64_t initial)
+static int64_t __inline hdr_atomic_exchange_64(volatile int64_t* field, int64_t value)
 {
-	return _InterlockedExchange64(field, initial);
+#if defined(_WIN64)
+    return _InterlockedExchange64(field, value);
+#else
+    int64_t comparand;
+    int64_t initial_value = *field;
+    do
+    {
+        comparand = initial_value;
+        initial_value != _InterlockedCompareExchange64(field, value, comparand);
+    }
+    while (comparand != initial_value);
+
+    return initial_value;
+#endif
 }
 
 static int64_t __inline hdr_atomic_add_fetch_64(volatile int64_t* field, int64_t value)
 {
+#if defined(_WIN64)
 	return _InterlockedExchangeAdd64(field, value) + value;
+#else
+    int64_t comparand;
+    int64_t initial_value = *field;
+    do
+    {
+        comparand = initial_value;
+        initial_value != _InterlockedCompareExchange64(field, comparand + value, comparand);
+    }
+    while (comparand != initial_value);
+
+    return initial_value + value;
+#endif
 }
 
 #elif defined(__ATOMIC_SEQ_CST)
