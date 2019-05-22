@@ -1,5 +1,13 @@
 version: 0.9.9.{build}
 
+platform:
+  - Win32
+  - x64
+  
+matrix:
+  allow_failures:
+    - platform: Win32
+
 clone_folder: c:\dev\HdrHistogram_c
 
 install:
@@ -15,13 +23,16 @@ build_script:
   - cd c:\dev\zlib-1.2.11
   - md build
   - cd build
-  - cmake -DCMAKE_INSTALL_PREFIX=c:\dev\zlib64 -G"Visual Studio 12 2013 Win64" ..
+  - if %PLATFORM% == Win32 (set GENERATOR="Visual Studio 12 2013")
+  - if %PLATFORM% == x64 (set GENERATOR="Visual Studio 12 2013 Win64")
+  - echo Using %GENERATOR%
+  - cmake -DCMAKE_INSTALL_PREFIX=c:\dev\zlib64 -G %GENERATOR% ..
   - cmake --build . --target install
   - dir c:\dev\zlib64
   - cd c:\dev\HdrHistogram_c
   - md build
   - cd build
-  - cmake -DCMAKE_PREFIX_PATH="c:\dev\zlib64" -G"Visual Studio 12 2013 Win64" ..
+  - cmake -DCMAKE_PREFIX_PATH="c:\dev\zlib64" -G %GENERATOR% ..
   - cmake --build .
 
 test_script:
