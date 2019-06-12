@@ -97,6 +97,11 @@ int zig_zag_encode_i64(uint8_t* buffer, int64_t signed_value)
 
 int zig_zag_decode_i64(const uint8_t* buffer, int64_t* retVal)
 {
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable: 4146)
+#endif
+
     uint64_t v = buffer[0];
     uint64_t value = v & 0x7F;
     int bytesRead = 1;
@@ -153,6 +158,10 @@ int zig_zag_decode_i64(const uint8_t* buffer, int64_t* retVal)
     *retVal = (int64_t) value;
 
     return bytesRead;
+
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
 }
 
 static const char base64_table[] =

@@ -7,8 +7,6 @@
 #ifndef HDR_ENCODING_H
 #define HDR_ENCODING_H
 
-#pragma warning(disable:4146)
-
 #include <stdint.h>
 
 #define MAX_BYTES_LEB128 9
