@@ -85,15 +85,21 @@ double hdr_timespec_as_double(const hdr_timespec* t)
     return d + (t->tv_nsec / 1000000000.0);
 }
 
+#if defined(_MSC_VER)
 double round_c99(double x)
 {
     return (x >= 0.0) ? floor(x + 0.5) : ceil(x - 0.5);
 }
+#endif
 
 void hdr_timespec_from_double(hdr_timespec* t, double value)
 {
     int seconds = (int)value;
+#if defined(_MSC_VER)
     int milliseconds = (int)round_c99((value - seconds) * 1000);
+#else
+    int milliseconds = (int)round((value - seconds) * 1000);
+#endif
 
     t->tv_sec = seconds;
     t->tv_nsec = milliseconds * 1000000;
