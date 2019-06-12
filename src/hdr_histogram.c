@@ -4,6 +4,13 @@
  * as explained at http://creativecommons.org/publicdomain/zero/1.0/
  */
 
+#  ifndef __STDC_LIMIT_MACROS
+#     define __STDC_LIMIT_MACROS
+#  endif
+#  ifndef __STDC_CONSTANT_MACROS
+#     define __STDC_CONSTANT_MACROS
+#  endif
+
 #include <stdlib.h>
 #include <stdbool.h>
 #include <math.h>
@@ -91,6 +98,7 @@ static int64_t power(int64_t base, int64_t exp)
 }
 
 #if defined(_MSC_VER)
+#include <intrin.h>
 #   if defined(_WIN64)
 #       pragma intrinsic(_BitScanReverse64)
 #   else
@@ -101,7 +109,7 @@ static int64_t power(int64_t base, int64_t exp)
 static int32_t count_leading_zeros_64(int64_t value)
 {
 #if defined(_MSC_VER)
-    uint32_t leading_zero = 0;
+    unsigned long leading_zero = 0;
 #if defined(_WIN64)
     _BitScanReverse64(&leading_zero, value);
 #else
@@ -304,12 +312,12 @@ int hdr_calculate_bucket_config(
     cfg->highest_trackable_value = highest_trackable_value;
 
     largest_value_with_single_unit_resolution = 2 * power(10, significant_figures);
-    sub_bucket_count_magnitude = (int32_t) ceil(log((double)largest_value_with_single_unit_resolution) / log(2));
+    sub_bucket_count_magnitude = (int32_t) ceil(log((double)largest_value_with_single_unit_resolution) / log((double)2));
     cfg->sub_bucket_half_count_magnitude = ((sub_bucket_count_magnitude > 1) ? sub_bucket_count_magnitude : 1) - 1;
 
-    cfg->unit_magnitude = (int32_t) floor(log((double)lowest_trackable_value) / log(2));
+    cfg->unit_magnitude = (int32_t) floor(log((double)lowest_trackable_value) / log((double)2));
 
-    cfg->sub_bucket_count      = (int32_t) pow(2, (cfg->sub_bucket_half_count_magnitude + 1));
+    cfg->sub_bucket_count      = (int32_t) pow((double)2, (cfg->sub_bucket_half_count_magnitude + 1));
     cfg->sub_bucket_half_count = cfg->sub_bucket_count / 2;
     cfg->sub_bucket_mask       = ((int64_t) cfg->sub_bucket_count - 1) << cfg->unit_magnitude;
 
@@ -359,13 +367,13 @@ int hdr_init(
         return r;
     }
 
-    counts = calloc((size_t) cfg.counts_len, sizeof(int64_t));
+    counts = (int64_t*)calloc((size_t) cfg.counts_len, sizeof(int64_t));
     if (!counts)
     {
         return ENOMEM;
     }
 
-    histogram = calloc(1, sizeof(struct hdr_histogram));
+    histogram = (hdr_histogram*)calloc(1, sizeof(struct hdr_histogram));
     if (!histogram)
     {
         return ENOMEM;
@@ -718,7 +726,7 @@ void hdr_iter_init(struct hdr_iter* iter, const struct hdr_histogram* h)
     iter->h = h;
 
     iter->counts_index = -1;
-    iter->total_count = h->total_count;
+    iter->total_count = (int32_t)h->total_count;
     iter->count = 0;
     iter->cumulative_count = 0;
     iter->value = 0;
@@ -775,8 +783,8 @@ static bool _percentile_iter_next(struct hdr_iter* iter)
             _update_iterated_values(iter, highest_equivalent_value(iter->h, iter->value));
 
             percentiles->percentile = percentiles->percentile_to_iterate_to;
-            temp = (int64_t)(log(100 / (100.0 - (percentiles->percentile_to_iterate_to))) / log(2)) + 1;
-            half_distance = (int64_t) pow(2, (double) temp);
+            temp = (int64_t)(log(100 / (100.0 - (percentiles->percentile_to_iterate_to))) / log((double)2) + 1);
+            half_distance = (int64_t) pow((double)2, (double) temp);
             percentile_reporting_ticks = percentiles->ticks_per_half_distance * half_distance;
             percentiles->percentile_to_iterate_to += 100.0 / percentile_reporting_ticks;
 
@@ -996,7 +1004,7 @@ static const char* format_head_string(format_type format)
 
 static const char CLASSIC_FOOTER[] =
     "#[Mean    = %12.3f, StdDeviation   = %12.3f]\n"
-    "#[Max     = %12.3f, Total count    = %12" PRIu64 "]\n"
+    "#[Max     = %12.3f, Total count    = %12d]\n"
     "#[Buckets = %12d, SubBuckets     = %12d]\n";
 
 int hdr_percentiles_print(

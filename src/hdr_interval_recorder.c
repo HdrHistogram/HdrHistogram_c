@@ -19,8 +19,9 @@ int hdr_interval_recorder_init_all(
     int64_t highest_trackable_value,
     int significant_figures)
 {
+    int result = 0;
     r->active = r->inactive = NULL;
-    int result = hdr_writer_reader_phaser_init(&r->phaser);
+    result = hdr_writer_reader_phaser_init(&r->phaser);
     result = result == 0
         ? hdr_init(lowest_trackable_value, highest_trackable_value, significant_figures, &r->active)
         : result;

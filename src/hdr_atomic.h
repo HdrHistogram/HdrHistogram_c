@@ -39,12 +39,20 @@ static void __inline hdr_atomic_store_64(int64_t* field, int64_t value)
 
 static int64_t __inline hdr_atomic_exchange_64(volatile int64_t* field, int64_t initial)
 {
+#if defined(_WIN64)
 	return _InterlockedExchange64(field, initial);
+#else
+	return 0;
+#endif
 }
 
 static int64_t __inline hdr_atomic_add_fetch_64(volatile int64_t* field, int64_t value)
 {
+#if defined(_WIN64)
 	return _InterlockedExchangeAdd64(field, value) + value;
+#else
+    return 0;
+#endif
 }
 
 #elif defined(__ATOMIC_SEQ_CST)
