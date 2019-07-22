@@ -47,4 +47,4 @@ test/perftest
 .gdb_history
 debug
 cmake-build-debug
-
+/build-afl
