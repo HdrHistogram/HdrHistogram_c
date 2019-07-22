@@ -111,6 +111,17 @@ size_t hdr_get_memory_size(struct hdr_histogram* h);
 bool hdr_record_value(struct hdr_histogram* h, int64_t value);
 
 /**
+ * Records a value in the histogram, will round this value of to a precision at or better
+ * than the significant_figure specified at construction time.
+ *
+ * @param h "This" pointer
+ * @param value Value to add to the histogram
+ * @return false if the value is larger than the highest_trackable_value and can't be recorded,
+ * true otherwise.
+ */
+bool hdr_record_value_atomic(struct hdr_histogram* h, int64_t value);
+
+/**
  * Records count values in the histogram, will round this value of to a
  * precision at or better than the significant_figure specified at construction
  * time.
@@ -123,6 +134,18 @@ bool hdr_record_value(struct hdr_histogram* h, int64_t value);
  */
 bool hdr_record_values(struct hdr_histogram* h, int64_t value, int64_t count);
 
+/**
+ * Records count values in the histogram, will round this value of to a
+ * precision at or better than the significant_figure specified at construction
+ * time.
+ *
+ * @param h "This" pointer
+ * @param value Value to add to the histogram
+ * @param count Number of 'value's to add to the histogram
+ * @return false if any value is larger than the highest_trackable_value and can't be recorded,
+ * true otherwise.
+ */
+bool hdr_record_values_atomic(struct hdr_histogram* h, int64_t value, int64_t count);
 
 /**
  * Record a value in the histogram and backfill based on an expected interval.

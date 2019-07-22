@@ -12,6 +12,7 @@
 
 #include <stdint.h>
 #include <intrin.h>
+#include <stdbool.h>
 
 static void __inline * hdr_atomic_load_pointer(void** pointer)
 {
@@ -73,6 +74,11 @@ static int64_t __inline hdr_atomic_add_fetch_64(volatile int64_t* field, int64_t
 #endif
 }
 
+static bool __inline hdr_atomic_compare_exchange_64(volatile int64_t* field, int64_t* expected, int64_t desired)
+{
+    return *expected == _InterlockedCompareExchange64(field, desired, *expected);
+}
+
 #elif defined(__ATOMIC_SEQ_CST)
 
 #define hdr_atomic_load_pointer(x) __atomic_load_n(x, __ATOMIC_SEQ_CST)
@@ -81,10 +87,12 @@ static int64_t __inline hdr_atomic_add_fetch_64(volatile int64_t* field, int64_t
 #define hdr_atomic_store_64(f,v) __atomic_store_n(f,v, __ATOMIC_SEQ_CST)
 #define hdr_atomic_exchange_64(f,i) __atomic_exchange_n(f,i, __ATOMIC_SEQ_CST)
 #define hdr_atomic_add_fetch_64(field, value) __atomic_add_fetch(field, value, __ATOMIC_SEQ_CST)
+#define hdr_atomic_compare_exchange_64(field, expected, desired) __atomic_compare_exchange_n(field, expected, desired, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)
 
 #elif defined(__x86_64__)
 
 #include <stdint.h>
+#include <stdbool.h>
 
 static inline void* hdr_atomic_load_pointer(void** pointer)
 {
@@ -120,6 +128,13 @@ static inline int64_t hdr_atomic_exchange_64(volatile int64_t* field, int64_t va
 static inline int64_t hdr_atomic_add_fetch_64(volatile int64_t* field, int64_t value)
 {
     return __sync_add_and_fetch(field, value);
+}
+
+static inline bool hdr_atomic_compare_exchange_64(volatile int64_t* field, int64_t* expected, int64_t desired)
+{
+    int64_t original;
+    asm volatile( "lock; cmpxchgq %2, %1" : "=a"(original), "+m"(*field) : "q"(desired), "0"(*expected));
+    return original == *expected;
 }
 
 #else

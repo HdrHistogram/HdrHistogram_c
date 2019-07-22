@@ -16,6 +16,7 @@
 
 #include "hdr_histogram.h"
 #include "hdr_tests.h"
+#include "hdr_atomic.h"
 
 /*  ######   #######  ##     ## ##    ## ########  ######  */
 /* ##    ## ##     ## ##     ## ###   ##    ##    ##    ## */
@@ -66,11 +67,50 @@ static void counts_inc_normalised(
     h->total_count += value;
 }
 
+static void counts_inc_normalised_atomic(
+    struct hdr_histogram* h, int32_t index, int64_t value)
+{
+    int32_t normalised_index = normalize_index(h, index);
+
+    hdr_atomic_add_fetch_64(&h->counts[normalised_index], value);
+    hdr_atomic_add_fetch_64(&h->total_count, value);
+}
+
 static void update_min_max(struct hdr_histogram* h, int64_t value)
 {
     h->min_value = (value < h->min_value && value != 0) ? value : h->min_value;
     h->max_value = (value > h->max_value) ? value : h->max_value;
 }
+
+static void update_min_max_atomic(struct hdr_histogram* h, int64_t value)
+{
+//    h->min_value = (value < h->min_value && value != 0) ? value : h->min_value;
+    int64_t current_min_value;
+    int64_t current_max_value;
+    do
+    {
+        current_min_value = hdr_atomic_load_64(&h->min_value);
+
+        if (0 == value || current_min_value <= value)
+        {
+            break;
+        }
+    }
+    while (!hdr_atomic_compare_exchange_64(&h->min_value, &current_min_value, value));
+
+//    h->max_value = (value > h->max_value) ? value : h->max_value;
+    do
+    {
+        current_max_value = hdr_atomic_load_64(&h->max_value);
+
+        if (value <= current_max_value)
+        {
+            break;
+        }
+    }
+    while (!hdr_atomic_compare_exchange_64(&h->max_value, &current_max_value, value));
+}
+
 
 /* ##     ## ######## #### ##       #### ######## ##    ## */
 /* ##     ##    ##     ##  ##        ##     ##     ##  ##  */
@@ -418,6 +458,11 @@ bool hdr_record_value(struct hdr_histogram* h, int64_t value)
     return hdr_record_values(h, value, 1);
 }
 
+bool hdr_record_value_atomic(struct hdr_histogram* h, int64_t value)
+{
+    return hdr_record_values_atomic(h, value, 1);
+}
+
 bool hdr_record_values(struct hdr_histogram* h, int64_t value, int64_t count)
 {
     int32_t counts_index;
@@ -436,6 +481,28 @@ bool hdr_record_values(struct hdr_histogram* h, int64_t value, int64_t count)
 
     counts_inc_normalised(h, counts_index, count);
     update_min_max(h, value);
+
+    return true;
+}
+
+bool hdr_record_values_atomic(struct hdr_histogram* h, int64_t value, int64_t count)
+{
+    int32_t counts_index;
+
+    if (value < 0)
+    {
+        return false;
+    }
+
+    counts_index = counts_index_for(h, value);
+
+    if (counts_index < 0 || h->counts_len <= counts_index)
+    {
+        return false;
+    }
+
+    counts_inc_normalised_atomic(h, counts_index, count);
+    update_min_max_atomic(h, value);
 
     return true;
 }
