@@ -11,7 +11,6 @@
 
 #include <stdio.h>
 #include <hdr_histogram.h>
-#include <pthread.h>
 
 #include "minunit.h"
 
@@ -476,83 +475,6 @@ static char* test_linear_iter_buckets_correctly()
     return 0;
 }
 
-struct test_histogram_data
-{
-    struct hdr_histogram* histogram;
-    int64_t* values;
-    int values_len;
-};
-
-static void* record_values(void* thread_context)
-{
-    int i;
-    struct test_histogram_data* thread_data = (struct test_histogram_data*) thread_context;
-
-
-    for (i = 0; i < thread_data->values_len; i++)
-    {
-        hdr_record_value_atomic(thread_data->histogram, thread_data->values[i]);
-    }
-
-    pthread_exit(NULL);
-}
-
-#define VALUE_COUNT 10000000
-
-static char* test_recording_concurrently()
-{
-    int64_t* values = calloc(VALUE_COUNT, sizeof(int64_t));
-    struct hdr_histogram* expected_histogram;
-    struct hdr_histogram* actual_histogram;
-    struct test_histogram_data thread_data[2];
-    struct hdr_iter expected_iter;
-    struct hdr_iter actual_iter;
-    pthread_t threads[2];
-    int i;
-
-    mu_assert("init", 0 == hdr_init(1, 10000000, 2, &expected_histogram));
-    mu_assert("init", 0 == hdr_init(1, 10000000, 2, &actual_histogram));
-
-
-    for (i = 0; i < VALUE_COUNT; i++)
-    {
-        values[i] = rand() % 20000; // NOLINT
-    }
-    
-    for (i = 0; i < VALUE_COUNT; i++)
-    {
-        hdr_record_value(expected_histogram, values[i]);
-    }
-
-    thread_data[0].histogram = actual_histogram;
-    thread_data[0].values = values;
-    thread_data[0].values_len = VALUE_COUNT / 2;
-    pthread_create(&threads[0], NULL, record_values, &thread_data[0]);
-
-    thread_data[1].histogram = actual_histogram;
-    thread_data[1].values = &values[VALUE_COUNT / 2];
-    thread_data[1].values_len = VALUE_COUNT / 2;
-    pthread_create(&threads[1], NULL, record_values, &thread_data[1]);
-
-    pthread_join(threads[0], NULL);
-    pthread_join(threads[1], NULL);
-
-    hdr_iter_init(&expected_iter, expected_histogram);
-    hdr_iter_init(&actual_iter, actual_histogram);
-
-    while (hdr_iter_next(&expected_iter))
-    {
-        mu_assert("Should have next", hdr_iter_next(&actual_iter));
-        mu_assert("counts mismatch", compare_int64(expected_iter.count, actual_iter.count));
-    }
-
-    mu_assert("Min mismatch", compare_int64(expected_histogram->min_value, actual_histogram->min_value));
-    mu_assert("Max mismatch", compare_int64(expected_histogram->max_value, actual_histogram->max_value));
-    mu_assert("Total mismatch", compare_int64(expected_histogram->total_count, actual_histogram->total_count));
-
-    return 0;
-}
-
 static struct mu_result all_tests()
 {
     mu_run_test(test_create);
@@ -570,7 +492,6 @@ static struct mu_result all_tests()
     mu_run_test(test_scaling_equivalence);
     mu_run_test(test_out_of_range_values);
     mu_run_test(test_linear_iter_buckets_correctly);
-    mu_run_test(test_recording_concurrently);
 
     mu_ok;
 }
