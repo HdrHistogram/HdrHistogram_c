@@ -114,6 +114,10 @@ bool hdr_record_value(struct hdr_histogram* h, int64_t value);
  * Records a value in the histogram, will round this value of to a precision at or better
  * than the significant_figure specified at construction time.
  *
+ * Will record this value atomically, however the whole structure may appear inconsistent
+ * when read concurrently with this update.  Do NOT mix calls to this method with calls
+ * to non-atomic updates.
+ *
  * @param h "This" pointer
  * @param value Value to add to the histogram
  * @return false if the value is larger than the highest_trackable_value and can't be recorded,
@@ -139,6 +143,10 @@ bool hdr_record_values(struct hdr_histogram* h, int64_t value, int64_t count);
  * precision at or better than the significant_figure specified at construction
  * time.
  *
+ * Will record this value atomically, however the whole structure may appear inconsistent
+ * when read concurrently with this update.  Do NOT mix calls to this method with calls
+ * to non-atomic updates.
+ *
  * @param h "This" pointer
  * @param value Value to add to the histogram
  * @param count Number of 'value's to add to the histogram
@@ -163,6 +171,28 @@ bool hdr_record_values_atomic(struct hdr_histogram* h, int64_t value, int64_t co
  * true otherwise.
  */
 bool hdr_record_corrected_value(struct hdr_histogram* h, int64_t value, int64_t expexcted_interval);
+
+/**
+ * Record a value in the histogram and backfill based on an expected interval.
+ *
+ * Records a value in the histogram, will round this value of to a precision at or better
+ * than the significant_figure specified at contruction time.  This is specifically used
+ * for recording latency.  If the value is larger than the expected_interval then the
+ * latency recording system has experienced co-ordinated omission.  This method fills in the
+ * values that would have occured had the client providing the load not been blocked.
+ *
+ * Will record this value atomically, however the whole structure may appear inconsistent
+ * when read concurrently with this update.  Do NOT mix calls to this method with calls
+ * to non-atomic updates.
+ *
+ * @param h "This" pointer
+ * @param value Value to add to the histogram
+ * @param expected_interval The delay between recording values.
+ * @return false if the value is larger than the highest_trackable_value and can't be recorded,
+ * true otherwise.
+ */
+bool hdr_record_corrected_value_atomic(struct hdr_histogram* h, int64_t value, int64_t expexcted_interval);
+
 /**
  * Record a value in the histogram 'count' times.  Applies the same correcting logic
  * as 'hdr_record_corrected_value'.
@@ -175,6 +205,23 @@ bool hdr_record_corrected_value(struct hdr_histogram* h, int64_t value, int64_t 
  * true otherwise.
  */
 bool hdr_record_corrected_values(struct hdr_histogram* h, int64_t value, int64_t count, int64_t expected_interval);
+
+/**
+ * Record a value in the histogram 'count' times.  Applies the same correcting logic
+ * as 'hdr_record_corrected_value'.
+ *
+ * Will record this value atomically, however the whole structure may appear inconsistent
+ * when read concurrently with this update.  Do NOT mix calls to this method with calls
+ * to non-atomic updates.
+ *
+ * @param h "This" pointer
+ * @param value Value to add to the histogram
+ * @param count Number of 'value's to add to the histogram
+ * @param expected_interval The delay between recording values.
+ * @return false if the value is larger than the highest_trackable_value and can't be recorded,
+ * true otherwise.
+ */
+bool hdr_record_corrected_values_atomic(struct hdr_histogram* h, int64_t value, int64_t count, int64_t expected_interval);
 
 /**
  * Adds all of the values from 'from' to 'this' histogram.  Will return the

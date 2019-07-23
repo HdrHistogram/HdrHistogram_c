@@ -84,7 +84,6 @@ static void update_min_max(struct hdr_histogram* h, int64_t value)
 
 static void update_min_max_atomic(struct hdr_histogram* h, int64_t value)
 {
-//    h->min_value = (value < h->min_value && value != 0) ? value : h->min_value;
     int64_t current_min_value;
     int64_t current_max_value;
     do
@@ -98,7 +97,6 @@ static void update_min_max_atomic(struct hdr_histogram* h, int64_t value)
     }
     while (!hdr_atomic_compare_exchange_64(&h->min_value, &current_min_value, value));
 
-//    h->max_value = (value > h->max_value) ? value : h->max_value;
     do
     {
         current_max_value = hdr_atomic_load_64(&h->max_value);
@@ -512,6 +510,10 @@ bool hdr_record_corrected_value(struct hdr_histogram* h, int64_t value, int64_t 
     return hdr_record_corrected_values(h, value, 1, expected_interval);
 }
 
+bool hdr_record_corrected_value_atomic(struct hdr_histogram* h, int64_t value, int64_t expected_interval)
+{
+    return hdr_record_corrected_values_atomic(h, value, 1, expected_interval);
+}
 
 bool hdr_record_corrected_values(struct hdr_histogram* h, int64_t value, int64_t count, int64_t expected_interval)
 {
@@ -531,6 +533,32 @@ bool hdr_record_corrected_values(struct hdr_histogram* h, int64_t value, int64_t
     for (; missing_value >= expected_interval; missing_value -= expected_interval)
     {
         if (!hdr_record_values(h, missing_value, count))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool hdr_record_corrected_values_atomic(struct hdr_histogram* h, int64_t value, int64_t count, int64_t expected_interval)
+{
+    int64_t missing_value;
+
+    if (!hdr_record_values_atomic(h, value, count))
+    {
+        return false;
+    }
+
+    if (expected_interval <= 0 || value <= expected_interval)
+    {
+        return true;
+    }
+
+    missing_value = value - expected_interval;
+    for (; missing_value >= expected_interval; missing_value -= expected_interval)
+    {
+        if (!hdr_record_values_atomic(h, missing_value, count))
         {
             return false;
         }

@@ -72,17 +72,17 @@ static void load_histograms()
     for (i = 0; i < 10000; i++)
     {
         hdr_record_value_atomic(raw_histogram, 1000);
-        hdr_record_corrected_value(cor_histogram, 1000, interval);
+        hdr_record_corrected_value_atomic(cor_histogram, 1000, interval);
 
         hdr_record_value_atomic(scaled_raw_histogram, 1000 * scale);
-        hdr_record_corrected_value(scaled_cor_histogram, 1000 * scale, scaled_interval);
+        hdr_record_corrected_value_atomic(scaled_cor_histogram, 1000 * scale, scaled_interval);
     }
 
     hdr_record_value_atomic(raw_histogram, 100000000);
-    hdr_record_corrected_value(cor_histogram, 100000000, 10000L);
+    hdr_record_corrected_value_atomic(cor_histogram, 100000000, 10000L);
 
     hdr_record_value_atomic(scaled_raw_histogram, 100000000 * scale);
-    hdr_record_corrected_value(scaled_cor_histogram, 100000000 * scale, scaled_interval);
+    hdr_record_corrected_value_atomic(scaled_cor_histogram, 100000000 * scale, scaled_interval);
 }
 
 static char* test_create()
