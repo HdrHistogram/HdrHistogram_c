@@ -14,9 +14,9 @@ project("hdr_histogram")
 # 3. If any interfaces have been added since the last public release, then increment age.
 # 4. If any interfaces have been removed since the last public release, then set age to 0.
 
-set(HDR_SOVERSION_CURRENT   3)
-set(HDR_SOVERSION_AGE       1)
-set(HDR_SOVERSION_REVISION  2)
+set(HDR_SOVERSION_CURRENT   4)
+set(HDR_SOVERSION_AGE       2)
+set(HDR_SOVERSION_REVISION  0)
 
 set(HDR_VERSION ${HDR_SOVERSION_CURRENT}.${HDR_SOVERSION_AGE}.${HDR_SOVERSION_REVISION})
 set(HDR_SOVERSION ${HDR_SOVERSION_CURRENT})
@@ -46,6 +46,6 @@ if(HDR_HISTOGRAM_BUILD_PROGRAMS)
 endif(HDR_HISTOGRAM_BUILD_PROGRAMS)
 
 SET(CPACK_GENERATOR "TGZ")
-SET(CPACK_PACKAGE_VERSION "0.9.11")
+SET(CPACK_PACKAGE_VERSION "0.9.12")
 
 INCLUDE(CPack)
