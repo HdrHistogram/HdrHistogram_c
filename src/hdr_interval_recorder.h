@@ -57,6 +57,30 @@ int64_t hdr_interval_recorder_record_corrected_values(
     int64_t expected_interval
 );
 
+int64_t hdr_interval_recorder_record_value_atomic(
+    struct hdr_interval_recorder* r,
+    int64_t value
+);
+
+int64_t hdr_interval_recorder_record_values_atomic(
+    struct hdr_interval_recorder* r,
+    int64_t value,
+    int64_t count
+);
+
+int64_t hdr_interval_recorder_record_corrected_value_atomic(
+    struct hdr_interval_recorder* r,
+    int64_t value,
+    int64_t expected_interval
+);
+
+int64_t hdr_interval_recorder_record_corrected_values_atomic(
+    struct hdr_interval_recorder* r,
+    int64_t value,
+    int64_t count,
+    int64_t expected_interval
+);
+
 struct hdr_histogram* hdr_interval_recorder_sample_and_recycle(
     struct hdr_interval_recorder* r,
     struct hdr_histogram* inactive_histogram);

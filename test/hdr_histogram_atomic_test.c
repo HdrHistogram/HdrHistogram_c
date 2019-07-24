@@ -499,8 +499,8 @@ static char* test_interval_recording()
         value = rand() % 20000;
         hdr_record_value(expected_histogram, value);
         hdr_record_corrected_value(expected_corrected_histogram, value, 1000);
-        hdr_interval_recorder_record_value(&recorder, value);
-        hdr_interval_recorder_record_corrected_value(&recorder_corrected, value, 1000);
+        hdr_interval_recorder_record_value_atomic(&recorder, value);
+        hdr_interval_recorder_record_corrected_value_atomic(&recorder_corrected, value, 1000);
     }
 
     recorder_histogram = hdr_interval_recorder_sample(&recorder);

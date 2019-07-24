@@ -134,6 +134,13 @@ static void update_corrected_values(struct hdr_histogram* data, void* arg)
     params[3] = hdr_record_corrected_values(h, params[0], params[1], params[2]);
 }
 
+static void update_corrected_values_atomic(struct hdr_histogram* data, void* arg)
+{
+    struct hdr_histogram* h = data;
+    int64_t* params = arg;
+    params[3] = hdr_record_corrected_values_atomic(h, params[0], params[1], params[2]);
+}
+
 int64_t hdr_interval_recorder_record_corrected_values(
     struct hdr_interval_recorder* r,
     int64_t value,
@@ -149,7 +156,6 @@ int64_t hdr_interval_recorder_record_corrected_values(
 
     hdr_interval_recorder_update(r, update_corrected_values, &params[0]);
     return params[3];
-
 }
 
 int64_t hdr_interval_recorder_record_corrected_value(
@@ -159,4 +165,53 @@ int64_t hdr_interval_recorder_record_corrected_value(
 )
 {
     return hdr_interval_recorder_record_corrected_values(r, value, 1, expected_interval);
+}
+
+int64_t hdr_interval_recorder_record_value_atomic(
+    struct hdr_interval_recorder* r,
+    int64_t value
+)
+{
+    return hdr_interval_recorder_record_values(r, value, 1);
+}
+
+int64_t hdr_interval_recorder_record_values_atomic(
+    struct hdr_interval_recorder* r,
+    int64_t value,
+    int64_t count
+)
+{
+    int64_t params[3];
+    params[0] = value;
+    params[1] = count;
+    params[2] = 0;
+
+    hdr_interval_recorder_update(r, update_values_atomic, &params[0]);
+    return params[2];
+}
+
+int64_t hdr_interval_recorder_record_corrected_value_atomic(
+    struct hdr_interval_recorder* r,
+    int64_t value,
+    int64_t expected_interval
+)
+{
+    return hdr_interval_recorder_record_corrected_values_atomic(r, value, 1, expected_interval);
+}
+
+int64_t hdr_interval_recorder_record_corrected_values_atomic(
+    struct hdr_interval_recorder* r,
+    int64_t value,
+    int64_t count,
+    int64_t expected_interval
+)
+{
+    int64_t params[4];
+    params[0] = value;
+    params[1] = count;
+    params[2] = expected_interval;
+    params[3] = 0;
+
+    hdr_interval_recorder_update(r, update_corrected_values_atomic, &params[0]);
+    return params[3];
 }
