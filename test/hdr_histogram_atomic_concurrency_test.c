@@ -14,6 +14,7 @@
 #include <pthread.h>
 
 #include "minunit.h"
+#include "hdr_test_util.h"
 
 int tests_run = 0;
 
@@ -38,11 +39,11 @@ static void* record_values(void* thread_context)
     pthread_exit(NULL);
 }
 
-#define VALUE_COUNT 10000000
 
 static char* test_recording_concurrently()
 {
-    int64_t* values = calloc(VALUE_COUNT, sizeof(int64_t));
+    const int value_count = 10000000;
+    int64_t* values = calloc(value_count, sizeof(int64_t));
     struct hdr_histogram* expected_histogram;
     struct hdr_histogram* actual_histogram;
     struct test_histogram_data thread_data[2];
@@ -55,24 +56,24 @@ static char* test_recording_concurrently()
     mu_assert("init", 0 == hdr_init(1, 10000000, 2, &actual_histogram));
 
 
-    for (i = 0; i < VALUE_COUNT; i++)
+    for (i = 0; i < value_count; i++)
     {
         values[i] = rand() % 20000;
     }
     
-    for (i = 0; i < VALUE_COUNT; i++)
+    for (i = 0; i < value_count; i++)
     {
         hdr_record_value(expected_histogram, values[i]);
     }
 
     thread_data[0].histogram = actual_histogram;
     thread_data[0].values = values;
-    thread_data[0].values_len = VALUE_COUNT / 2;
+    thread_data[0].values_len = value_count / 2;
     pthread_create(&threads[0], NULL, record_values, &thread_data[0]);
 
     thread_data[1].histogram = actual_histogram;
-    thread_data[1].values = &values[VALUE_COUNT / 2];
-    thread_data[1].values_len = VALUE_COUNT / 2;
+    thread_data[1].values = &values[value_count / 2];
+    thread_data[1].values_len = value_count / 2;
     pthread_create(&threads[1], NULL, record_values, &thread_data[1]);
 
     pthread_join(threads[0], NULL);
@@ -81,17 +82,7 @@ static char* test_recording_concurrently()
     hdr_iter_init(&expected_iter, expected_histogram);
     hdr_iter_init(&actual_iter, actual_histogram);
 
-    while (hdr_iter_next(&expected_iter))
-    {
-        mu_assert("Should have next", hdr_iter_next(&actual_iter));
-        mu_assert("counts mismatch", compare_int64(expected_iter.count, actual_iter.count));
-    }
-
-    mu_assert("Min mismatch", compare_int64(expected_histogram->min_value, actual_histogram->min_value));
-    mu_assert("Max mismatch", compare_int64(expected_histogram->max_value, actual_histogram->max_value));
-    mu_assert("Total mismatch", compare_int64(expected_histogram->total_count, actual_histogram->total_count));
-
-    return 0;
+    return compare_histograms(expected_histogram, actual_histogram);
 }
 
 static struct mu_result all_tests()

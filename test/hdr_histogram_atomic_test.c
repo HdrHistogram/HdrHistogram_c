@@ -11,8 +11,10 @@
 
 #include <stdio.h>
 #include <hdr_histogram.h>
+#include <hdr_interval_recorder.h>
 
 #include "minunit.h"
+#include "hdr_test_util.h"
 
 static bool compare_values(double a, double b, double variation)
 {
@@ -475,6 +477,50 @@ static char* test_linear_iter_buckets_correctly()
     return 0;
 }
 
+static char* test_interval_recording()
+{
+    int value_count, i, value;
+    char* result;
+    struct hdr_histogram* expected_histogram;
+    struct hdr_histogram* expected_corrected_histogram;
+    struct hdr_interval_recorder recorder;
+    struct hdr_interval_recorder recorder_corrected;
+    struct hdr_histogram* recorder_histogram;
+    struct hdr_histogram* recorder_corrected_histogram;
+
+    value_count = 1000000;
+    hdr_interval_recorder_init_all(&recorder, 1, INT64_C(24) * 60 * 60 * 1000000, 3);
+    hdr_interval_recorder_init_all(&recorder_corrected, 1, INT64_C(24) * 60 * 60 * 1000000, 3);
+    hdr_init(1, INT64_C(24) * 60 * 60 * 1000000, 3, &expected_histogram);
+    hdr_init(1, INT64_C(24) * 60 * 60 * 1000000, 3, &expected_corrected_histogram);
+
+    for (i = 0; i < value_count; i++)
+    {
+        value = rand() % 20000;
+        hdr_record_value(expected_histogram, value);
+        hdr_record_corrected_value(expected_corrected_histogram, value, 1000);
+        hdr_interval_recorder_record_value(&recorder, value);
+        hdr_interval_recorder_record_corrected_value(&recorder_corrected, value, 1000);
+    }
+
+    recorder_histogram = hdr_interval_recorder_sample(&recorder);
+
+    result = compare_histograms(expected_histogram, recorder_histogram);
+    if (result)
+    {
+        return result;
+    }
+
+    recorder_corrected_histogram = hdr_interval_recorder_sample(&recorder_corrected);
+    result = compare_histograms(expected_corrected_histogram, recorder_corrected_histogram);
+    if (result)
+    {
+        return result;
+    }
+
+    return 0;
+}
+
 static struct mu_result all_tests()
 {
     mu_run_test(test_create);
@@ -492,6 +538,7 @@ static struct mu_result all_tests()
     mu_run_test(test_scaling_equivalence);
     mu_run_test(test_out_of_range_values);
     mu_run_test(test_linear_iter_buckets_correctly);
+    mu_run_test(test_interval_recording);
 
     mu_ok;
 }

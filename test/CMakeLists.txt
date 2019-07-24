@@ -3,7 +3,7 @@ INCLUDE(CheckLibraryExists)
 add_executable(hdr_histogram_test hdr_histogram_test.c minunit.c)
 add_executable(hdr_histogram_atomic_test hdr_histogram_atomic_test.c minunit.c)
 add_executable(hdr_histogram_log_test hdr_histogram_log_test.c minunit.c)
-add_executable(hdr_atomic_test hdr_atomic_test.c minunit.c)
+add_executable(hdr_atomic_test hdr_atomic_test.c minunit.c hdr_test_util.h)
 
 add_executable(perftest hdr_histogram_perf.c)
 
