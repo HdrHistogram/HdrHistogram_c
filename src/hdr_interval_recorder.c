@@ -54,6 +54,10 @@ struct hdr_histogram* hdr_interval_recorder_sample_and_recycle(
         int significant_figures = r->active->significant_figures;
         hdr_init(lo, hi, significant_figures, &inactive_histogram);
     }
+    else
+    {
+        hdr_reset(inactive_histogram);
+    }
 
     hdr_phaser_reader_lock(&r->phaser);
 

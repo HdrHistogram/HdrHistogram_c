@@ -521,6 +521,29 @@ static char* test_interval_recording()
     return 0;
 }
 
+char* reset_histogram_on_sample_and_recycle()
+{
+    struct hdr_interval_recorder recorder;
+    struct hdr_histogram* inactive1;
+    struct hdr_histogram* sample1;
+    struct hdr_histogram* sample2;
+
+    inactive1 = NULL;
+
+    hdr_interval_recorder_init_all(&recorder, 1, INT64_C(24) * 60 * 60 * 1000000, 3);
+
+    hdr_interval_recorder_record_value(&recorder, 1234);
+
+    sample1 = hdr_interval_recorder_sample_and_recycle(&recorder, inactive1);
+
+    mu_assert("Should have at least one value", compare_int64(1, sample1->total_count));
+
+    sample2 = hdr_interval_recorder_sample_and_recycle(&recorder, sample1);
+    sample1 = hdr_interval_recorder_sample_and_recycle(&recorder, sample2);
+
+    mu_assert("Should have been reset", compare_int64(0, sample1->total_count));
+}
+
 static struct mu_result all_tests()
 {
     mu_run_test(test_create);
@@ -539,6 +562,7 @@ static struct mu_result all_tests()
     mu_run_test(test_out_of_range_values);
     mu_run_test(test_linear_iter_buckets_correctly);
     mu_run_test(test_interval_recording);
+    mu_run_test(reset_histogram_on_sample_and_recycle);
 
     mu_ok;
 }
