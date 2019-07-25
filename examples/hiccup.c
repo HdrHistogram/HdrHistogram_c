@@ -170,7 +170,7 @@ int main(int argc, char** argv)
     {        
         sleep(config.interval);
 
-        inactive = hdr_interval_recorder_sample(&recorder);
+        inactive = hdr_interval_recorder_sample_and_recycle(&recorder, inactive);
 
         hdr_gettime(&end_timestamp);
         timestamp = start_timestamp;
@@ -179,8 +179,6 @@ int main(int argc, char** argv)
 
         hdr_log_write(&log_writer, output, &timestamp, &end_timestamp, inactive);
         fflush(output);
-
-        hdr_reset(inactive);
     }
 #pragma clang diagnostic pop
 

@@ -81,10 +81,25 @@ int64_t hdr_interval_recorder_record_corrected_values_atomic(
     int64_t expected_interval
 );
 
+/**
+ * The is generally the preferred approach for recylcing histograms through
+ * the recorder as it is safe when used from callers in multiple threads and
+ * the returned histogram won't automatically become active without being
+ * passed back into this method.
+ *
+ * @param r 'this' recorder
+ * @param histogram_to_recycle
+ * @return the histogram that was previous being recorded to.
+ */
 struct hdr_histogram* hdr_interval_recorder_sample_and_recycle(
     struct hdr_interval_recorder* r,
-    struct hdr_histogram* inactive_histogram);
+    struct hdr_histogram* histogram_to_recycle);
 
+/**
+ * @deprecated Prefer hdr_interval_recorder_sample_and_recycle
+ * @param r 'this' recorder
+ * @return the histogram that was previous being recorded to.
+ */
 struct hdr_histogram* hdr_interval_recorder_sample(struct hdr_interval_recorder* r);
 
 #ifdef __cplusplus

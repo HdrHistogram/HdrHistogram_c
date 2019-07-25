@@ -43,20 +43,20 @@ void hdr_interval_recorder_destroy(struct hdr_interval_recorder* r)
 
 struct hdr_histogram* hdr_interval_recorder_sample_and_recycle(
     struct hdr_interval_recorder* r,
-    struct hdr_histogram* inactive_histogram)
+    struct hdr_histogram* histogram_to_recycle)
 {
     struct hdr_histogram* old_active;
 
-    if (NULL == inactive_histogram)
+    if (NULL == histogram_to_recycle)
     {
         int64_t lo = r->active->lowest_trackable_value;
         int64_t hi = r->active->highest_trackable_value;
         int significant_figures = r->active->significant_figures;
-        hdr_init(lo, hi, significant_figures, &inactive_histogram);
+        hdr_init(lo, hi, significant_figures, &histogram_to_recycle);
     }
     else
     {
-        hdr_reset(inactive_histogram);
+        hdr_reset(histogram_to_recycle);
     }
 
     hdr_phaser_reader_lock(&r->phaser);
@@ -65,7 +65,7 @@ struct hdr_histogram* hdr_interval_recorder_sample_and_recycle(
     old_active = hdr_atomic_load_pointer(&r->active);
 
     /* volatile write */
-    hdr_atomic_store_pointer(&r->active, inactive_histogram);
+    hdr_atomic_store_pointer(&r->active, histogram_to_recycle);
 
     hdr_phaser_flip_phase(&r->phaser, 0);
 
