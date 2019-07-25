@@ -172,7 +172,7 @@ int64_t hdr_interval_recorder_record_value_atomic(
     int64_t value
 )
 {
-    return hdr_interval_recorder_record_values(r, value, 1);
+    return hdr_interval_recorder_record_values_atomic(r, value, 1);
 }
 
 int64_t hdr_interval_recorder_record_values_atomic(
