@@ -74,7 +74,7 @@ static void* record_hiccups(void* thread_context)
 
 struct config_t
 {
-    int interval;
+    unsigned int interval;
     const char* filename;
 };
 
@@ -86,7 +86,7 @@ const char* USAGE =
 static int handle_opts(int argc, char** argv, struct config_t* config)
 {
     int c;
-    int interval = 1;
+    unsigned int interval = 1;
 
     while ((c = getopt(argc, argv, "i:f:")) != -1)
     {
@@ -96,7 +96,7 @@ static int handle_opts(int argc, char** argv, struct config_t* config)
             return 0;
 
         case 'i':
-            interval = atoi(optarg);
+            interval = (unsigned int) strtoul(optarg, NULL, 10);
             if (interval < 1)
             {
                 return 0;
