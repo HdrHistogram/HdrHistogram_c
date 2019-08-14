@@ -521,7 +521,7 @@ static char* test_interval_recording()
     return 0;
 }
 
-char* reset_histogram_on_sample_and_recycle()
+static char* reset_histogram_on_sample_and_recycle()
 {
     struct hdr_interval_recorder recorder;
     struct hdr_histogram* inactive1;
@@ -542,6 +542,8 @@ char* reset_histogram_on_sample_and_recycle()
     sample1 = hdr_interval_recorder_sample_and_recycle(&recorder, sample2);
 
     mu_assert("Should have been reset", compare_int64(0, sample1->total_count));
+
+    return 0;
 }
 
 static struct mu_result all_tests()

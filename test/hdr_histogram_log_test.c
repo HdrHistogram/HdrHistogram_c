@@ -263,9 +263,11 @@ static char* test_bounds_check_on_decode()
     size_t len = 0;
     int rc = 0;
     struct hdr_histogram* actual = NULL;
-    struct hdr_histogram* expected = cor_histogram;
+    struct hdr_histogram* expected;
 
     load_histograms();
+
+    expected = cor_histogram;
 
     rc = hdr_encode_compressed(expected, &buffer, &len);
     mu_assert("Did not encode", validate_return_code(rc));
