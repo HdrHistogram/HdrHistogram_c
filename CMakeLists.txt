@@ -24,9 +24,9 @@ set(HDR_SOVERSION ${HDR_SOVERSION_CURRENT})
 ENABLE_TESTING()
 
 if(UNIX)
-    set(CMAKE_C_FLAGS "-Wall -Wno-unknown-pragmas -Wextra -Wshadow -Winit-self -Wmissing-prototypes -Wpedantic -D_GNU_SOURCE -std=gnu89")
-    set(CMAKE_C_FLAGS_DEBUG "-O0 -g")
-    set(CMAKE_C_FLAGS_RELEASE "-O3 -g")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wno-unknown-pragmas -Wextra -Wshadow -Winit-self -Wmissing-prototypes -Wpedantic -D_GNU_SOURCE -std=gnu89")
+    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0 -g")
+    set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -g")
 endif()
 
 if(WIN32)
