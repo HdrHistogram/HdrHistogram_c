@@ -419,8 +419,10 @@ int hdr_init(
 
 void hdr_close(struct hdr_histogram* h)
 {
-    free(h->counts);
-    free(h);
+    if (h) {
+	free(h->counts);
+	free(h);
+    }
 }
 
 int hdr_alloc(int64_t highest_trackable_value, int significant_figures, struct hdr_histogram** result)
