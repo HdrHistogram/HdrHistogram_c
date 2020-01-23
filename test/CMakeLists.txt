@@ -1,5 +1,15 @@
 INCLUDE(CheckLibraryExists)
 
+option(HDR_HISTOGRAM_BUILD_BENCHMARK "Build benchmark" ON)
+
+if (HDR_HISTOGRAM_BUILD_BENCHMARK)
+    set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "Suppressing benchmark's tests" FORCE)
+    add_subdirectory(vendor/google/benchmark)
+    add_executable(hdr_histogram_benchmark hdr_histogram_benchmark.cpp)
+    target_link_libraries(hdr_histogram_benchmark benchmark)
+    target_link_libraries(hdr_histogram_benchmark hdr_histogram_static m z)
+endif()
+
 add_executable(hdr_histogram_test hdr_histogram_test.c minunit.c)
 add_executable(hdr_histogram_atomic_test hdr_histogram_atomic_test.c minunit.c)
 add_executable(hdr_histogram_log_test hdr_histogram_log_test.c minunit.c)
