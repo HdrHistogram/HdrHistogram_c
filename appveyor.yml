@@ -30,6 +30,7 @@ build_script:
   - cmake --build . --target install
   - dir c:\dev\zlib64
   - cd c:\dev\HdrHistogram_c
+  - git submodule update --init --recursive
   - md build
   - cd build
   - cmake -DCMAKE_PREFIX_PATH="c:\dev\zlib64" -G %GENERATOR% ..
