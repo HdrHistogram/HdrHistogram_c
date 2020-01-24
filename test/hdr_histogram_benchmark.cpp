@@ -3,6 +3,15 @@
 #include <math.h>
 #include <random>
 
+#ifdef _WIN32
+#pragma comment ( lib, "Shlwapi.lib" )
+#ifdef _DEBUG
+#pragma comment ( lib, "benchmarkd.lib" )
+#else
+#pragma comment ( lib, "benchmark.lib" )
+#endif
+#endif
+
 int64_t min_value = 1;
 int64_t min_precision = 1;
 int64_t max_precision = 4;
