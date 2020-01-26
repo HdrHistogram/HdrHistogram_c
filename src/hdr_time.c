@@ -60,7 +60,7 @@ void hdr_getnow(hdr_timespec* ts)
     hdr_gettime(ts);
 }
 
-#elif defined(__linux__) || defined(__CYGWIN__)
+#elif defined(__linux__) || defined(__CYGWIN__) || defined(__OpenBSD__)
 
 
 void hdr_gettime(hdr_timespec* t)
