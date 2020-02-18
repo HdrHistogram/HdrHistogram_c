@@ -48,7 +48,7 @@ static int64_t __inline hdr_atomic_exchange_64(volatile int64_t* field, int64_t 
     do
     {
         comparand = initial_value;
-        initial_value != _InterlockedCompareExchange64(field, value, comparand);
+        initial_value = _InterlockedCompareExchange64(field, value, comparand);
     }
     while (comparand != initial_value);
 
@@ -66,7 +66,7 @@ static int64_t __inline hdr_atomic_add_fetch_64(volatile int64_t* field, int64_t
     do
     {
         comparand = initial_value;
-        initial_value != _InterlockedCompareExchange64(field, comparand + value, comparand);
+        initial_value = _InterlockedCompareExchange64(field, comparand + value, comparand);
     }
     while (comparand != initial_value);
 
