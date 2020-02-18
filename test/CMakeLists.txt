@@ -1,14 +1,31 @@
 INCLUDE(CheckLibraryExists)
+INCLUDE(ExternalProject)
 
-option(HDR_HISTOGRAM_BUILD_BENCHMARK "Build benchmark" ON)
+option(HDR_HISTOGRAM_BUILD_BENCHMARK "Build benchmark" OFF)
 
 if (HDR_HISTOGRAM_BUILD_BENCHMARK)
     if (UNIX)
+        ExternalProject_Add(
+                google_benchmark
+                URL ${CMAKE_CURRENT_SOURCE_DIR}/../lib/benchmark-1.5.0.zip
+                URL_MD5 1af48846917b9730bee1848f6e38f563
+                CMAKE_ARGS -DBENCHMARK_ENABLE_TESTING=OFF -DBENCHMARK_ENABLE_INSTALL=OFF
+                SOURCE_DIR        "${CMAKE_CURRENT_BINARY_DIR}/googlebenchmark-src"
+                BINARY_DIR        "${CMAKE_CURRENT_BINARY_DIR}/googlebenchmark-build"
+                INSTALL_COMMAND   ""
+        )
+
+        ExternalProject_Get_Property(google_benchmark source_dir)
+        set(GOOGLE_BENCHMARK_SOURCE_DIR ${source_dir})
+        ExternalProject_Get_Property(google_benchmark binary_dir)
+        set(GOOGLE_BENCHMARK_BINARY_DIR ${binary_dir})
+
         set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "Suppressing benchmark's tests" FORCE)
-        add_subdirectory(vendor/google/benchmark)
         add_executable(hdr_histogram_benchmark hdr_histogram_benchmark.cpp)
+        target_include_directories(hdr_histogram_benchmark PUBLIC ${GOOGLE_BENCHMARK_SOURCE_DIR}/include)
+        target_link_directories(hdr_histogram_benchmark PUBLIC ${GOOGLE_BENCHMARK_BINARY_DIR}/src)
         target_link_libraries(hdr_histogram_benchmark benchmark)
-        target_link_libraries(hdr_histogram_benchmark hdr_histogram_static m z)
+        target_link_libraries(hdr_histogram_benchmark hdr_histogram_static m z pthread)
     else()
         message(WARNING
               "google.benchmark - microbenchmarks disabled on WIN32 platforms")
