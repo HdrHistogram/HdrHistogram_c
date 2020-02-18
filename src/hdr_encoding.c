@@ -149,7 +149,9 @@ int zig_zag_decode_i64(const uint8_t* buffer, int64_t* signed_value)
         }
     }
 
+#pragma warning(disable: 4146)
     value = (value >> 1) ^ (-(value & 1));
+#pragma warning(default: 4146)
     *signed_value = (int64_t) value;
 
     return bytesRead;

@@ -369,7 +369,7 @@ struct hdr_iter
     /** raw index into the counts array */
     int32_t counts_index;
     /** snapshot of the length at the time the iterator is created */
-    int32_t total_count;
+    int64_t total_count;
     /** value directly from array for the current counts_index */
     int64_t count;
     /** sum of all of the counts up to and including the count at this index */
