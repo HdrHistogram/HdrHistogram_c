@@ -149,9 +149,14 @@ int zig_zag_decode_i64(const uint8_t* buffer, int64_t* signed_value)
         }
     }
 
-#pragma warning(disable: 4146)
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable: 4146) // C4146: unary minus operator applied to unsigned type, result still unsigned
+#endif
     value = (value >> 1) ^ (-(value & 1));
-#pragma warning(default: 4146)
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
     *signed_value = (int64_t) value;
 
     return bytesRead;
