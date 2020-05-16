@@ -836,6 +836,10 @@ static char* decode_v3_log()
     const char* v3_log = "jHiccup-2.0.7S.logV3.hlog";
 
     FILE* f = fopen(v3_log, "r");
+    if (NULL == f)
+    {
+        fprintf(stderr, "Open file: [%d] %s", errno, strerror(errno));
+    }
     mu_assert("Can not open v3 log file", f != NULL);
 
     hdr_init(1, INT64_C(3600000000000), 3, &accum);

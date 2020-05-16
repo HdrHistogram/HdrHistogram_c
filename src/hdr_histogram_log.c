@@ -981,16 +981,16 @@ static void update_timespec(hdr_timespec* ts, double timestamp)
     hdr_timespec_from_double(ts, timestamp);
 }
 
-#if defined(_MSC_VER)
-
 static ssize_t hdr_read_chunk(char* buffer, size_t length, char terminator, FILE* stream)
 {
+    size_t i;
+
     if (buffer == NULL || length == 0)
     {
         return -1;
     }
 
-    for (size_t i = 0; i < length; ++i)
+    for (i = 0; i < length; ++i)
     {
         int c = fgetc(stream);
         buffer[i] = (char)c;
@@ -1007,20 +1007,24 @@ static ssize_t hdr_read_chunk(char* buffer, size_t length, char terminator, FILE
 /* Note that this version of getline assumes lineptr is valid. */
 static ssize_t hdr_getline(char** lineptr, FILE* stream)
 {
+    size_t allocation = 128;
+    size_t used = 0;
+    char* scratch = NULL;
+    char* before;
+    size_t wanted;
+    size_t read_length;
+
     if (stream == NULL)
     {
         return -1;
     }
 
-    size_t allocation = 128;
-    size_t used = 0;
 
-    char* scratch = NULL;
     for (;;)
     {
         allocation += allocation;
 
-        char* before = scratch;
+        before = scratch;
         scratch = realloc(scratch, allocation);
         if (scratch == NULL)
         {
@@ -1031,8 +1035,8 @@ static ssize_t hdr_getline(char** lineptr, FILE* stream)
             return -1;
         }
 
-        size_t wanted = allocation - used - 1;
-        size_t read_length = hdr_read_chunk(scratch + used, wanted, '\n', stream);
+        wanted = allocation - used - 1;
+        read_length = hdr_read_chunk(scratch + used, wanted, '\n', stream);
         used += read_length;
 
 
@@ -1044,14 +1048,6 @@ static ssize_t hdr_getline(char** lineptr, FILE* stream)
         }
     }
 }
-
-#else
-static ssize_t hdr_getline(char** lineptr, FILE* stream)
-{
-    size_t line_length = 0;
-    return getline(lineptr, &line_length, stream);
-}
-#endif
 
 int hdr_log_read(
     struct hdr_log_reader* reader, FILE* file, struct hdr_histogram** histogram,
