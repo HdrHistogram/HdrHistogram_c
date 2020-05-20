@@ -111,7 +111,7 @@ static int handle_opts(int argc, char** argv, struct config_t* config)
         }
     }
 
-    config->interval = interval < 1 ? 1 : interval;
+    config->interval = interval;
     return 1;
 }
 

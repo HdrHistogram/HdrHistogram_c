@@ -7,6 +7,7 @@ HdrHistogram.iml
 .project
 .settings
 release.properties
+install_manifest.txt
 /bin
 alltests
 format_example
@@ -36,11 +37,15 @@ src/CTestTestfile.cmake
 src/Makefile
 src/cmake_install.cmake
 src/libhdr_histogram.so
+src/libhdr_histogram.so.*
 test/CMakeFiles/
 test/CTestTestfile.cmake
 test/Makefile
 test/cmake_install.cmake
+test/hdr_atomic_test
 test/hdr_dbl_histogram_test
+test/hdr_histogram_atomic_concurrency_test
+test/hdr_histogram_atomic_test
 test/hdr_histogram_log_test
 test/hdr_histogram_test
 test/perftest

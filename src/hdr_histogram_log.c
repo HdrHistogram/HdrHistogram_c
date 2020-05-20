@@ -154,11 +154,7 @@ const char* hdr_strerror(int errnum)
 
 static void strm_init(z_stream* strm)
 {
-    strm->zfree = NULL;
-    strm->zalloc = NULL;
-    strm->opaque = NULL;
-    strm->next_in = NULL;
-    strm->avail_in = 0;
+    memset(strm, 0, sizeof(z_stream));
 }
 
 union uint64_dbl_cvt
@@ -1168,6 +1164,7 @@ int hdr_log_encode(struct hdr_histogram* histogram, char** encoded_histogram)
         compressed_histogram, compressed_len, encoded_histogram_tmp, encoded_len);
     if (rc != 0)
     {
+        free(encoded_histogram_tmp);
         FAIL_AND_CLEANUP(cleanup, result, rc);
     }
 
