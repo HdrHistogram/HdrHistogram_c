@@ -1,10 +1,9 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.5)
 
-if("${CMAKE_VERSION}" VERSION_GREATER 3.0.0)
-    cmake_policy(SET CMP0042 NEW)
-endif()
+project(hdr_histogram VERSION 0.9.12 LANGUAGES C)
 
-project("hdr_histogram")
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
 
 # Follow all steps below in order to calculate new ABI version when updating the library
 # NOTE: THIS IS UNRELATED to the actual project version
@@ -21,31 +20,57 @@ set(HDR_SOVERSION_REVISION  0)
 set(HDR_VERSION ${HDR_SOVERSION_CURRENT}.${HDR_SOVERSION_AGE}.${HDR_SOVERSION_REVISION})
 set(HDR_SOVERSION ${HDR_SOVERSION_CURRENT})
 
-ENABLE_TESTING()
+set(CMAKE_C_STANDARD 90)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_EXTENSIONS OFF)
+
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 if(UNIX)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wno-unknown-pragmas -Wextra -Wshadow -Winit-self -Wmissing-prototypes -Wpedantic -D_GNU_SOURCE -std=gnu89 -fPIC")
-    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0 -g")
-    set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -g")
+    add_compile_options(
+        -Wall
+        -Wno-unknown-pragmas
+        -Wextra
+        -Wshadow
+        -Winit-self
+        -Wpedantic
+        $<$<COMPILE_LANGUAGE:C>:-Wmissing-prototypes>)
+    add_definitions(
+        -D_GNU_SOURCE)
 endif()
 
-if(WIN32)
-    find_package (zlib REQUIRED)
-else()
-    find_package (ZLIB REQUIRED)
-endif()
-
-include_directories("${CMAKE_CURRENT_SOURCE_DIR}/src")
-
-add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/src")
+add_subdirectory(src)
 
 option(HDR_HISTOGRAM_BUILD_PROGRAMS "Build tests and examples" ON)
 if(HDR_HISTOGRAM_BUILD_PROGRAMS)
-  add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/test")
-  add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/examples")
-endif(HDR_HISTOGRAM_BUILD_PROGRAMS)
+    include(CTest)
 
-SET(CPACK_GENERATOR "TGZ")
-SET(CPACK_PACKAGE_VERSION "0.9.12")
+    if(BUILD_TESTING)
+        add_subdirectory(test)
+    endif()
 
-INCLUDE(CPack)
+    add_subdirectory(examples)
+endif()
+
+write_basic_package_version_file(
+    ${PROJECT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY AnyNewerVersion)
+configure_file(
+    config.cmake.in
+    ${PROJECT_NAME}-config.cmake
+    @ONLY)
+install(
+    EXPORT ${PROJECT_NAME}-targets
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+    NAMESPACE ${PROJECT_NAME}::)
+install(
+    FILES
+        ${PROJECT_BINARY_DIR}/${PROJECT_NAME}-config.cmake
+        ${PROJECT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME})
+
+set(CPACK_GENERATOR "TGZ")
+include(CPack)

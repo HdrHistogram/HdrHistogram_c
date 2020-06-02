@@ -1,19 +1,25 @@
-add_executable(hdr_decoder hdr_decoder.c)
-if (WIN32)
-    target_link_libraries(hdr_decoder hdr_histogram_static)
-else()
-    target_link_libraries(hdr_decoder hdr_histogram m z)
+add_executable(hdr_decoder
+    hdr_decoder.c)
+target_link_libraries(hdr_decoder
+    PRIVATE
+        $<$<BOOL:${WIN32}>:hdr_histogram_static>
+        $<$<NOT:$<BOOL:${WIN32}>>:hdr_histogram>)
+install(
+    TARGETS hdr_decoder
+    EXPORT ${PROJECT_NAME}-targets
+    DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+if(CMAKE_SYSTEM_NAME MATCHES "Linux")
+    find_package(Threads)
+
+    add_executable(hiccup
+        hiccup.c)
+    target_link_libraries(hiccup
+        PRIVATE
+            hdr_histogram
+            Threads::Threads)
+    install(
+        TARGETS hiccup
+        EXPORT ${PROJECT_NAME}-targets
+        DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
-
-CHECK_LIBRARY_EXISTS(rt clock_gettime "" RT_EXISTS)
-if (RT_EXISTS)
-    target_link_libraries(hdr_decoder rt)
-endif (RT_EXISTS)
-
-install(TARGETS hdr_decoder DESTINATION bin)
-
-if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    add_executable(hiccup hiccup.c)
-    target_link_libraries(hiccup hdr_histogram m z pthread rt)
-    install(TARGETS hiccup DESTINATION bin)
-endif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
