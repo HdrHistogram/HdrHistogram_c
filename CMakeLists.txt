@@ -29,11 +29,7 @@ if(UNIX)
     set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -g")
 endif()
 
-if(WIN32)
-    find_package (zlib REQUIRED)
-else()
-    find_package (ZLIB REQUIRED)
-endif()
+find_package(ZLIB REQUIRED)
 
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/src")
 

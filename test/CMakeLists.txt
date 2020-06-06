@@ -40,8 +40,8 @@ add_executable(hdr_atomic_test hdr_atomic_test.c minunit.c hdr_test_util.h)
 add_executable(perftest hdr_histogram_perf.c)
 
 if (WIN32)
-    add_library(z STATIC IMPORTED)
-    set_property(TARGET z PROPERTY IMPORTED_LOCATION ${ZLIB_LIBRARIES})
+    add_library(z INTERFACE)
+    set_property(TARGET z PROPERTY INTERFACE_LINK_LIBRARIES ZLIB::ZLIB)
 
     target_link_libraries(hdr_histogram_test hdr_histogram_static ws2_32)
     target_link_libraries(hdr_histogram_atomic_test hdr_histogram_static ws2_32)
