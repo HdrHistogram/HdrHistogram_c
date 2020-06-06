@@ -5,10 +5,6 @@ HdrHistogram
 
 [![Gitter chat](https://badges.gitter.im/HdrHistogram/HdrHistogram.png)](https://gitter.im/HdrHistogram/HdrHistogram)
 
-Windows Build: [![AppVeyor](https://ci.appveyor.com/api/projects/status/github/HdrHistogram/HdrHistogram_c?svg=true)](https://ci.appveyor.com/project/mikeb01/hdrhistogram-c)
-
-Linux Build: [![Build Status](https://semaphoreci.com/api/v1/mikeb01/hdrhistogram_c/branches/master/badge.svg)](https://semaphoreci.com/mikeb01/hdrhistogram_c)
-
 This port contains a subset of the functionality supported by the Java
 implementation.  The current supported features are:
 
