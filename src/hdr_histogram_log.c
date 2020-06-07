@@ -1076,7 +1076,7 @@ int hdr_log_read(
         }
         else
         {
-            FAIL_AND_CLEANUP(cleanup, result, EIO);
+            FAIL_AND_CLEANUP(cleanup, result, -EIO);
         }
     }
 
@@ -1089,13 +1089,13 @@ int hdr_log_read(
     r = realloc_buffer((void**)&base64_histogram, sizeof(char), read);
     if (r != 0)
     {
-        FAIL_AND_CLEANUP(cleanup, result, ENOMEM);
+        FAIL_AND_CLEANUP(cleanup, result, -ENOMEM);
     }
 
     r = realloc_buffer((void**)&compressed_histogram, sizeof(uint8_t), read);
     if (r != 0)
     {
-        FAIL_AND_CLEANUP(cleanup, result, ENOMEM);
+        FAIL_AND_CLEANUP(cleanup, result, -ENOMEM);
     }
 
     num_tokens = sscanf(
@@ -1110,7 +1110,7 @@ int hdr_log_read(
 
         if (num_tokens != 5)
         {
-            FAIL_AND_CLEANUP(cleanup, result, EINVAL);
+            FAIL_AND_CLEANUP(cleanup, result, -EINVAL);
         }
     }
 
@@ -1141,6 +1141,108 @@ cleanup:
 
     return result;
 }
+
+int hdr_log_read_entry(
+    struct hdr_log_reader* reader, FILE* file, struct hdr_log_entry *entry, struct hdr_histogram** histogram)
+{
+    const char* format_v12 = "%lf,%lf,%d.%d,%s";
+    const char* format_v13 = "Tag=%1023[^,],%lf,%lf,%d.%d,%s";
+    char* base64_histogram = NULL;
+    uint8_t* compressed_histogram = NULL;
+    char* line = NULL;
+    int result = 0;
+    ssize_t read;
+    size_t base64_len, compressed_len;
+    int r;
+    int interval_max_s = 0;
+    int interval_max_ms = 0;
+    int num_tokens;
+
+    double begin_timestamp = 0.0;
+    double end_timestamp = 0.0;
+
+    (void)reader;
+
+    if (NULL == entry)
+    {
+        return -EINVAL;
+    }
+
+    read = hdr_getline(&line, file);
+    if (-1 == read)
+    {
+        if (0 == errno)
+        {
+            FAIL_AND_CLEANUP(cleanup, result, EOF);
+        }
+        else
+        {
+            FAIL_AND_CLEANUP(cleanup, result, EIO);
+        }
+    }
+
+    null_trailing_whitespace(line, read);
+    if (strlen(line) == 0)
+    {
+        FAIL_AND_CLEANUP(cleanup, result, EOF);
+    }
+
+    r = realloc_buffer((void**)&base64_histogram, sizeof(char), read);
+    if (r != 0)
+    {
+        FAIL_AND_CLEANUP(cleanup, result, ENOMEM);
+    }
+
+    r = realloc_buffer((void**)&compressed_histogram, sizeof(uint8_t), read);
+    if (r != 0)
+    {
+        FAIL_AND_CLEANUP(cleanup, result, ENOMEM);
+    }
+
+    num_tokens = sscanf(
+        line, format_v13, &begin_timestamp, &end_timestamp,
+        &interval_max_s, &interval_max_ms, base64_histogram);
+
+    if (num_tokens != 5)
+    {
+        num_tokens = sscanf(
+            line, format_v12, &begin_timestamp, &end_timestamp,
+            &interval_max_s, &interval_max_ms, base64_histogram);
+
+        if (num_tokens != 5)
+        {
+            FAIL_AND_CLEANUP(cleanup, result, EINVAL);
+        }
+    }
+
+    base64_len = strlen(base64_histogram);
+    compressed_len = hdr_base64_decoded_len(base64_len);
+
+    r = hdr_base64_decode(
+        base64_histogram, base64_len, compressed_histogram, compressed_len);
+
+    if (r != 0)
+    {
+        FAIL_AND_CLEANUP(cleanup, result, r);
+    }
+
+    r = hdr_decode_compressed(compressed_histogram, compressed_len, histogram);
+    if (r != 0)
+    {
+        FAIL_AND_CLEANUP(cleanup, result, r);
+    }
+
+    update_timespec(&entry->timestamp, begin_timestamp);
+    update_timespec(&entry->interval, end_timestamp);
+
+    cleanup:
+    free(line);
+    free(base64_histogram);
+    free(compressed_histogram);
+
+    return result;
+}
+
 
 int hdr_log_encode(struct hdr_histogram* histogram, char** encoded_histogram)
 {

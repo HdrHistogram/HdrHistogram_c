@@ -872,6 +872,36 @@ static char* decode_v3_log()
     return 0;
 }
 
+static int parse_line_from_file(const char* filename)
+{
+    struct hdr_histogram *h = NULL;
+    hdr_timespec timestamp;
+    hdr_timespec interval;
+    int result;
+
+    FILE* f = fopen(filename, "r");
+    if (NULL == f)
+    {
+        fprintf(stderr, "Open file: [%d] %s", errno, strerror(errno));
+        return -EIO;
+    }
+
+    result = hdr_log_read(NULL, f, &h, &timestamp, &interval);
+    fclose(f);
+
+    return result;
+}
+
+static char* handle_invalid_log_lines()
+{
+    mu_assert("Should have invalid histogram", -EINVAL == parse_line_from_file("test_tagged_invalid_histogram.txt"));
+    mu_assert("Should have invalid tag key", -EINVAL == parse_line_from_file("test_tagged_invalid_tag_key.txt"));
+    mu_assert("Should have invalid timestamp", -EINVAL == parse_line_from_file("test_tagged_invalid_timestamp.txt"));
+    mu_assert("Should have missing histogram", -EINVAL == parse_line_from_file("test_tagged_missing_histogram.txt"));
+
+    return 0;
+}
+
 static char* decode_v0_log()
 {
     struct hdr_histogram* accum;
@@ -949,6 +979,7 @@ static struct mu_result all_tests()
     mu_run_test(decode_v2_log);
     mu_run_test(decode_v1_log);
     mu_run_test(decode_v0_log);
+    mu_run_test(handle_invalid_log_lines);
 
     mu_run_test(test_encode_and_decode_empty);
 

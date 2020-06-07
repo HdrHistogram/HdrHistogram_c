@@ -21,6 +21,8 @@
 #define HDR_VALUE_TRUNCATED -29991
 #define HDR_ENCODED_INPUT_TOO_LONG -29990
 
+#define HDR_LOG_TAG_MAX_BUFFER_LEN (1024)
+
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -150,6 +152,39 @@ int hdr_log_read_header(struct hdr_log_reader* reader, FILE* file);
 int hdr_log_read(
     struct hdr_log_reader* reader, FILE* file, struct hdr_histogram** histogram,
     hdr_timespec* timestamp, hdr_timespec* interval);
+
+/**
+ * To hold all other values from a log line excluding the histogram itself
+ */
+struct hdr_log_entry {
+    hdr_timespec timestamp;
+    hdr_timespec interval;
+    char tag[HDR_LOG_TAG_MAX_BUFFER_LEN];
+};
+
+/**
+ * Reads an entry from the log filling in the specified histogram and log entry struct.
+ * If the supplied pointer to the histogram for this method is
+ * NULL then a new histogram will be allocated for the caller, however it will
+ * become the callers responsibility to free it later.  If the pointer is non-null
+ * the histogram read from the log will be merged with the supplied histogram.
+ *
+ * @param reader 'This' pointer
+ * @param file The stream to read the histogram from.
+ * @param entry Contains all of the information from the log line that is not the histogram.
+ * @param histogram Pointer to allocate a histogram to or merge into.
+ * @return Will return 0 on success or an error number if there was some wrong
+ * when reading in the histogram.  EOF (-1) will indicate that there are no more
+ * histograms left to be read from 'file'.
+ * HDR_INFLATE_INIT_FAIL or HDR_INFLATE_FAIL if
+ * there was a problem with Gzip.  HDR_COMPRESSION_COOKIE_MISMATCH or
+ * HDR_ENCODING_COOKIE_MISMATCH if the cookie values are incorrect.
+ * HDR_LOG_INVALID_VERSION if the log can not be parsed.  ENOMEM if buffer space
+ * or the histogram can not be allocated.  EIO if there was an error during
+ * the read.  EINVAL in any input values are incorrect.
+ */
+int hdr_log_read_entry(
+    struct hdr_log_reader* reader, FILE* file, struct hdr_log_entry *entry, struct hdr_histogram** histogram);
 
 /**
  * Returns a string representation of the error number.

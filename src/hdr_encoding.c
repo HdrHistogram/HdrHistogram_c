@@ -307,10 +307,10 @@ int hdr_base64_decode(
     size_t i, j;
 
     if (input_len < 4 ||
-        (input_len & 3) != 0 ||
+        (input_len & 3u) != 0 ||
         (input_len / 4) * 3 != output_len)
     {
-        return EINVAL;
+        return -EINVAL;
     }
 
     for (i = 0, j = 0; i < input_len; i += 4, j += 3)
