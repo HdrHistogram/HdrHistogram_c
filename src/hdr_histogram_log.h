@@ -168,6 +168,12 @@ int hdr_log_read(
  * NULL then a new histogram will be allocated for the caller, however it will
  * become the callers responsibility to free it later.  If the pointer is non-null
  * the histogram read from the log will be merged with the supplied histogram.
+ * The entry struct contains a pointer to a buffer to load the tag into.  If this
+ * is NULL or the tag_len is 0 then it won't store the tag there.  The tag value will be
+ * NULL-terminated if there available space in the supplied buffer.  If the tag is larger
+ * than the supplied buffer then it will be truncated.  If the caller sets the last element
+ * in the buffer to '\0' before calling this function and it is not '\0' after the function
+ * returns then the value has been truncated.
  *
  * @param reader 'This' pointer
  * @param file The stream to read the histogram from.
