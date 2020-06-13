@@ -15,8 +15,6 @@
 #endif
 #include <zlib.h>
 #include <errno.h>
-#include <ctype.h>
-#include <math.h>
 #include <time.h>
 
 #include "hdr_encoding.h"
@@ -141,7 +139,7 @@ typedef struct /*__attribute__((__packed__))*/
     int64_t highest_trackable_value;
     int64_t total_count;
     int64_t counts[1];
-} _encoding_flyweight_v0;
+} encoding_flyweight_v0_t;
 
 typedef struct /*__attribute__((__packed__))*/
 {
@@ -153,27 +151,27 @@ typedef struct /*__attribute__((__packed__))*/
     int64_t highest_trackable_value;
     uint64_t conversion_ratio_bits;
     uint8_t counts[1];
-} _encoding_flyweight_v1;
+} encoding_flyweight_v1_t;
 
 typedef struct /*__attribute__((__packed__))*/
 {
     int32_t cookie;
     int32_t length;
     uint8_t data[1];
-} _compression_flyweight;
+} compression_flyweight_t;
 #pragma pack(pop)
 
-#define SIZEOF_ENCODING_FLYWEIGHT_V0 (sizeof(_encoding_flyweight_v0) - sizeof(int64_t))
-#define SIZEOF_ENCODING_FLYWEIGHT_V1 (sizeof(_encoding_flyweight_v1) - sizeof(uint8_t))
-#define SIZEOF_COMPRESSION_FLYWEIGHT (sizeof(_compression_flyweight) - sizeof(uint8_t))
+#define SIZEOF_ENCODING_FLYWEIGHT_V0 (sizeof(encoding_flyweight_v0_t) - sizeof(int64_t))
+#define SIZEOF_ENCODING_FLYWEIGHT_V1 (sizeof(encoding_flyweight_v1_t) - sizeof(uint8_t))
+#define SIZEOF_COMPRESSION_FLYWEIGHT (sizeof(compression_flyweight_t) - sizeof(uint8_t))
 
 int hdr_encode_compressed(
     struct hdr_histogram* h,
     uint8_t** compressed_histogram,
     size_t* compressed_len)
 {
-    _encoding_flyweight_v1* encoded = NULL;
-    _compression_flyweight* compressed = NULL;
+    encoding_flyweight_v1_t* encoded = NULL;
+    compression_flyweight_t* compressed = NULL;
     int i;
     int result = 0;
     int data_index = 0;
@@ -186,7 +184,7 @@ int hdr_encode_compressed(
     int32_t counts_limit = len_to_max < h->counts_len ? len_to_max : h->counts_len;
 
     const size_t encoded_len = SIZEOF_ENCODING_FLYWEIGHT_V1 + MAX_BYTES_LEB128 * (size_t) counts_limit;
-    if ((encoded = (_encoding_flyweight_v1*) calloc(encoded_len, sizeof(uint8_t))) == NULL)
+    if ((encoded = (encoding_flyweight_v1_t*) calloc(encoded_len, sizeof(uint8_t))) == NULL)
     {
         FAIL_AND_CLEANUP(cleanup, result, ENOMEM);
     }
@@ -230,7 +228,7 @@ int hdr_encode_compressed(
     dest_len = compressBound(encoded_size);
     compressed_size = SIZEOF_COMPRESSION_FLYWEIGHT + dest_len;
 
-    if ((compressed = (_compression_flyweight*) malloc(compressed_size)) == NULL)
+    if ((compressed = (compression_flyweight_t*) malloc(compressed_size)) == NULL)
     {
         FAIL_AND_CLEANUP(cleanup, result, ENOMEM);
     }
@@ -264,7 +262,7 @@ int hdr_encode_compressed(
 /* ##     ## ##       ##    ## ##     ## ##     ##  ##  ##   ### ##    ##  */
 /* ########  ########  ######   #######  ########  #### ##    ##  ######   */
 
-static void _apply_to_counts_16(struct hdr_histogram* h, const int16_t* counts_data, const int32_t counts_limit)
+static void apply_to_counts_16(struct hdr_histogram* h, const int16_t* counts_data, const int32_t counts_limit)
 {
     int i;
     for (i = 0; i < counts_limit; i++)
@@ -273,7 +271,7 @@ static void _apply_to_counts_16(struct hdr_histogram* h, const int16_t* counts_d
     }
 }
 
-static void _apply_to_counts_32(struct hdr_histogram* h, const int32_t* counts_data, const int32_t counts_limit)
+static void apply_to_counts_32(struct hdr_histogram* h, const int32_t* counts_data, const int32_t counts_limit)
 {
     int i;
     for (i = 0; i < counts_limit; i++)
@@ -282,7 +280,7 @@ static void _apply_to_counts_32(struct hdr_histogram* h, const int32_t* counts_d
     }
 }
 
-static void _apply_to_counts_64(struct hdr_histogram* h, const int64_t* counts_data, const int32_t counts_limit)
+static void apply_to_counts_64(struct hdr_histogram* h, const int64_t* counts_data, const int32_t counts_limit)
 {
     int i;
     for (i = 0; i < counts_limit; i++)
@@ -291,7 +289,7 @@ static void _apply_to_counts_64(struct hdr_histogram* h, const int64_t* counts_d
     }
 }
 
-static int _apply_to_counts_zz(struct hdr_histogram* h, const uint8_t* counts_data, const int32_t data_limit)
+static int apply_to_counts_zz(struct hdr_histogram* h, const uint8_t* counts_data, const int32_t data_limit)
 {
     int64_t data_index = 0;
     int32_t counts_index = 0;
@@ -331,25 +329,25 @@ static int _apply_to_counts_zz(struct hdr_histogram* h, const uint8_t* counts_da
     return 0;
 }
 
-static int _apply_to_counts(
+static int apply_to_counts(
     struct hdr_histogram* h, const int32_t word_size, const uint8_t* counts_data, const int32_t counts_limit)
 {
     switch (word_size)
     {
         case 2:
-            _apply_to_counts_16(h, (const int16_t*) counts_data, counts_limit);
+            apply_to_counts_16(h, (const int16_t*) counts_data, counts_limit);
             return 0;
 
         case 4:
-            _apply_to_counts_32(h, (const int32_t*) counts_data, counts_limit);
+            apply_to_counts_32(h, (const int32_t*) counts_data, counts_limit);
             return 0;
 
         case 8:
-            _apply_to_counts_64(h, (const int64_t*) counts_data, counts_limit);
+            apply_to_counts_64(h, (const int64_t*) counts_data, counts_limit);
             return 0;
 
         case 1:
-            return _apply_to_counts_zz(h, counts_data, counts_limit);
+            return apply_to_counts_zz(h, counts_data, counts_limit);
 
         default:
             return -1;
@@ -357,14 +355,14 @@ static int _apply_to_counts(
 }
 
 static int hdr_decode_compressed_v0(
-    _compression_flyweight* compression_flyweight,
+    compression_flyweight_t* compression_flyweight,
     size_t length,
     struct hdr_histogram** histogram)
 {
     struct hdr_histogram* h = NULL;
     int result = 0;
     uint8_t* counts_array = NULL;
-    _encoding_flyweight_v0 encoding_flyweight;
+    encoding_flyweight_v0_t encoding_flyweight;
     z_stream strm;
     int32_t compressed_len, encoding_cookie, word_size, significant_figures, counts_array_len;
     int64_t lowest_trackable_value, highest_trackable_value;
@@ -426,7 +424,7 @@ static int hdr_decode_compressed_v0(
         FAIL_AND_CLEANUP(cleanup, result, HDR_INFLATE_FAIL);
     }
 
-    _apply_to_counts(h, word_size, counts_array, h->counts_len);
+    apply_to_counts(h, word_size, counts_array, h->counts_len);
 
     hdr_reset_internal_counters(h);
     h->normalizing_index_offset = 0;
@@ -454,14 +452,14 @@ cleanup:
 }
 
 static int hdr_decode_compressed_v1(
-    _compression_flyweight* compression_flyweight,
+    compression_flyweight_t* compression_flyweight,
     size_t length,
     struct hdr_histogram** histogram)
 {
     struct hdr_histogram* h = NULL;
     int result = 0;
     uint8_t* counts_array = NULL;
-    _encoding_flyweight_v1 encoding_flyweight;
+    encoding_flyweight_v1_t encoding_flyweight;
     z_stream strm;
     int32_t compressed_length, word_size, significant_figures, counts_limit, encoding_cookie, counts_array_len;
     int64_t lowest_trackable_value, highest_trackable_value;
@@ -526,7 +524,7 @@ static int hdr_decode_compressed_v1(
         FAIL_AND_CLEANUP(cleanup, result, HDR_INFLATE_FAIL);
     }
 
-    _apply_to_counts(h, word_size, counts_array, counts_limit);
+    apply_to_counts(h, word_size, counts_array, counts_limit);
 
     h->normalizing_index_offset = be32toh(encoding_flyweight.normalizing_index_offset);
     h->conversion_ratio = int64_bits_to_double(be64toh(encoding_flyweight.conversion_ratio_bits));
@@ -554,7 +552,7 @@ cleanup:
 }
 
 static int hdr_decode_compressed_v2(
-    _compression_flyweight* compression_flyweight,
+    compression_flyweight_t* compression_flyweight,
     size_t length,
     struct hdr_histogram** histogram)
 {
@@ -562,7 +560,7 @@ static int hdr_decode_compressed_v2(
     int result = 0;
     int rc = 0;
     uint8_t* counts_array = NULL;
-    _encoding_flyweight_v1 encoding_flyweight;
+    encoding_flyweight_v1_t encoding_flyweight;
     z_stream strm;
     int32_t compressed_length, encoding_cookie, counts_limit, significant_figures;
     int64_t lowest_trackable_value, highest_trackable_value;
@@ -623,7 +621,7 @@ static int hdr_decode_compressed_v2(
         FAIL_AND_CLEANUP(cleanup, result, HDR_INFLATE_FAIL);
     }
 
-    rc = _apply_to_counts_zz(h, counts_array, counts_limit);
+    rc = apply_to_counts_zz(h, counts_array, counts_limit);
     if (rc)
     {
         FAIL_AND_CLEANUP(cleanup, result, rc);
@@ -658,14 +656,14 @@ int hdr_decode_compressed(
     uint8_t* buffer, size_t length, struct hdr_histogram** histogram)
 {
     int32_t compression_cookie;
-    _compression_flyweight* compression_flyweight;
+    compression_flyweight_t* compression_flyweight;
 
     if (length < SIZEOF_COMPRESSION_FLYWEIGHT)
     {
         return EINVAL;
     }
 
-    compression_flyweight = (_compression_flyweight*) buffer;
+    compression_flyweight = (compression_flyweight_t*) buffer;
 
     compression_cookie = get_cookie_base(be32toh(compression_flyweight->cookie));
     if (V0_COMPRESSION_COOKIE == compression_cookie)
