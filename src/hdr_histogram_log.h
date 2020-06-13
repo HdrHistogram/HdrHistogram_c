@@ -44,6 +44,15 @@ int hdr_log_encode(struct hdr_histogram* histogram, char** encoded_histogram);
  */
 int hdr_log_decode(struct hdr_histogram** histogram, char* base64_histogram, size_t base64_len);
 
+struct hdr_log_entry
+{
+    hdr_timespec begin;
+    hdr_timespec interval;
+    hdr_timespec max;
+    char *tag;
+    size_t tag_len;
+};
+
 struct hdr_log_writer
 {
     uint32_t nonce;
@@ -152,15 +161,6 @@ int hdr_log_read_header(struct hdr_log_reader* reader, FILE* file);
 int hdr_log_read(
     struct hdr_log_reader* reader, FILE* file, struct hdr_histogram** histogram,
     hdr_timespec* timestamp, hdr_timespec* interval);
-
-/**
- * To hold all other values from a log line excluding the histogram itself
- */
-struct hdr_log_entry {
-    hdr_timespec timestamp;
-    hdr_timespec interval;
-    char tag[HDR_LOG_TAG_MAX_BUFFER_LEN];
-};
 
 /**
  * Reads an entry from the log filling in the specified histogram and log entry struct.

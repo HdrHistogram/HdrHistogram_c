@@ -967,199 +967,101 @@ int hdr_log_read_header(struct hdr_log_reader* reader, FILE* file)
     return 0;
 }
 
-static void update_timespec(hdr_timespec* ts, double timestamp)
-{
-    if (NULL == ts)
-    {
-        return;
-    }
-
-    hdr_timespec_from_double(ts, timestamp);
-}
-
-static ssize_t hdr_read_chunk(char* buffer, size_t length, char terminator, FILE* stream)
-{
-    size_t i;
-
-    if (buffer == NULL || length == 0)
-    {
-        return -1;
-    }
-
-    for (i = 0; i < length; ++i)
-    {
-        int c = fgetc(stream);
-        buffer[i] = (char)c;
-        if (c == (int) '\0' || c == (int) terminator || c == EOF)
-        {
-            buffer[i] = '\0';
-            return i;
-        }
-    }
-
-    return length;
-}
-
-/* Note that this version of getline assumes lineptr is valid. */
-static ssize_t hdr_getline(char** lineptr, FILE* stream)
-{
-    size_t allocation = 128;
-    size_t used = 0;
-    char* scratch = NULL;
-    char* before;
-    size_t wanted;
-    size_t read_length;
-
-    if (stream == NULL)
-    {
-        return -1;
-    }
-
-
-    for (;;)
-    {
-        allocation += allocation;
-
-        before = scratch;
-        scratch = realloc(scratch, allocation);
-        if (scratch == NULL)
-        {
-            if (before)
-            {
-                free(before);
-            }
-            return -1;
-        }
-
-        wanted = allocation - used - 1;
-        read_length = hdr_read_chunk(scratch + used, wanted, '\n', stream);
-        used += read_length;
-
-
-        if (read_length < wanted || scratch[used - 1] == '\n' || scratch[used - 1] == '\0')
-        {
-            scratch[used] = '\0';
-            *lineptr = scratch;
-            return used;
-        }
-    }
-}
-
 int hdr_log_read(
     struct hdr_log_reader* reader, FILE* file, struct hdr_histogram** histogram,
     hdr_timespec* timestamp, hdr_timespec* interval)
 {
-    const char* format_v12 = "%lf,%lf,%d.%d,%s";
-    const char* format_v13 = "Tag=%*[^,],%lf,%lf,%d.%d,%s";
-    char* base64_histogram = NULL;
-    uint8_t* compressed_histogram = NULL;
-    char* line = NULL;
-    int result = 0;
-    ssize_t read;
-    size_t base64_len, compressed_len;
-    int r;
-    int interval_max_s = 0;
-    int interval_max_ms = 0;
-    int num_tokens;
+    int result;
+    struct hdr_log_entry log_entry;
+    memset(&log_entry, 0, sizeof(log_entry));
 
-    double begin_timestamp = 0.0;
-    double end_timestamp = 0.0;
+    result = hdr_log_read_entry(reader, file, &log_entry, histogram);
 
-    (void)reader;
-
-    read = hdr_getline(&line, file);
-    if (-1 == read)
+    if (0 == result)
     {
-        if (0 == errno)
+        if (NULL != timestamp)
         {
-            FAIL_AND_CLEANUP(cleanup, result, EOF);
+            memcpy(timestamp, &log_entry.begin, sizeof(*timestamp));
         }
-        else
+        if (NULL != interval)
         {
-            FAIL_AND_CLEANUP(cleanup, result, -EIO);
+            memcpy(interval, &log_entry.interval, sizeof(*interval));
         }
     }
-
-    null_trailing_whitespace(line, read);
-    if (strlen(line) == 0)
-    {
-        FAIL_AND_CLEANUP(cleanup, result, EOF);
-    }
-
-    r = realloc_buffer((void**)&base64_histogram, sizeof(char), read);
-    if (r != 0)
-    {
-        FAIL_AND_CLEANUP(cleanup, result, -ENOMEM);
-    }
-
-    r = realloc_buffer((void**)&compressed_histogram, sizeof(uint8_t), read);
-    if (r != 0)
-    {
-        FAIL_AND_CLEANUP(cleanup, result, -ENOMEM);
-    }
-
-    num_tokens = sscanf(
-            line, format_v13, &begin_timestamp, &end_timestamp,
-            &interval_max_s, &interval_max_ms, base64_histogram);
-
-    if (num_tokens != 5)
-    {
-        num_tokens = sscanf(
-            line, format_v12, &begin_timestamp, &end_timestamp,
-            &interval_max_s, &interval_max_ms, base64_histogram);
-
-        if (num_tokens != 5)
-        {
-            FAIL_AND_CLEANUP(cleanup, result, -EINVAL);
-        }
-    }
-
-    base64_len = strlen(base64_histogram);
-    compressed_len = hdr_base64_decoded_len(base64_len);
-
-    r = hdr_base64_decode(
-        base64_histogram, base64_len, compressed_histogram, compressed_len);
-
-    if (r != 0)
-    {
-        FAIL_AND_CLEANUP(cleanup, result, r);
-    }
-
-    r = hdr_decode_compressed(compressed_histogram, compressed_len, histogram);
-    if (r != 0)
-    {
-        FAIL_AND_CLEANUP(cleanup, result, r);
-    }
-
-    update_timespec(timestamp, begin_timestamp);
-    update_timespec(interval, end_timestamp);
-
-cleanup:
-    free(line);
-    free(base64_histogram);
-    free(compressed_histogram);
 
     return result;
 }
 
+static int read_ahead(FILE* f, const char* prefix, size_t prefix_len)
+{
+    size_t i;
+    for (i = 0; i < prefix_len; i++)
+    {
+        if (prefix[i] != fgetc(f))
+        {
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+static int read_ahead_timestamp(FILE* f, hdr_timespec* timestamp, char expected_terminator)
+{
+    int c;
+    int is_seconds = 1;
+    long sec = 0;
+    long nsec = 0;
+    long nsec_multipler = 1000000000;
+
+    while (EOF != (c = fgetc(f)))
+    {
+        if (expected_terminator == c)
+        {
+            timestamp->tv_sec = sec;
+            timestamp->tv_nsec = (nsec * nsec_multipler);
+            return 1;
+        }
+        else if ('.' == c)
+        {
+            is_seconds = 0;
+        }
+        else if ('0' <= c && c <= '9')
+        {
+            if (is_seconds)
+            {
+                sec = (sec * 10) + (c - '0');
+            }
+            else
+            {
+                nsec = (nsec * 10) + (c - '0');
+                nsec_multipler /= 10;
+            }
+        }
+        else
+        {
+            return 0;
+        }
+    }
+
+    return 0;
+}
+
+enum parse_log_state {
+    INIT, TAG, BEGIN_TIMESTAMP, INTERVAL, MAX, HISTOGRAM, DONE
+};
+
 int hdr_log_read_entry(
     struct hdr_log_reader* reader, FILE* file, struct hdr_log_entry *entry, struct hdr_histogram** histogram)
 {
-    const char* format_v12 = "%lf,%lf,%d.%d,%s";
-    const char* format_v13 = "Tag=%1023[^,],%lf,%lf,%d.%d,%s";
-    char* base64_histogram = NULL;
+    enum parse_log_state state = INIT;
+    size_t capacity = 1024;
+    size_t base64_len = 0;
+    size_t tag_offset = 0;
+    char* base64_histogram = calloc(capacity, sizeof(char));
+    size_t compressed_len = 0;
     uint8_t* compressed_histogram = NULL;
-    char* line = NULL;
-    int result = 0;
-    ssize_t read;
-    size_t base64_len, compressed_len;
-    int r;
-    int interval_max_s = 0;
-    int interval_max_ms = 0;
-    int num_tokens;
-
-    double begin_timestamp = 0.0;
-    double end_timestamp = 0.0;
+    int result = -EINVAL;
 
     (void)reader;
 
@@ -1168,78 +1070,138 @@ int hdr_log_read_entry(
         return -EINVAL;
     }
 
-    read = hdr_getline(&line, file);
-    if (-1 == read)
+    do
     {
-        if (0 == errno)
+        int c;
+
+        switch (state)
         {
-            FAIL_AND_CLEANUP(cleanup, result, EOF);
+            case INIT:
+                c = fgetc(file);
+                if ('T' == c)
+                {
+                    if (read_ahead(file, "ag=", 3))
+                    {
+                        state = TAG;
+                    }
+                    else
+                    {
+                        FAIL_AND_CLEANUP(cleanup, result, -EINVAL);
+                    }
+                }
+                else if ('0' <= c && c <= '9')
+                {
+                    ungetc(c, file);
+                    state = BEGIN_TIMESTAMP;
+                }
+                else if ('\r' == c || '\n' == c)
+                {
+                    /* Skip over trailing/preceding new lines. */
+                }
+                else if (EOF == c)
+                {
+                    FAIL_AND_CLEANUP(cleanup, result, EOF);
+                }
+                else
+                {
+                    FAIL_AND_CLEANUP(cleanup, result, -EINVAL);
+                }
+                break;
+            case TAG:
+                c = fgetc(file);
+                if (',' == c)
+                {
+                    if (NULL != entry->tag && tag_offset < entry->tag_len)
+                    {
+                        entry->tag[tag_offset] = '\0';
+                    }
+                    state = BEGIN_TIMESTAMP;
+                }
+                else if ('\r' == c || '\n' == c || EOF == c)
+                {
+                    FAIL_AND_CLEANUP(cleanup, result, -EINVAL);
+                }
+                else
+                {
+                    if (NULL != entry->tag && tag_offset < entry->tag_len)
+                    {
+                        entry->tag[tag_offset] = (char) c;
+                        tag_offset++;
+                    }
+                }
+                break;
+            case BEGIN_TIMESTAMP:
+                if (read_ahead_timestamp(file, &entry->begin, ','))
+                {
+                    state = INTERVAL;
+                }
+                else
+                {
+                    FAIL_AND_CLEANUP(cleanup, result, -EINVAL);
+                }
+                break;
+            case INTERVAL:
+                if (read_ahead_timestamp(file, &entry->interval, ','))
+                {
+                    state = MAX;
+                }
+                else
+                {
+                    FAIL_AND_CLEANUP(cleanup, result, -EINVAL);
+                }
+                break;
+            case MAX:
+                if (read_ahead_timestamp(file, &entry->max, ','))
+                {
+                    state = HISTOGRAM;
+                }
+                else
+                {
+                    FAIL_AND_CLEANUP(cleanup, result, -EINVAL);
+                }
+                break;
+            case HISTOGRAM:
+                c = fgetc(file);
+                if (c != '\r' && c != '\n' && c != EOF)
+                {
+                    if (base64_len == capacity)
+                    {
+                        capacity *= 2;
+                        base64_histogram = realloc(base64_histogram, capacity * sizeof(char));
+                        if (NULL == base64_histogram)
+                        {
+                            FAIL_AND_CLEANUP(cleanup, result, -ENOMEM);
+                        }
+                    }
+                    base64_histogram[base64_len++] = (char) c;
+                }
+                else
+                {
+                    state = DONE;
+                }
+                break;
+
+            default:
+                FAIL_AND_CLEANUP(cleanup, result, -EINVAL);
         }
-        else
-        {
-            FAIL_AND_CLEANUP(cleanup, result, EIO);
-        }
     }
+    while (DONE != state);
 
-    null_trailing_whitespace(line, read);
-    if (strlen(line) == 0)
-    {
-        FAIL_AND_CLEANUP(cleanup, result, EOF);
-    }
-
-    r = realloc_buffer((void**)&base64_histogram, sizeof(char), read);
-    if (r != 0)
-    {
-        FAIL_AND_CLEANUP(cleanup, result, ENOMEM);
-    }
-
-    r = realloc_buffer((void**)&compressed_histogram, sizeof(uint8_t), read);
-    if (r != 0)
-    {
-        FAIL_AND_CLEANUP(cleanup, result, ENOMEM);
-    }
-
-    num_tokens = sscanf(
-        line, format_v13, &begin_timestamp, &end_timestamp,
-        &interval_max_s, &interval_max_ms, base64_histogram);
-
-    if (num_tokens != 5)
-    {
-        num_tokens = sscanf(
-            line, format_v12, &begin_timestamp, &end_timestamp,
-            &interval_max_s, &interval_max_ms, base64_histogram);
-
-        if (num_tokens != 5)
-        {
-            FAIL_AND_CLEANUP(cleanup, result, EINVAL);
-        }
-    }
-
-    base64_len = strlen(base64_histogram);
+    compressed_histogram = calloc(base64_len, sizeof(uint8_t));
     compressed_len = hdr_base64_decoded_len(base64_len);
 
-    r = hdr_base64_decode(
+    result = hdr_base64_decode(
         base64_histogram, base64_len, compressed_histogram, compressed_len);
-
-    if (r != 0)
+    if (result != 0)
     {
-        FAIL_AND_CLEANUP(cleanup, result, r);
+        goto cleanup;
     }
 
-    r = hdr_decode_compressed(compressed_histogram, compressed_len, histogram);
-    if (r != 0)
-    {
-        FAIL_AND_CLEANUP(cleanup, result, r);
-    }
+    result = hdr_decode_compressed(compressed_histogram, compressed_len, histogram);
 
-    update_timespec(&entry->timestamp, begin_timestamp);
-    update_timespec(&entry->interval, end_timestamp);
-
-    cleanup:
-    free(line);
+cleanup:
     free(base64_histogram);
     free(compressed_histogram);
-
     return result;
 }
 
