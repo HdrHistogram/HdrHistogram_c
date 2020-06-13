@@ -34,8 +34,11 @@ typedef SSIZE_T ssize_t;
 
 #include "hdr_endian.h"
 
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "readability-redundant-declaration"
 /* Private prototypes useful for the logger */
 int32_t counts_index_for(const struct hdr_histogram* h, int64_t value);
+#pragma clang diagnostic pop
 
 
 #define FAIL_AND_CLEANUP(label, error_name, error) \
@@ -45,56 +48,6 @@ int32_t counts_index_for(const struct hdr_histogram* h, int64_t value);
         goto label;         \
     }                       \
     while (0)
-
-static int realloc_buffer(
-    void** buffer, size_t nmemb, ssize_t size)
-{
-    size_t len = nmemb * size;
-    if (NULL == *buffer)
-    {
-        *buffer = malloc(len);
-    }
-    else
-    {
-        *buffer = realloc(*buffer, len);
-    }
-
-    if (NULL == *buffer)
-    {
-        return ENOMEM;
-    }
-    else
-    {
-        memset(*buffer, 0, len);
-        return 0;
-    }
-}
-
-/*  ######  ######## ########  #### ##    ##  ######    ######  */
-/* ##    ##    ##    ##     ##  ##  ###   ## ##    ##  ##    ## */
-/* ##          ##    ##     ##  ##  ####  ## ##        ##       */
-/*  ######     ##    ########   ##  ## ## ## ##   ####  ######  */
-/*       ##    ##    ##   ##    ##  ##  #### ##    ##        ## */
-/* ##    ##    ##    ##    ##   ##  ##   ### ##    ##  ##    ## */
-/*  ######     ##    ##     ## #### ##    ##  ######    ######  */
-
-static ssize_t null_trailing_whitespace(char* s, ssize_t len)
-{
-    ssize_t i = len;
-    while (--i != -1)
-    {
-        if (isspace(s[i]))
-        {
-            s[i] = '\0';
-        }
-        else
-        {
-            return i + 1;
-        }
-    }
-
-    return 0;
-}
 
 /* ######## ##    ##  ######   #######  ########  #### ##    ##  ######   */
 /* ##       ###   ## ##    ## ##     ## ##     ##  ##  ###   ## ##    ##  */
@@ -871,6 +824,64 @@ cleanup:
     return result;
 }
 
+int hdr_log_write_entry(
+    struct hdr_log_writer* writer,
+    FILE* file,
+    struct hdr_log_entry* entry,
+    struct hdr_histogram* histogram)
+{
+    uint8_t* compressed_histogram = NULL;
+    size_t compressed_len = 0;
+    char* encoded_histogram = NULL;
+    int rc = 0;
+    int result = 0;
+    size_t encoded_len;
+    int has_tag = 0;
+    const char* tag_prefix;
+    const char* tag_value;
+    const char* tag_separator;
+
+    (void)writer;
+
+    rc = hdr_encode_compressed(histogram, &compressed_histogram, &compressed_len);
+    if (rc != 0)
+    {
+        FAIL_AND_CLEANUP(cleanup, result, rc);
+    }
+
+    encoded_len = hdr_base64_encoded_len(compressed_len);
+    encoded_histogram = (char*) calloc(encoded_len + 1, sizeof(char));
+
+    rc = hdr_base64_encode(
+        compressed_histogram, compressed_len, encoded_histogram, encoded_len);
+    if (rc != 0)
+    {
+        FAIL_AND_CLEANUP(cleanup, result, rc);
+    }
+
+    has_tag = NULL != entry->tag && 0 < entry->tag_len;
+    tag_prefix = has_tag ? "Tag=" : "";
+    tag_value = has_tag ? entry->tag : "";
+    tag_separator = has_tag ? "," : "";
+
+    if (fprintf(
+        file, "%s%.*s%s%.3f,%.3f,%" PRIu64 ".0,%s\n",
+        tag_prefix, (int) entry->tag_len, tag_value, tag_separator,
+        hdr_timespec_as_double(&entry->start_timestamp),
+        hdr_timespec_as_double(&entry->interval),
+        hdr_max(histogram),
+        encoded_histogram) < 0)
+    {
+        result = EIO;
+    }
+
+    cleanup:
+    free(compressed_histogram);
+    free(encoded_histogram);
+
+    return result;
+}
+
 /* ########  ########    ###    ########  ######## ########  */
 /* ##     ## ##         ## ##   ##     ## ##       ##     ## */
 /* ##     ## ##        ##   ##  ##     ## ##       ##     ## */
@@ -981,7 +992,7 @@ int hdr_log_read(
     {
         if (NULL != timestamp)
         {
-            memcpy(timestamp, &log_entry.begin, sizeof(*timestamp));
+            memcpy(timestamp, &log_entry.start_timestamp, sizeof(*timestamp));
         }
         if (NULL != interval)
         {
@@ -1131,7 +1142,7 @@ int hdr_log_read_entry(
                 }
                 break;
             case BEGIN_TIMESTAMP:
-                if (read_ahead_timestamp(file, &entry->begin, ','))
+                if (read_ahead_timestamp(file, &entry->start_timestamp, ','))
                 {
                     state = INTERVAL;
                 }

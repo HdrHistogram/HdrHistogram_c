@@ -502,27 +502,33 @@ static char* writes_and_reads_log()
     struct hdr_histogram* read_cor_histogram;
     struct hdr_histogram* read_raw_histogram;
     const char* file_name = "histogram.log";
-    hdr_timespec timestamp;
-    hdr_timespec interval;
     int rc = 0;
     FILE* log_file;
-    hdr_timespec actual_timestamp, actual_interval;
+    const char* tag = "tag_value";
+    char read_tag[32];
+    struct hdr_log_entry write_entry;
+    struct hdr_log_entry read_entry;
 
-    hdr_gettime(&timestamp);
+    hdr_gettime(&write_entry.start_timestamp);
 
-    interval.tv_sec = 5;
-    interval.tv_nsec = 2000000;
+    write_entry.interval.tv_sec = 5;
+    write_entry.interval.tv_nsec = 2000000;
 
     hdr_log_writer_init(&writer);
     hdr_log_reader_init(&reader);
 
     log_file = fopen(file_name, "w+");
 
-    rc = hdr_log_write_header(&writer, log_file, "Test log", &timestamp);
+    rc = hdr_log_write_header(&writer, log_file, "Test log", &write_entry.start_timestamp);
     mu_assert("Failed header write", validate_return_code(rc));
-    hdr_log_write(&writer, log_file, &timestamp, &interval, cor_histogram);
+
+    write_entry.tag = (char *) tag;
+    write_entry.tag_len = strlen(tag);
+    hdr_log_write_entry(&writer, log_file, &write_entry, cor_histogram);
     mu_assert("Failed corrected write", validate_return_code(rc));
-    hdr_log_write(&writer, log_file, &timestamp, &interval, raw_histogram);
+
+    write_entry.tag = NULL;
+    hdr_log_write_entry(&writer, log_file, &write_entry, raw_histogram);
     mu_assert("Failed raw write", validate_return_code(rc));
 
     fprintf(log_file, "\n");
@@ -541,19 +547,25 @@ static char* writes_and_reads_log()
     mu_assert("Incorrect minor version", compare_int(reader.minor_version, 2));
     mu_assert(
         "Incorrect start timestamp",
-        compare_timespec(&reader.start_timestamp, &timestamp));
+        compare_timespec(&reader.start_timestamp, &write_entry.start_timestamp));
 
+    read_entry.tag = read_tag;
+    read_entry.tag_len = sizeof(read_tag);
+    read_entry.tag[0] = '\0';
+    read_entry.tag[read_entry.tag_len - 1] = '\0';
 
-    rc = hdr_log_read(
-        &reader, log_file, &read_cor_histogram,
-        &actual_timestamp, &actual_interval);
+    rc = hdr_log_read_entry(&reader, log_file, &read_entry, &read_cor_histogram);
     mu_assert("Failed corrected read", validate_return_code(rc));
     mu_assert(
-        "Incorrect first timestamp", compare_timespec(&actual_timestamp, &timestamp));
+        "Incorrect first timestamp", compare_timespec(&read_entry.start_timestamp, &write_entry.start_timestamp));
     mu_assert(
-        "Incorrect first interval", compare_timespec(&actual_interval, &interval));
+        "Incorrect first interval", compare_timespec(&read_entry.interval, &write_entry.interval));
+    mu_assert("Incorrect tag", compare_string(read_entry.tag, tag, strlen(tag)));
 
-    rc = hdr_log_read(&reader, log_file, &read_raw_histogram, NULL, NULL);
+    read_entry.tag[0] = '\0';
+    read_entry.tag[read_entry.tag_len - 1] = '\0';
+    rc = hdr_log_read_entry(&reader, log_file, &read_entry, &read_raw_histogram);
+    mu_assert("Should not find tag", read_entry.tag[0] == '\0');
     mu_assert("Failed raw read", validate_return_code(rc));
 
     mu_assert(

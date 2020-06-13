@@ -46,7 +46,7 @@ int hdr_log_decode(struct hdr_histogram** histogram, char* base64_histogram, siz
 
 struct hdr_log_entry
 {
-    hdr_timespec begin;
+    hdr_timespec start_timestamp;
     hdr_timespec interval;
     hdr_timespec max;
     char *tag;
@@ -109,6 +109,35 @@ int hdr_log_write(
     FILE* file,
     const hdr_timespec* start_timestamp,
     const hdr_timespec* end_timestamp,
+    struct hdr_histogram* histogram);
+
+/**
+ * Write an hdr_histogram entry to the log.  It will be encoded in a similar
+ * fashion to the approach used by the Java version of the HdrHistogram.  It will
+ * be a CSV line consisting of [Tag=XXX,]<start timestamp>,<end timestamp>,<max>,<histogram>
+ * where <histogram> is the binary histogram gzip compressed and base64 encoded.
+ *
+ * The tag is option and will only be written if the tag is non-NULL and the tag_len is
+ * greater than 0.
+ *
+ * Timestamp is a bit of misnomer for the start_timestamp and end_timestamp values
+ * these could be offsets, e.g. start_timestamp could be offset from process start
+ * time and end_timestamp could actually be the length of the recorded interval.
+ *
+ * @param writer 'This' pointer
+ * @param file The stream to write the entry to.
+ * @param entry Prefix information for the log line, including timestamps and tag.
+ * @param histogram The histogram to encode and log.
+ * @return Will return 0 if it successfully completed or an error number if there
+ * was a failure.  Errors include HDR_DEFLATE_INIT_FAIL, HDR_DEFLATE_FAIL if
+ * something when wrong during gzip compression.  ENOMEM if we failed to allocate
+ * or reallocate the buffer used for encoding (out of memory problem).  EIO if
+ * write failed.
+ */
+int hdr_log_write_entry(
+    struct hdr_log_writer* writer,
+    FILE* file,
+    struct hdr_log_entry* entry,
     struct hdr_histogram* histogram);
 
 struct hdr_log_reader
