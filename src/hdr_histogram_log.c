@@ -55,23 +55,23 @@ int32_t counts_index_for(const struct hdr_histogram* h, int64_t value);
 /* ##       ##   ### ##    ## ##     ## ##     ##  ##  ##   ### ##    ##  */
 /* ######## ##    ##  ######   #######  ########  #### ##    ##  ######   */
 
-static const int32_t V0_ENCODING_COOKIE    = 0x1c849308;
-static const int32_t V0_COMPRESSION_COOKIE = 0x1c849309;
+static const uint32_t V0_ENCODING_COOKIE    = 0x1c849308;
+static const uint32_t V0_COMPRESSION_COOKIE = 0x1c849309;
 
-static const int32_t V1_ENCODING_COOKIE    = 0x1c849301;
-static const int32_t V1_COMPRESSION_COOKIE = 0x1c849302;
+static const uint32_t V1_ENCODING_COOKIE    = 0x1c849301;
+static const uint32_t V1_COMPRESSION_COOKIE = 0x1c849302;
 
-static const int32_t V2_ENCODING_COOKIE = 0x1c849303;
-static const int32_t V2_COMPRESSION_COOKIE = 0x1c849304;
+static const uint32_t V2_ENCODING_COOKIE = 0x1c849303;
+static const uint32_t V2_COMPRESSION_COOKIE = 0x1c849304;
 
-static int32_t get_cookie_base(int32_t cookie)
+static uint32_t get_cookie_base(uint32_t cookie)
 {
-    return (cookie & ~0xf0);
+    return (cookie & ~0xf0U);
 }
 
-static int32_t word_size_from_cookie(int32_t cookie)
+static uint32_t word_size_from_cookie(uint32_t cookie)
 {
-    return (cookie & 0xf0) >> 4;
+    return (cookie & 0xf0U) >> 4U;
 }
 
 const char* hdr_strerror(int errnum)
@@ -133,7 +133,7 @@ static uint64_t double_to_int64_bits(double d)
 #pragma pack(push, 1)
 typedef struct /*__attribute__((__packed__))*/
 {
-    int32_t cookie;
+    uint32_t cookie;
     int32_t significant_figures;
     int64_t lowest_trackable_value;
     int64_t highest_trackable_value;
@@ -143,7 +143,7 @@ typedef struct /*__attribute__((__packed__))*/
 
 typedef struct /*__attribute__((__packed__))*/
 {
-    int32_t cookie;
+    uint32_t cookie;
     int32_t payload_len;
     int32_t normalizing_index_offset;
     int32_t significant_figures;
@@ -155,7 +155,7 @@ typedef struct /*__attribute__((__packed__))*/
 
 typedef struct /*__attribute__((__packed__))*/
 {
-    int32_t cookie;
+    uint32_t cookie;
     int32_t length;
     uint8_t data[1];
 } compression_flyweight_t;
@@ -215,7 +215,7 @@ int hdr_encode_compressed(
     payload_len = data_index;
     encoded_size = SIZEOF_ENCODING_FLYWEIGHT_V1 + data_index;
 
-    encoded->cookie                   = htobe32(V2_ENCODING_COOKIE | 0x10);
+    encoded->cookie                   = htobe32(V2_ENCODING_COOKIE | 0x10U);
     encoded->payload_len              = htobe32(payload_len);
     encoded->normalizing_index_offset = htobe32(h->normalizing_index_offset);
     encoded->significant_figures      = htobe32(h->significant_figures);
@@ -238,7 +238,7 @@ int hdr_encode_compressed(
         FAIL_AND_CLEANUP(cleanup, result, HDR_DEFLATE_FAIL);
     }
 
-    compressed->cookie = htobe32(V2_COMPRESSION_COOKIE | 0x10);
+    compressed->cookie = htobe32(V2_COMPRESSION_COOKIE | 0x10U);
     compressed->length = htobe32((int32_t)dest_len);
 
     *compressed_histogram = (uint8_t*) compressed;
@@ -364,7 +364,8 @@ static int hdr_decode_compressed_v0(
     uint8_t* counts_array = NULL;
     encoding_flyweight_v0_t encoding_flyweight;
     z_stream strm;
-    int32_t compressed_len, encoding_cookie, word_size, significant_figures, counts_array_len;
+    uint32_t encoding_cookie;
+    int32_t compressed_len, word_size, significant_figures, counts_array_len;
     int64_t lowest_trackable_value, highest_trackable_value;
 
     strm_init(&strm);
@@ -461,7 +462,8 @@ static int hdr_decode_compressed_v1(
     uint8_t* counts_array = NULL;
     encoding_flyweight_v1_t encoding_flyweight;
     z_stream strm;
-    int32_t compressed_length, word_size, significant_figures, counts_limit, encoding_cookie, counts_array_len;
+    uint32_t encoding_cookie;
+    int32_t compressed_length, word_size, significant_figures, counts_limit, counts_array_len;
     int64_t lowest_trackable_value, highest_trackable_value;
 
     strm_init(&strm);
@@ -562,7 +564,8 @@ static int hdr_decode_compressed_v2(
     uint8_t* counts_array = NULL;
     encoding_flyweight_v1_t encoding_flyweight;
     z_stream strm;
-    int32_t compressed_length, encoding_cookie, counts_limit, significant_figures;
+    uint32_t encoding_cookie;
+    int32_t compressed_length, counts_limit, significant_figures;
     int64_t lowest_trackable_value, highest_trackable_value;
 
     strm_init(&strm);
@@ -655,7 +658,7 @@ cleanup:
 int hdr_decode_compressed(
     uint8_t* buffer, size_t length, struct hdr_histogram** histogram)
 {
-    int32_t compression_cookie;
+    uint32_t compression_cookie;
     compression_flyweight_t* compression_flyweight;
 
     if (length < SIZEOF_COMPRESSION_FLYWEIGHT)
