@@ -53,9 +53,9 @@ function(hdr_histogram_add_library NAME LIBRARY_TYPE DO_INSTALL)
 endfunction()
 
 option(HDR_HISTOGRAM_BUILD_SHARED "Build shared library" ON)
-option(HDR_HISTOGRAM_BUILD_SHARED "Install shared library" ON)
+option(HDR_HISTOGRAM_INSTALL_SHARED "Install shared library" ON)
 if(HDR_HISTOGRAM_BUILD_SHARED)
-    hdr_histogram_add_library(hdr_histogram SHARED ${HDR_HISTOGRAM_BUILD_SHARED})
+    hdr_histogram_add_library(hdr_histogram SHARED ${HDR_HISTOGRAM_INSTALL_SHARED})
     set_target_properties(hdr_histogram PROPERTIES
         VERSION ${HDR_VERSION}
         SOVERSION ${HDR_SOVERSION})
