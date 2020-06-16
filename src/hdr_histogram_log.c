@@ -32,11 +32,8 @@ typedef SSIZE_T ssize_t;
 
 #include "hdr_endian.h"
 
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "readability-redundant-declaration"
 /* Private prototypes useful for the logger */
 int32_t counts_index_for(const struct hdr_histogram* h, int64_t value);
-#pragma clang diagnostic pop
 
 
 #define FAIL_AND_CLEANUP(label, error_name, error) \
