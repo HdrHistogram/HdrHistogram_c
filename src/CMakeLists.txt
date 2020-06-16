@@ -28,7 +28,7 @@ set(HDR_HISTOGRAM_PUBLIC_HEADERS
     hdr_time.h
     hdr_writer_reader_phaser.h)
 
-function(hdr_histogram_add_library NAME LIBRARY_TYPE)
+function(hdr_histogram_add_library NAME LIBRARY_TYPE DO_INSTALL)
     add_library(${NAME} ${LIBRARY_TYPE}
         ${HDR_HISTOGRAM_SOURCES}
         ${HDR_HISTOGRAM_PRIVATE_HEADERS}
@@ -44,23 +44,27 @@ function(hdr_histogram_add_library NAME LIBRARY_TYPE)
         PUBLIC
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
             $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
-    install(
-        TARGETS ${NAME}
-        EXPORT ${PROJECT_NAME}-targets
-        DESTINATION ${CMAKE_INSTALL_LIBDIR})
+    if(DO_INSTALL)
+        install(
+            TARGETS ${NAME}
+            EXPORT ${PROJECT_NAME}-targets
+            DESTINATION ${CMAKE_INSTALL_LIBDIR})
+    endif()
 endfunction()
 
 option(HDR_HISTOGRAM_BUILD_SHARED "Build shared library" ON)
+option(HDR_HISTOGRAM_BUILD_SHARED "Install shared library" ON)
 if(HDR_HISTOGRAM_BUILD_SHARED)
-    hdr_histogram_add_library(hdr_histogram SHARED)
+    hdr_histogram_add_library(hdr_histogram SHARED ${HDR_HISTOGRAM_BUILD_SHARED})
     set_target_properties(hdr_histogram PROPERTIES
         VERSION ${HDR_VERSION}
         SOVERSION ${HDR_SOVERSION})
 endif()
 
 option(HDR_HISTOGRAM_BUILD_STATIC "Build static library" ON)
+option(HDR_HISTOGRAM_INSTALL_STATIC "Install static library" ON)
 if(HDR_HISTOGRAM_BUILD_STATIC)
-    hdr_histogram_add_library(hdr_histogram_static STATIC)
+    hdr_histogram_add_library(hdr_histogram_static STATIC ${HDR_HISTOGRAM_INSTALL_STATIC})
 endif()
 
 install(
