@@ -341,8 +341,13 @@ int hdr_calculate_bucket_config(
     sub_bucket_count_magnitude = (int32_t) ceil(log((double)largest_value_with_single_unit_resolution) / log(2));
     cfg->sub_bucket_half_count_magnitude = ((sub_bucket_count_magnitude > 1) ? sub_bucket_count_magnitude : 1) - 1;
 
-    cfg->unit_magnitude = (int32_t) floor(log((double)lowest_trackable_value) / log(2));
+    double unit_magnitude = log((double)lowest_trackable_value) / log(2);
+    if (INT32_MAX < unit_magnitude)
+    {
+        return EINVAL;
+    }
 
+    cfg->unit_magnitude = (int32_t) unit_magnitude;
     cfg->sub_bucket_count      = (int32_t) pow(2, (cfg->sub_bucket_half_count_magnitude + 1));
     cfg->sub_bucket_half_count = cfg->sub_bucket_count / 2;
     cfg->sub_bucket_mask       = ((int64_t) cfg->sub_bucket_count - 1) << cfg->unit_magnitude;
