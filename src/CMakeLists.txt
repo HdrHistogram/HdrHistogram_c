@@ -1,14 +1,20 @@
-find_package(ZLIB REQUIRED)
-find_package(Threads REQUIRED)
 
 include(CheckLibraryExists)
 check_library_exists(m ceil "" HAVE_LIBM)
 check_library_exists(rt clock_gettime "" HAVE_LIBRT)
 
+if (HDR_LOG_ENABLED)
+    set(HDR_LOG_IMPLEMENTATION hdr_histogram_log.c)
+    set(HDR_ZLIB ZLIB::ZLIB)
+else()
+    set(HDR_LOG_IMPLEMENTATION hdr_histogram_log_no_op.c)
+    set(HDR_ZLIB "")
+endif()
+
 set(HDR_HISTOGRAM_SOURCES
     hdr_encoding.c
     hdr_histogram.c
-    hdr_histogram_log.c
+    ${HDR_LOG_IMPLEMENTATION}
     hdr_interval_recorder.c
     hdr_thread.c
     hdr_time.c
@@ -35,7 +41,9 @@ function(hdr_histogram_add_library NAME LIBRARY_TYPE DO_INSTALL)
         ${HDR_HISTOGRAM_PUBLIC_HEADERS})
     target_link_libraries(${NAME}
         PRIVATE
-            ZLIB::ZLIB
+#            ZLIB::ZLIB
+            ${HDR_ZLIB}
+#            $<$<BOOL:${ZLIB_FOUND}>ZLIB::ZLIB>
             Threads::Threads
             $<$<BOOL:${HAVE_LIBM}>:m>
             $<$<BOOL:${HAVE_LIBRT}>:rt>

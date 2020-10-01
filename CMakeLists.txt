@@ -19,6 +19,7 @@ set(HDR_SOVERSION_REVISION  0)
 
 set(HDR_VERSION ${HDR_SOVERSION_CURRENT}.${HDR_SOVERSION_AGE}.${HDR_SOVERSION_REVISION})
 set(HDR_SOVERSION ${HDR_SOVERSION_CURRENT})
+option(HDR_LOG_REQUIRED "HDR Logging component required" ON)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -39,6 +40,14 @@ if(UNIX)
         $<$<COMPILE_LANGUAGE:C>:-Wmissing-prototypes>)
     add_definitions(
         -D_GNU_SOURCE)
+endif()
+
+find_package(ZLIB)
+find_package(Threads REQUIRED)
+
+set(HDR_LOG_ENABLED ${ZLIB_FOUND})
+if (${HDR_LOG_REQUIRED} AND NOT HDR_LOG_ENABLED)
+    message(SEND_ERROR "HDR_LOG_REQUIRED=ON and unable to find zlib library")
 endif()
 
 add_subdirectory(src)
