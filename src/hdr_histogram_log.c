@@ -132,7 +132,7 @@ typedef struct /*__attribute__((__packed__))*/
 {
     uint32_t cookie;
     int32_t significant_figures;
-    int64_t lowest_trackable_value;
+    int64_t lowest_discernible_value;
     int64_t highest_trackable_value;
     int64_t total_count;
     int64_t counts[1];
@@ -144,7 +144,7 @@ typedef struct /*__attribute__((__packed__))*/
     int32_t payload_len;
     int32_t normalizing_index_offset;
     int32_t significant_figures;
-    int64_t lowest_trackable_value;
+    int64_t lowest_discernible_value;
     int64_t highest_trackable_value;
     uint64_t conversion_ratio_bits;
     uint8_t counts[1];
@@ -216,7 +216,7 @@ int hdr_encode_compressed(
     encoded->payload_len              = htobe32(payload_len);
     encoded->normalizing_index_offset = htobe32(h->normalizing_index_offset);
     encoded->significant_figures      = htobe32(h->significant_figures);
-    encoded->lowest_trackable_value   = htobe64(h->lowest_trackable_value);
+    encoded->lowest_discernible_value   = htobe64(h->lowest_discernible_value);
     encoded->highest_trackable_value  = htobe64(h->highest_trackable_value);
     encoded->conversion_ratio_bits    = htobe64(double_to_int64_bits(h->conversion_ratio));
 
@@ -363,7 +363,7 @@ static int hdr_decode_compressed_v0(
     z_stream strm;
     uint32_t encoding_cookie;
     int32_t compressed_len, word_size, significant_figures, counts_array_len;
-    int64_t lowest_trackable_value, highest_trackable_value;
+    int64_t lowest_discernible_value, highest_trackable_value;
 
     strm_init(&strm);
     if (inflateInit(&strm) != Z_OK)
@@ -395,12 +395,12 @@ static int hdr_decode_compressed_v0(
     }
 
     word_size = word_size_from_cookie(be32toh(encoding_flyweight.cookie));
-    lowest_trackable_value = be64toh(encoding_flyweight.lowest_trackable_value);
+    lowest_discernible_value = be64toh(encoding_flyweight.lowest_discernible_value);
     highest_trackable_value = be64toh(encoding_flyweight.highest_trackable_value);
     significant_figures = be32toh(encoding_flyweight.significant_figures);
 
     if (hdr_init(
-        lowest_trackable_value,
+        lowest_discernible_value,
         highest_trackable_value,
         significant_figures,
         &h) != 0)
@@ -461,7 +461,7 @@ static int hdr_decode_compressed_v1(
     z_stream strm;
     uint32_t encoding_cookie;
     int32_t compressed_length, word_size, significant_figures, counts_limit, counts_array_len;
-    int64_t lowest_trackable_value, highest_trackable_value;
+    int64_t lowest_discernible_value, highest_trackable_value;
 
     strm_init(&strm);
     if (inflateInit(&strm) != Z_OK)
@@ -494,12 +494,12 @@ static int hdr_decode_compressed_v1(
 
     word_size = word_size_from_cookie(be32toh(encoding_flyweight.cookie));
     counts_limit = be32toh(encoding_flyweight.payload_len) / word_size;
-    lowest_trackable_value = be64toh(encoding_flyweight.lowest_trackable_value);
+    lowest_discernible_value = be64toh(encoding_flyweight.lowest_discernible_value);
     highest_trackable_value = be64toh(encoding_flyweight.highest_trackable_value);
     significant_figures = be32toh(encoding_flyweight.significant_figures);
 
     if (hdr_init(
-        lowest_trackable_value,
+        lowest_discernible_value,
         highest_trackable_value,
         significant_figures,
         &h) != 0)
@@ -563,7 +563,7 @@ static int hdr_decode_compressed_v2(
     z_stream strm;
     uint32_t encoding_cookie;
     int32_t compressed_length, counts_limit, significant_figures;
-    int64_t lowest_trackable_value, highest_trackable_value;
+    int64_t lowest_discernible_value, highest_trackable_value;
 
     strm_init(&strm);
     if (inflateInit(&strm) != Z_OK)
@@ -595,11 +595,11 @@ static int hdr_decode_compressed_v2(
     }
 
     counts_limit = be32toh(encoding_flyweight.payload_len);
-    lowest_trackable_value = be64toh(encoding_flyweight.lowest_trackable_value);
+    lowest_discernible_value = be64toh(encoding_flyweight.lowest_discernible_value);
     highest_trackable_value = be64toh(encoding_flyweight.highest_trackable_value);
     significant_figures = be32toh(encoding_flyweight.significant_figures);
 
-    rc = hdr_init(lowest_trackable_value, highest_trackable_value, significant_figures, &h);
+    rc = hdr_init(lowest_discernible_value, highest_trackable_value, significant_figures, &h);
     if (rc)
     {
         FAIL_AND_CLEANUP(cleanup, result, rc);

@@ -16,7 +16,7 @@
 
 struct hdr_histogram
 {
-    int64_t lowest_trackable_value;
+    int64_t lowest_discernible_value;
     int64_t highest_trackable_value;
     int32_t unit_magnitude;
     int32_t significant_figures;
@@ -45,8 +45,8 @@ extern "C" {
  * involved math on the input parameters this function it is tricky to stack allocate.
  * The histogram should be released with hdr_close
  *
- * @param lowest_trackable_value The smallest possible value to be put into the
- * histogram.
+ * @param lowest_discernible_value The smallest possible value that is distinguishable from 0.
+ * Must be a positive integer that is >= 1. May be internally rounded down to nearest power of 2.
  * @param highest_trackable_value The largest possible value to be put into the
  * histogram.
  * @param significant_figures The level of precision for this histogram, i.e. the number
@@ -54,12 +54,12 @@ extern "C" {
  * the results from the histogram will be accurate up to the first three digits.  Must
  * be a value between 1 and 5 (inclusive).
  * @param result Output parameter to capture allocated histogram.
- * @return 0 on success, EINVAL if lowest_trackable_value is < 1 or the
+ * @return 0 on success, EINVAL if lowest_discernible_value is < 1 or the
  * significant_figure value is outside of the allowed range, ENOMEM if malloc
  * failed.
  */
 int hdr_init(
-    int64_t lowest_trackable_value,
+    int64_t lowest_discernible_value,
     int64_t highest_trackable_value,
     int significant_figures,
     struct hdr_histogram** result);
@@ -226,7 +226,7 @@ bool hdr_record_corrected_values_atomic(struct hdr_histogram* h, int64_t value, 
 /**
  * Adds all of the values from 'from' to 'this' histogram.  Will return the
  * number of values that are dropped when copying.  Values will be dropped
- * if they around outside of h.lowest_trackable_value and
+ * if they around outside of h.lowest_discernible_value and
  * h.highest_trackable_value.
  *
  * @param h "This" pointer
@@ -238,7 +238,7 @@ int64_t hdr_add(struct hdr_histogram* h, const struct hdr_histogram* from);
 /**
  * Adds all of the values from 'from' to 'this' histogram.  Will return the
  * number of values that are dropped when copying.  Values will be dropped
- * if they around outside of h.lowest_trackable_value and
+ * if they around outside of h.lowest_discernible_value and
  * h.highest_trackable_value.
  *
  * @param h "This" pointer
@@ -465,7 +465,7 @@ int hdr_percentiles_print(
 */
 struct hdr_histogram_bucket_config
 {
-    int64_t lowest_trackable_value;
+    int64_t lowest_discernible_value;
     int64_t highest_trackable_value;
     int64_t unit_magnitude;
     int64_t significant_figures;
@@ -478,7 +478,7 @@ struct hdr_histogram_bucket_config
 };
 
 int hdr_calculate_bucket_config(
-    int64_t lowest_trackable_value,
+    int64_t lowest_discernible_value,
     int64_t highest_trackable_value,
     int significant_figures,
     struct hdr_histogram_bucket_config* cfg);

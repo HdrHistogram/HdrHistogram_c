@@ -318,7 +318,7 @@ static int32_t buckets_needed_to_cover_value(int64_t value, int32_t sub_bucket_c
 /* ##     ## ######## ##     ##  #######  ##     ##    ##    */
 
 int hdr_calculate_bucket_config(
-        int64_t lowest_trackable_value,
+        int64_t lowest_discernible_value,
         int64_t highest_trackable_value,
         int significant_figures,
         struct hdr_histogram_bucket_config* cfg)
@@ -326,14 +326,14 @@ int hdr_calculate_bucket_config(
     int32_t sub_bucket_count_magnitude;
     int64_t largest_value_with_single_unit_resolution;
 
-    if (lowest_trackable_value < 1 ||
+    if (lowest_discernible_value < 1 ||
             significant_figures < 1 || 5 < significant_figures ||
-            lowest_trackable_value * 2 > highest_trackable_value)
+            lowest_discernible_value * 2 > highest_trackable_value)
     {
         return EINVAL;
     }
 
-    cfg->lowest_trackable_value = lowest_trackable_value;
+    cfg->lowest_discernible_value = lowest_discernible_value;
     cfg->significant_figures = significant_figures;
     cfg->highest_trackable_value = highest_trackable_value;
 
@@ -341,7 +341,7 @@ int hdr_calculate_bucket_config(
     sub_bucket_count_magnitude = (int32_t) ceil(log((double)largest_value_with_single_unit_resolution) / log(2));
     cfg->sub_bucket_half_count_magnitude = ((sub_bucket_count_magnitude > 1) ? sub_bucket_count_magnitude : 1) - 1;
 
-    double unit_magnitude = log((double)lowest_trackable_value) / log(2);
+    double unit_magnitude = log((double)lowest_discernible_value) / log(2);
     if (INT32_MAX < unit_magnitude)
     {
         return EINVAL;
@@ -365,7 +365,7 @@ int hdr_calculate_bucket_config(
 
 void hdr_init_preallocated(struct hdr_histogram* h, struct hdr_histogram_bucket_config* cfg)
 {
-    h->lowest_trackable_value          = cfg->lowest_trackable_value;
+    h->lowest_discernible_value        = cfg->lowest_discernible_value;
     h->highest_trackable_value         = cfg->highest_trackable_value;
     h->unit_magnitude                  = (int32_t)cfg->unit_magnitude;
     h->significant_figures             = (int32_t)cfg->significant_figures;
@@ -383,7 +383,7 @@ void hdr_init_preallocated(struct hdr_histogram* h, struct hdr_histogram_bucket_
 }
 
 int hdr_init(
-        int64_t lowest_trackable_value,
+        int64_t lowest_discernible_value,
         int64_t highest_trackable_value,
         int significant_figures,
         struct hdr_histogram** result)
@@ -392,7 +392,7 @@ int hdr_init(
     struct hdr_histogram_bucket_config cfg;
     struct hdr_histogram* histogram;
 
-    int r = hdr_calculate_bucket_config(lowest_trackable_value, highest_trackable_value, significant_figures, &cfg);
+    int r = hdr_calculate_bucket_config(lowest_discernible_value, highest_trackable_value, significant_figures, &cfg);
     if (r)
     {
         return r;
