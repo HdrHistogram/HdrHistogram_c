@@ -7,6 +7,12 @@
 #include "hdr_atomic.h"
 #include "hdr_interval_recorder.h"
 
+#ifndef HDR_MALLOC_INCLUDE
+#define HDR_MALLOC_INCLUDE "hdr_malloc.h"
+#endif
+
+#include HDR_MALLOC_INCLUDE
+
 int hdr_interval_recorder_init(struct hdr_interval_recorder* r)
 {
     r->active = r->inactive = NULL;
