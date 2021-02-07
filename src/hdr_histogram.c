@@ -668,6 +668,45 @@ int64_t hdr_value_at_percentile(const struct hdr_histogram* h, double percentile
     return 0;
 }
 
+int hdr_value_at_percentiles(const struct hdr_histogram* h, const double* percentiles, const size_t N, int64_t** values)
+{
+    *values = (int64_t*) calloc((size_t) N, sizeof(int64_t));
+    if (!*values)
+    {
+        return ENOMEM;
+    }
+    int64_t* count_at_percentiles = (int64_t*) calloc((size_t) N, sizeof(int64_t));
+    if (!count_at_percentiles)
+    {
+        free(*values);
+        return ENOMEM;
+    }
+    struct hdr_iter iter;
+    const int64_t total_count = h->total_count;
+    for (size_t i = 0; i < N; i++)
+    {
+        const double requested_percentile = percentiles[i] < 100.0 ? percentiles[i] : 100.0;
+        int64_t count_at_percentile =
+        (int64_t) (((requested_percentile / 100) * total_count) + 0.5);
+        count_at_percentiles[i] = count_at_percentile > 1 ? count_at_percentile : 1;
+    }
+
+    hdr_iter_init(&iter, h);
+    int64_t total = 0;
+    size_t at_pos = 0;
+    while (hdr_iter_next(&iter) && at_pos < N)
+    {
+        total += iter.count;
+        while (total >= count_at_percentiles[at_pos] && at_pos < N)
+        {
+            (*values)[at_pos] = highest_equivalent_value(h, iter.value);
+            at_pos++;
+        }
+    }
+    free(count_at_percentiles);
+    return 0;
+}
+
 double hdr_mean(const struct hdr_histogram* h)
 {
     struct hdr_iter iter;
