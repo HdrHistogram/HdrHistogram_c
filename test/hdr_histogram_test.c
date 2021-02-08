@@ -227,7 +227,7 @@ static char* test_percentiles()
 static char* test_percentiles_by_value_at_percentiles()
 {
     load_histograms();
-    int64_t* values;
+    int64_t *values = (int64_t*) malloc(5 * sizeof(int64_t));
     double percentiles[5]={30.0,99.0,99.99,99.999,100.0};
     mu_assert("value_at_percentiles return should be 0", hdr_value_at_percentiles(raw_histogram,percentiles,5,&values) == 0);
 

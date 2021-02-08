@@ -128,7 +128,7 @@ static void BM_hdr_value_at_percentiles_given_array(benchmark::State &state) {
     hdr_record_value(histogram, number);
   }
   benchmark::DoNotOptimize(histogram->counts);
-  int64_t *values;
+  int64_t *values = (int64_t*) malloc(4 * sizeof(int64_t));
   benchmark::DoNotOptimize(values);
   int64_t items_processed = 0;
   for (auto _ : state) {
