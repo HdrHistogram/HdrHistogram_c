@@ -668,6 +668,40 @@ int64_t hdr_value_at_percentile(const struct hdr_histogram* h, double percentile
     return 0;
 }
 
+int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percentiles, int64_t *values, size_t length)
+{
+    if (NULL == percentiles || NULL == values)
+    {
+        return EINVAL;
+    }
+
+    struct hdr_iter iter;
+    const int64_t total_count = h->total_count;
+    // to avoid allocations we use the values array for intermediate computation
+    // i.e. to store the expected cumulative count at each percentile
+    for (size_t i = 0; i < length; i++)
+    {
+        const double requested_percentile = percentiles[i] < 100.0 ? percentiles[i] : 100.0;
+        const int64_t count_at_percentile =
+        (int64_t) (((requested_percentile / 100) * total_count) + 0.5);
+        values[i] = count_at_percentile > 1 ? count_at_percentile : 1;
+    }
+
+    hdr_iter_init(&iter, h);
+    int64_t total = 0;
+    size_t at_pos = 0;
+    while (hdr_iter_next(&iter) && at_pos < length)
+    {
+        total += iter.count;
+        while (total >= values[at_pos] && at_pos < length)
+        {
+            values[at_pos] = highest_equivalent_value(h, iter.value);
+            at_pos++;
+        }
+    }
+    return 0;
+}
+
 double hdr_mean(const struct hdr_histogram* h)
 {
     struct hdr_iter iter;
