@@ -227,20 +227,15 @@ static char* test_percentiles()
 static char* test_percentiles_by_value_at_percentiles()
 {
     load_histograms();
-    int64_t *values = (int64_t*) malloc(5 * sizeof(int64_t));
-    double percentiles[5]={30.0,99.0,99.99,99.999,100.0};
-    mu_assert("value_at_percentiles return should be 0", hdr_value_at_percentiles(raw_histogram,percentiles,5,&values) == 0);
-
-    mu_assert("Value at 30% not 1000.0",
-              compare_percentile(values[0], 1000.0, 0.001));
-    mu_assert("Value at 99% not 1000.0",
-              compare_percentile(values[1], 1000.0, 0.001));
-    mu_assert("Value at 99.99% not 1000.0",
-              compare_percentile(values[2], 1000.0, 0.001));
-    mu_assert("Value at 99.999% not 100000000.0",
-              compare_percentile(values[3], 100000000.0, 0.001));
-    mu_assert("Value at 100% not 100000000.0",
-              compare_percentile(values[4], 100000000.0, 0.001));
+    int64_t values[5] = { 0 };
+    double percentiles[5] = { 30.0, 99.0, 99.99, 99.999, 100.0 };
+    mu_assert(
+        "value_at_percentiles return should be 0", hdr_value_at_percentiles(raw_histogram, percentiles, values, 5) == 0);
+    mu_assert("Value at 30% not 1000.0", compare_percentile(values[0], 1000.0, 0.001));
+    mu_assert("Value at 99% not 1000.0", compare_percentile(values[1], 1000.0, 0.001));
+    mu_assert("Value at 99.99% not 1000.0", compare_percentile(values[2], 1000.0, 0.001));
+    mu_assert("Value at 99.999% not 100000000.0", compare_percentile(values[3], 100000000.0, 0.001));
+    mu_assert("Value at 100% not 100000000.0", compare_percentile(values[4], 100000000.0, 0.001));
     return 0;
 }
 
