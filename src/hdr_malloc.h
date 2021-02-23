@@ -10,8 +10,8 @@
  * the include of your alternate allocator if needed (not needed in order
  * to use the default libc allocator). */
 
-#ifndef HDR_ALLOC_H__
-#define HDR_ALLOC_H__
+#ifndef HDR_MALLOC_H__
+#define HDR_MALLOC_H__
 #define hdr_malloc malloc
 #define hdr_calloc calloc
 #define hdr_realloc realloc

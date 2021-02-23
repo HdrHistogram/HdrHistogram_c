@@ -24,7 +24,8 @@ set(HDR_HISTOGRAM_PRIVATE_HEADERS
     hdr_atomic.h
     hdr_encoding.h
     hdr_endian.h
-    hdr_tests.h)
+    hdr_tests.h
+    hdr_malloc.h)
 
 set(HDR_HISTOGRAM_PUBLIC_HEADERS
     hdr_histogram.h
