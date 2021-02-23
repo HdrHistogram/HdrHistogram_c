@@ -38,8 +38,7 @@ if(UNIX)
         -Winit-self
         -Wpedantic
         $<$<COMPILE_LANGUAGE:C>:-Wmissing-prototypes>)
-    add_definitions(
-        -D_GNU_SOURCE)
+    add_definitions(-D_GNU_SOURCE)
 endif()
 
 find_package(ZLIB)
