@@ -7,14 +7,20 @@
 #include <stdlib.h>
 #include "hdr_thread.h"
 
+#ifndef HDR_MALLOC_INCLUDE
+#define HDR_MALLOC_INCLUDE "hdr_malloc.h"
+#endif
+
+#include HDR_MALLOC_INCLUDE
+
 struct hdr_mutex* hdr_mutex_alloc(void)
 {
-    return malloc(sizeof(hdr_mutex));
+    return hdr_malloc(sizeof(hdr_mutex));
 }
 
 void hdr_mutex_free(struct hdr_mutex* mutex)
 {
-    free(mutex);
+    hdr_free(mutex);
 }
 
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)

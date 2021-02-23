@@ -13,6 +13,12 @@
 
 #include "hdr_writer_reader_phaser.h"
 
+#ifndef HDR_MALLOC_INCLUDE
+#define HDR_MALLOC_INCLUDE "hdr_malloc.h"
+#endif
+
+#include HDR_MALLOC_INCLUDE
+
 static int64_t _hdr_phaser_get_epoch(int64_t* field)
 {
     return hdr_atomic_load_64(field);
