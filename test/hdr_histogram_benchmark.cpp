@@ -133,7 +133,7 @@ static void BM_hdr_value_at_percentiles_given_array(benchmark::State &state) {
   int64_t items_processed = 0;
   for (auto _ : state) {
     benchmark::DoNotOptimize(
-        hdr_value_at_percentiles(histogram, percentile_list, 4, &values));
+        hdr_value_at_percentiles(histogram, percentile_list, values, 4));
     // read/write barrier
     benchmark::ClobberMemory();
     items_processed += 4;

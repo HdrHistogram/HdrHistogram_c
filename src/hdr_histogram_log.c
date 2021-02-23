@@ -32,6 +32,12 @@ typedef SSIZE_T ssize_t;
 
 #include "hdr_endian.h"
 
+#ifndef HDR_MALLOC_INCLUDE
+#define HDR_MALLOC_INCLUDE "hdr_malloc.h"
+#endif
+
+#include HDR_MALLOC_INCLUDE
+
 /* Private prototypes useful for the logger */
 int32_t counts_index_for(const struct hdr_histogram* h, int64_t value);
 
@@ -181,7 +187,7 @@ int hdr_encode_compressed(
     int32_t counts_limit = len_to_max < h->counts_len ? len_to_max : h->counts_len;
 
     const size_t encoded_len = SIZEOF_ENCODING_FLYWEIGHT_V1 + MAX_BYTES_LEB128 * (size_t) counts_limit;
-    if ((encoded = (encoding_flyweight_v1_t*) calloc(encoded_len, sizeof(uint8_t))) == NULL)
+    if ((encoded = (encoding_flyweight_v1_t*) hdr_calloc(encoded_len, sizeof(uint8_t))) == NULL)
     {
         FAIL_AND_CLEANUP(cleanup, result, ENOMEM);
     }
@@ -225,7 +231,7 @@ int hdr_encode_compressed(
     dest_len = compressBound(encoded_size);
     compressed_size = SIZEOF_COMPRESSION_FLYWEIGHT + dest_len;
 
-    if ((compressed = (compression_flyweight_t*) malloc(compressed_size)) == NULL)
+    if ((compressed = (compression_flyweight_t*) hdr_malloc(compressed_size)) == NULL)
     {
         FAIL_AND_CLEANUP(cleanup, result, ENOMEM);
     }
@@ -242,10 +248,10 @@ int hdr_encode_compressed(
     *compressed_len = SIZEOF_COMPRESSION_FLYWEIGHT + dest_len;
 
     cleanup:
-    free(encoded);
+    hdr_free(encoded);
     if (result == HDR_DEFLATE_FAIL)
     {
-        free(compressed);
+        hdr_free(compressed);
     }
 
     return result;
@@ -409,7 +415,7 @@ static int hdr_decode_compressed_v0(
     }
 
     counts_array_len = h->counts_len * word_size;
-    if ((counts_array = (uint8_t*) calloc(1, (size_t) counts_array_len)) == NULL)
+    if ((counts_array = (uint8_t*) hdr_calloc(1, (size_t) counts_array_len)) == NULL)
     {
         FAIL_AND_CLEANUP(cleanup, result, ENOMEM);
     }
@@ -430,11 +436,11 @@ static int hdr_decode_compressed_v0(
 
 cleanup:
     (void)inflateEnd(&strm);
-    free(counts_array);
+    hdr_free(counts_array);
 
     if (result != 0)
     {
-        free(h);
+        hdr_free(h);
     }
     else if (NULL == *histogram)
     {
@@ -443,7 +449,7 @@ cleanup:
     else
     {
         hdr_add(*histogram, h);
-        free(h);
+        hdr_free(h);
     }
 
     return result;
@@ -510,7 +516,7 @@ static int hdr_decode_compressed_v1(
     /* Give the temp uncompressed array a little bif of extra */
     counts_array_len = counts_limit * word_size;
 
-    if ((counts_array = (uint8_t*) calloc(1, (size_t) counts_array_len)) == NULL)
+    if ((counts_array = (uint8_t*) hdr_calloc(1, (size_t) counts_array_len)) == NULL)
     {
         FAIL_AND_CLEANUP(cleanup, result, ENOMEM);
     }
@@ -531,11 +537,11 @@ static int hdr_decode_compressed_v1(
 
 cleanup:
     (void)inflateEnd(&strm);
-    free(counts_array);
+    hdr_free(counts_array);
 
     if (result != 0)
     {
-        free(h);
+        hdr_free(h);
     }
     else if (NULL == *histogram)
     {
@@ -544,7 +550,7 @@ cleanup:
     else
     {
         hdr_add(*histogram, h);
-        free(h);
+        hdr_free(h);
     }
 
     return result;
@@ -608,7 +614,7 @@ static int hdr_decode_compressed_v2(
     /* Make sure there at least 9 bytes to read */
     /* if there is a corrupt value at the end */
     /* of the array we won't read corrupt data or crash. */
-    if ((counts_array = (uint8_t*) calloc(1, (size_t) counts_limit + 9)) == NULL)
+    if ((counts_array = (uint8_t*) hdr_calloc(1, (size_t) counts_limit + 9)) == NULL)
     {
         FAIL_AND_CLEANUP(cleanup, result, ENOMEM);
     }
@@ -633,11 +639,11 @@ static int hdr_decode_compressed_v2(
 
 cleanup:
     (void)inflateEnd(&strm);
-    free(counts_array);
+    hdr_free(counts_array);
 
     if (result != 0)
     {
-        free(h);
+        hdr_free(h);
     }
     else if (NULL == *histogram)
     {
@@ -646,7 +652,7 @@ cleanup:
     else
     {
         hdr_add(*histogram, h);
-        free(h);
+        hdr_free(h);
     }
 
     return result;
@@ -796,7 +802,7 @@ int hdr_log_write(
     }
 
     encoded_len = hdr_base64_encoded_len(compressed_len);
-    encoded_histogram = (char*) calloc(encoded_len + 1, sizeof(char));
+    encoded_histogram = (char*) hdr_calloc(encoded_len + 1, sizeof(char));
 
     rc = hdr_base64_encode(
         compressed_histogram, compressed_len, encoded_histogram, encoded_len);
@@ -816,8 +822,8 @@ int hdr_log_write(
     }
 
 cleanup:
-    free(compressed_histogram);
-    free(encoded_histogram);
+    hdr_free(compressed_histogram);
+    hdr_free(encoded_histogram);
 
     return result;
 }
@@ -848,7 +854,7 @@ int hdr_log_write_entry(
     }
 
     encoded_len = hdr_base64_encoded_len(compressed_len);
-    encoded_histogram = (char*) calloc(encoded_len + 1, sizeof(char));
+    encoded_histogram = (char*) hdr_calloc(encoded_len + 1, sizeof(char));
 
     rc = hdr_base64_encode(
         compressed_histogram, compressed_len, encoded_histogram, encoded_len);
@@ -874,8 +880,8 @@ int hdr_log_write_entry(
     }
 
     cleanup:
-    free(compressed_histogram);
-    free(encoded_histogram);
+    hdr_free(compressed_histogram);
+    hdr_free(encoded_histogram);
 
     return result;
 }
@@ -1067,7 +1073,7 @@ int hdr_log_read_entry(
     size_t capacity = 1024;
     size_t base64_len = 0;
     size_t tag_offset = 0;
-    char* base64_histogram = calloc(capacity, sizeof(char));
+    char* base64_histogram = hdr_calloc(capacity, sizeof(char));
     size_t compressed_len = 0;
     uint8_t* compressed_histogram = NULL;
     int result = -EINVAL;
@@ -1176,7 +1182,7 @@ int hdr_log_read_entry(
                     if (base64_len == capacity)
                     {
                         capacity *= 2;
-                        base64_histogram = realloc(base64_histogram, capacity * sizeof(char));
+                        base64_histogram = hdr_realloc(base64_histogram, capacity * sizeof(char));
                         if (NULL == base64_histogram)
                         {
                             FAIL_AND_CLEANUP(cleanup, result, -ENOMEM);
@@ -1196,7 +1202,7 @@ int hdr_log_read_entry(
     }
     while (DONE != state);
 
-    compressed_histogram = calloc(base64_len, sizeof(uint8_t));
+    compressed_histogram = hdr_calloc(base64_len, sizeof(uint8_t));
     compressed_len = hdr_base64_decoded_len(base64_len);
 
     result = hdr_base64_decode(
@@ -1209,8 +1215,8 @@ int hdr_log_read_entry(
     result = hdr_decode_compressed(compressed_histogram, compressed_len, histogram);
 
 cleanup:
-    free(base64_histogram);
-    free(compressed_histogram);
+    hdr_free(base64_histogram);
+    hdr_free(compressed_histogram);
     return result;
 }
 
@@ -1231,20 +1237,20 @@ int hdr_log_encode(struct hdr_histogram* histogram, char** encoded_histogram)
     }
 
     encoded_len = hdr_base64_encoded_len(compressed_len);
-    encoded_histogram_tmp = (char*) calloc(encoded_len + 1, sizeof(char));
+    encoded_histogram_tmp = (char*) hdr_calloc(encoded_len + 1, sizeof(char));
 
     rc = hdr_base64_encode(
         compressed_histogram, compressed_len, encoded_histogram_tmp, encoded_len);
     if (rc != 0)
     {
-        free(encoded_histogram_tmp);
+        hdr_free(encoded_histogram_tmp);
         FAIL_AND_CLEANUP(cleanup, result, rc);
     }
 
     *encoded_histogram = encoded_histogram_tmp;
 
 cleanup:
-    free(compressed_histogram);
+    hdr_free(compressed_histogram);
 
     return result;
 }
@@ -1256,7 +1262,7 @@ int hdr_log_decode(struct hdr_histogram** histogram, char* base64_histogram, siz
     int result = 0;
 
     size_t compressed_len = hdr_base64_decoded_len(base64_len);
-    compressed_histogram = (uint8_t*) malloc(sizeof(uint8_t)*compressed_len);
+    compressed_histogram = (uint8_t*) hdr_malloc(sizeof(uint8_t)*compressed_len);
     memset(compressed_histogram, 0, compressed_len);
 
     r = hdr_base64_decode(
@@ -1274,7 +1280,7 @@ int hdr_log_decode(struct hdr_histogram** histogram, char* base64_histogram, siz
     }
 
 cleanup:
-    free(compressed_histogram);
+    hdr_free(compressed_histogram);
 
     return result;
 }
