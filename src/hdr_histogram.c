@@ -699,7 +699,7 @@ int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percen
     while (hdr_iter_next(&iter) && at_pos < length)
     {
         total += iter.count;
-        while (total >= values[at_pos] && at_pos < length)
+        while (at_pos < length && total >= values[at_pos])
         {
             values[at_pos] = highest_equivalent_value(h, iter.value);
             at_pos++;
