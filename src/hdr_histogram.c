@@ -222,12 +222,24 @@ int64_t hdr_size_of_equivalent_value_range(const struct hdr_histogram* h, int64_
     return INT64_C(1) << (h->unit_magnitude + adjusted_bucket);
 }
 
+int64_t hdr_size_of_equivalent_value_range_given_bucket_indices(const struct hdr_histogram* h, int64_t value, int32_t bucket_index, int32_t sub_bucket_index)
+{
+    const int32_t adjusted_bucket  = (sub_bucket_index >= h->sub_bucket_count) ? (bucket_index + 1) : bucket_index;
+    return INT64_C(1) << (h->unit_magnitude + adjusted_bucket);
+}
+
 static int64_t lowest_equivalent_value(const struct hdr_histogram* h, int64_t value)
 {
     int32_t bucket_index     = get_bucket_index(h, value);
     int32_t sub_bucket_index = get_sub_bucket_index(value, bucket_index, h->unit_magnitude);
     return value_from_index(bucket_index, sub_bucket_index, h->unit_magnitude);
 }
+
+static int64_t lowest_equivalent_value_given_bucket_indices(const struct hdr_histogram* h, int64_t value, int32_t bucket_index, int32_t sub_bucket_index)
+{
+    return value_from_index(bucket_index, sub_bucket_index, h->unit_magnitude);
+}
+
 
 int64_t hdr_next_non_equivalent_value(const struct hdr_histogram *h, int64_t value)
 {
@@ -797,11 +809,15 @@ static bool move_next(struct hdr_iter* iter)
 
     iter->count = counts_get_normalised(iter->h, iter->counts_index);
     iter->cumulative_count += iter->count;
-
-    iter->value = hdr_value_at_index(iter->h, iter->counts_index);
-    iter->highest_equivalent_value = highest_equivalent_value(iter->h, iter->value);
-    iter->lowest_equivalent_value = lowest_equivalent_value(iter->h, iter->value);
-    iter->median_equivalent_value = hdr_median_equivalent_value(iter->h, iter->value);
+    const int64_t value = hdr_value_at_index(iter->h, iter->counts_index);
+    const int32_t bucket_index = get_bucket_index(iter->h, value);
+    const int32_t sub_bucket_index = get_sub_bucket_index(value, bucket_index, iter->h->unit_magnitude);
+    const int64_t leq = lowest_equivalent_value_given_bucket_indices(iter->h, value, bucket_index, sub_bucket_index);
+    const int64_t size_of_equivalent_value_range = hdr_size_of_equivalent_value_range_given_bucket_indices(iter->h, value, bucket_index, sub_bucket_index);
+    iter->lowest_equivalent_value = leq;
+    iter->value = value;
+    iter->highest_equivalent_value = leq + size_of_equivalent_value_range - 1;
+    iter->median_equivalent_value = leq + (size_of_equivalent_value_range >> 1);
 
     return true;
 }
