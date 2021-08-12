@@ -222,7 +222,7 @@ int64_t hdr_size_of_equivalent_value_range(const struct hdr_histogram* h, int64_
     return INT64_C(1) << (h->unit_magnitude + adjusted_bucket);
 }
 
-int64_t hdr_size_of_equivalent_value_range_given_bucket_indices(const struct hdr_histogram* h, int64_t value, int32_t bucket_index, int32_t sub_bucket_index)
+static int64_t hdr_size_of_equivalent_value_range_given_bucket_indices(const struct hdr_histogram* h, int64_t value, int32_t bucket_index, int32_t sub_bucket_index)
 {
     const int32_t adjusted_bucket  = (sub_bucket_index >= h->sub_bucket_count) ? (bucket_index + 1) : bucket_index;
     return INT64_C(1) << (h->unit_magnitude + adjusted_bucket);
@@ -239,7 +239,6 @@ static int64_t lowest_equivalent_value_given_bucket_indices(const struct hdr_his
 {
     return value_from_index(bucket_index, sub_bucket_index, h->unit_magnitude);
 }
-
 
 int64_t hdr_next_non_equivalent_value(const struct hdr_histogram *h, int64_t value)
 {
