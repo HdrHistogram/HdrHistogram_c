@@ -159,10 +159,10 @@ bool hdr_record_values_atomic(struct hdr_histogram* h, int64_t value, int64_t co
  * Record a value in the histogram and backfill based on an expected interval.
  *
  * Records a value in the histogram, will round this value of to a precision at or better
- * than the significant_figure specified at contruction time.  This is specifically used
+ * than the significant_figure specified at construction time.  This is specifically used
  * for recording latency.  If the value is larger than the expected_interval then the
  * latency recording system has experienced co-ordinated omission.  This method fills in the
- * values that would have occured had the client providing the load not been blocked.
+ * values that would have occurred had the client providing the load not been blocked.
 
  * @param h "This" pointer
  * @param value Value to add to the histogram
@@ -170,16 +170,16 @@ bool hdr_record_values_atomic(struct hdr_histogram* h, int64_t value, int64_t co
  * @return false if the value is larger than the highest_trackable_value and can't be recorded,
  * true otherwise.
  */
-bool hdr_record_corrected_value(struct hdr_histogram* h, int64_t value, int64_t expexcted_interval);
+bool hdr_record_corrected_value(struct hdr_histogram* h, int64_t value, int64_t expected_interval);
 
 /**
  * Record a value in the histogram and backfill based on an expected interval.
  *
  * Records a value in the histogram, will round this value of to a precision at or better
- * than the significant_figure specified at contruction time.  This is specifically used
+ * than the significant_figure specified at construction time.  This is specifically used
  * for recording latency.  If the value is larger than the expected_interval then the
  * latency recording system has experienced co-ordinated omission.  This method fills in the
- * values that would have occured had the client providing the load not been blocked.
+ * values that would have occurred had the client providing the load not been blocked.
  *
  * Will record this value atomically, however the whole structure may appear inconsistent
  * when read concurrently with this update.  Do NOT mix calls to this method with calls
@@ -191,7 +191,7 @@ bool hdr_record_corrected_value(struct hdr_histogram* h, int64_t value, int64_t 
  * @return false if the value is larger than the highest_trackable_value and can't be recorded,
  * true otherwise.
  */
-bool hdr_record_corrected_value_atomic(struct hdr_histogram* h, int64_t value, int64_t expexcted_interval);
+bool hdr_record_corrected_value_atomic(struct hdr_histogram* h, int64_t value, int64_t expected_interval);
 
 /**
  * Record a value in the histogram 'count' times.  Applies the same correcting logic
@@ -504,7 +504,7 @@ int64_t hdr_next_non_equivalent_value(const struct hdr_histogram* h, int64_t val
 int64_t hdr_median_equivalent_value(const struct hdr_histogram* h, int64_t value);
 
 /**
- * Used to reset counters after importing data manuallying into the histogram, used by the logging code
+ * Used to reset counters after importing data manually into the histogram, used by the logging code
  * and other custom serialisation tools.
  */
 void hdr_reset_internal_counters(struct hdr_histogram* h);
