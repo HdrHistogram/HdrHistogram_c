@@ -27,8 +27,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#include "hdr_time.h"
-#include "hdr_histogram.h"
+#include <hdr/hdr_time.h>
+#include <hdr/hdr_histogram.h>
 
 #ifdef __cplusplus
 extern "C" {

@@ -10,8 +10,8 @@
 #include <errno.h>
 
 #include <stdio.h>
-#include <hdr_histogram.h>
-#include <hdr_interval_recorder.h>
+#include <hdr/hdr_histogram.h>
+#include <hdr/hdr_interval_recorder.h>
 
 #include "minunit.h"
 #include "hdr_test_util.h"

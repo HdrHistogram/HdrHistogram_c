@@ -49,6 +49,9 @@ function(hdr_histogram_add_test_executable NAME)
     target_link_libraries(${NAME}
         PRIVATE
             hdr_histogram_static)
+    target_include_directories(${NAME}
+        PRIVATE
+            ${PROJECT_SOURCE_DIR}/src)
     install(
         TARGETS ${NAME}
         DESTINATION ${CMAKE_INSTALL_BINDIR})

@@ -49,6 +49,7 @@ if (${HDR_LOG_REQUIRED} AND NOT HDR_LOG_ENABLED)
     message(SEND_ERROR "HDR_LOG_REQUIRED=ON and unable to find zlib library")
 endif()
 
+add_subdirectory(include)
 add_subdirectory(src)
 
 option(HDR_HISTOGRAM_BUILD_PROGRAMS "Build tests and examples" ON)

@@ -4,8 +4,8 @@
  * as explained at http://creativecommons.org/publicdomain/zero/1.0/
  */
 
+#include <hdr/hdr_interval_recorder.h>
 #include "hdr_atomic.h"
-#include "hdr_interval_recorder.h"
 
 #ifndef HDR_MALLOC_INCLUDE
 #define HDR_MALLOC_INCLUDE "hdr_malloc.h"

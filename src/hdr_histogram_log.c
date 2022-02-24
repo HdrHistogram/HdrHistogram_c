@@ -17,9 +17,9 @@
 #include <errno.h>
 #include <time.h>
 
+#include <hdr/hdr_histogram.h>
+#include <hdr/hdr_histogram_log.h>
 #include "hdr_encoding.h"
-#include "hdr_histogram.h"
-#include "hdr_histogram_log.h"
 #include "hdr_tests.h"
 
 #if defined(_MSC_VER)
@@ -120,7 +120,7 @@ union uint64_dbl_cvt
 static double int64_bits_to_double(int64_t i)
 {
     union uint64_dbl_cvt x;
-    
+
     x.l = (uint64_t) i;
     return x.d;
 }

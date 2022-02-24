@@ -13,7 +13,7 @@
 #include <errno.h>
 #include <inttypes.h>
 
-#include "hdr_histogram.h"
+#include <hdr/hdr_histogram.h>
 #include "hdr_tests.h"
 #include "hdr_atomic.h"
 
