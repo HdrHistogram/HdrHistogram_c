@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 
-project(hdr_histogram VERSION 0.10.0 LANGUAGES C)
+project(hdr_histogram VERSION 0.11.3 LANGUAGES C)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
