@@ -10,9 +10,9 @@
 #include <time.h>
 #include <errno.h>
 #include <string.h>
- 
-#include <hdr_histogram.h>
-#include <hdr_histogram_log.h>
+
+#include <hdr/hdr_histogram.h>
+#include <hdr/hdr_histogram_log.h>
 
 #if defined(_MSC_VER)
 #pragma warning(push)
@@ -71,7 +71,7 @@ int main(int argc, char** argv)
         {
             fprintf(stderr, "Failed to print histogram: %s\n", hdr_strerror(rc));
             return -1;
-        }        
+        }
     }
 
     return 0;

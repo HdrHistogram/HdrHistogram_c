@@ -8,10 +8,10 @@
 #include <stdlib.h>
 
 #include <stdio.h>
-#include <hdr_histogram.h>
+#include <hdr/hdr_histogram.h>
+#include <hdr/hdr_time.h>
 #include <string.h>
 
-#include "hdr_time.h"
 
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 

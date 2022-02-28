@@ -10,7 +10,7 @@
 #include <errno.h>
 
 #include <stdio.h>
-#include <hdr_histogram.h>
+#include <hdr/hdr_histogram.h>
 #include <pthread.h>
 
 #include "minunit.h"
@@ -60,7 +60,7 @@ static char* test_recording_concurrently()
     {
         values[i] = rand() % 20000;
     }
-    
+
     for (i = 0; i < value_count; i++)
     {
         hdr_record_value(expected_histogram, values[i]);

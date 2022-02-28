@@ -17,10 +17,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include <hdr_histogram.h>
-#include <hdr_histogram_log.h>
-#include <hdr_interval_recorder.h>
-#include <hdr_time.h>
+#include <hdr/hdr_histogram.h>
+#include <hdr/hdr_histogram_log.h>
+#include <hdr/hdr_interval_recorder.h>
+#include <hdr/hdr_time.h>
 
 static int64_t diff(struct timespec t0, struct timespec t1)
 {
@@ -36,7 +36,7 @@ static void* record_hiccups(void* thread_context)
     struct pollfd fd;
     struct timespec t0;
     struct timespec t1;
-    struct itimerspec timeout; 
+    struct itimerspec timeout;
     struct hdr_interval_recorder* r = thread_context;
 
     memset(&fd, 0, sizeof(struct pollfd));
@@ -140,7 +140,7 @@ int main(int argc, char** argv)
         if (!output)
         {
             fprintf(
-                stderr, "Failed to open/create file: %s, %s", 
+                stderr, "Failed to open/create file: %s, %s",
                 config.filename, strerror(errno));
 
             return -1;
@@ -167,7 +167,7 @@ int main(int argc, char** argv)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
     while (true)
-    {        
+    {
         sleep(config.interval);
 
         inactive = hdr_interval_recorder_sample_and_recycle(&recorder, inactive);

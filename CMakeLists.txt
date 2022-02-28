@@ -49,6 +49,7 @@ if (${HDR_LOG_REQUIRED} AND NOT HDR_LOG_ENABLED)
     message(SEND_ERROR "HDR_LOG_REQUIRED=ON and unable to find zlib library")
 endif()
 
+add_subdirectory(include)
 add_subdirectory(src)
 
 option(HDR_HISTOGRAM_BUILD_PROGRAMS "Build tests and examples" ON)
@@ -70,10 +71,12 @@ configure_file(
     config.cmake.in
     ${PROJECT_NAME}-config.cmake
     @ONLY)
-install(
-    EXPORT ${PROJECT_NAME}-targets
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
-    NAMESPACE ${PROJECT_NAME}::)
+if(HDR_HISTOGRAM_INSTALL_SHARED OR HDR_HISTOGRAM_INSTALL_STATIC)
+    install(
+        EXPORT ${PROJECT_NAME}-targets
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+        NAMESPACE ${PROJECT_NAME}::)
+endif()
 install(
     FILES
         ${PROJECT_BINARY_DIR}/${PROJECT_NAME}-config.cmake

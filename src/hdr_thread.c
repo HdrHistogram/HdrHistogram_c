@@ -5,7 +5,7 @@
 */
 
 #include <stdlib.h>
-#include "hdr_thread.h"
+#include <hdr/hdr_thread.h>
 
 #ifndef HDR_MALLOC_INCLUDE
 #define HDR_MALLOC_INCLUDE "hdr_malloc.h"
