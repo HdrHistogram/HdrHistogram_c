@@ -8,8 +8,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "hdr_histogram.h"
-#include "hdr_histogram_log.h"
+#include <hdr/hdr_histogram.h>
+#include <hdr/hdr_histogram_log.h>
 #include "hdr_tests.h"
 
 #define UNUSED(x) (void)(x)
