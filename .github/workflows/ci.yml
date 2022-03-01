@@ -25,7 +25,7 @@ jobs:
             hdr_log_required: DISABLED
         include:
           - cmake: minimal
-            cmake_url_part: v3.5/cmake-3.5.2
+            cmake_url_part: v3.12/cmake-3.12.4
           - cmake: latest
             cmake_url_part: v3.17/cmake-3.17.3
           - os: linux
