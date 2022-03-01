@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.12)
 
 project(hdr_histogram
-    VERSION 0.11.3
+    VERSION 0.11.4
     LANGUAGES C
     DESCRIPTION "C port of the HdrHistogram"
     HOMEPAGE_URL "http://hdrhistogram.github.io/HdrHistogram/")
