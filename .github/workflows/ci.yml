@@ -25,6 +25,7 @@ jobs:
             cmake_url_part: v3.17/cmake-3.17.3
           - os: linux
             runner: ubuntu-latest
+            cmake_args: -DHDR_LOG_REQUIRED=ON
           - os: linux
             runner: ubuntu-latest
             cmake_args: -DHDR_LOG_REQUIRED=DISABLED
