@@ -29,6 +29,8 @@ jobs:
           - os: linux
             runner: ubuntu-latest
             cmake_args: -DHDR_LOG_REQUIRED=DISABLED
+            cmake: latest
+            build_type: RelWithDebInfo
           - os: windows
             runner: windows-latest
           - os: windows
