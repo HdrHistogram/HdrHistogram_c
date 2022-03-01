@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.5)
 
-project(hdr_histogram VERSION 0.11.3 LANGUAGES C)
+project(hdr_histogram
+    VERSION 0.11.3
+    LANGUAGES C
+    DESCRIPTION "C port of the HdrHistogram"
+    HOMEPAGE_URL "http://hdrhistogram.github.io/HdrHistogram/")
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -89,3 +93,20 @@ install(
 
 set(CPACK_GENERATOR "TGZ")
 include(CPack)
+
+if(${ZLIB_FOUND})
+    set(PC_LIBS_PRIVATE_ZLIB "-lz")
+    set(PC_REQUIRES_PRIVATE_ZLIB "zlib >= 1.2.11")
+else()
+    set(PC_LIBS_PRIVATE_ZLIB "")
+    set(PC_REQUIRES_PRIVATE_ZLIB "")
+endif()
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}.pc.in
+    ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.pc
+    @ONLY
+)
+install(
+    FILES ${CMAKR_CURRENT_BINARY_DIR}/${PROJECT_NAME}.pc
+    DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/pkgconfig
+)

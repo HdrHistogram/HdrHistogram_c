@@ -7,7 +7,6 @@
 #ifndef HDR_TIME_H__
 #define HDR_TIME_H__
 
-#include <math.h>
 #include <time.h>
 
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
@@ -46,4 +45,3 @@ void hdr_timespec_from_double(hdr_timespec* t, double value);
 #endif
 
 #endif
-
