@@ -95,10 +95,8 @@ set(CPACK_GENERATOR "TGZ")
 include(CPack)
 
 if(${ZLIB_FOUND})
-    set(PC_LIBS_PRIVATE_ZLIB "-lz")
-    set(PC_REQUIRES_PRIVATE_ZLIB "zlib >= 1.2.11")
+    set(PC_REQUIRES_PRIVATE_ZLIB "zlib")
 else()
-    set(PC_LIBS_PRIVATE_ZLIB "")
     set(PC_REQUIRES_PRIVATE_ZLIB "")
 endif()
 configure_file(
