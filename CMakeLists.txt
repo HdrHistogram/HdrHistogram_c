@@ -6,6 +6,8 @@ project(hdr_histogram
     DESCRIPTION "C port of the HdrHistogram"
     HOMEPAGE_URL "http://hdrhistogram.github.io/HdrHistogram/")
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
@@ -93,6 +95,11 @@ install(
 
 set(CPACK_GENERATOR "TGZ")
 include(CPack)
+
+include(JoinPaths)
+
+join_paths(includedir_for_pc_file "\${prefix}" "${CMAKE_INSTALL_INCLUDEDIR}")
+join_paths(libdir_for_pc_file "\${prefix}" "${CMAKE_INSTALL_LIBDIR}")
 
 if(${ZLIB_FOUND})
     set(PC_REQUIRES_PRIVATE_ZLIB "zlib")
