@@ -676,7 +676,7 @@ int64_t hdr_min(const struct hdr_histogram* h)
     return non_zero_min(h);
 }
 
-static int64_t get_value_from_idx_up_to_count(const struct hdr_histogram* h, int64_t count_at_percentile )
+static int64_t get_value_from_idx_up_to_count(const struct hdr_histogram* h, int64_t count_at_percentile)
 {
     int64_t count_to_idx = 0;
     int64_t value_from_idx = 0;
