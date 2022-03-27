@@ -82,7 +82,7 @@ int64_t hdr_interval_recorder_record_corrected_values_atomic(
 );
 
 /**
- * The is generally the preferred approach for recylcing histograms through
+ * This is generally the preferred approach for recycling histograms through
  * the recorder as it is safe when used from callers in multiple threads and
  * the returned histogram won't automatically become active without being
  * passed back into this method.
