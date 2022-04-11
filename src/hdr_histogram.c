@@ -690,7 +690,8 @@ static int64_t get_value_from_idx_up_to_count(const struct hdr_histogram* h, int
         count_at_percentile = h->total_count;
     }
 
-    while (count_to_idx < count_at_percentile) {
+    while (count_to_idx < count_at_percentile)
+    {
         // increment bucket
         sub_bucket_idx++;
         if (sub_bucket_idx >= h->sub_bucket_count)
