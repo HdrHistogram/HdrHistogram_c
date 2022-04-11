@@ -684,11 +684,13 @@ static int64_t get_value_from_idx_up_to_count(const struct hdr_histogram* h, int
     int32_t bucket_idx = 0;
     int32_t bucket_base_idx = get_bucket_base_index(h, bucket_idx);
 
-    for (;;) {
-        if (count_to_idx >= count_at_percentile)
-        {
-            break;
-        }
+    // Overflow check
+    if (count_at_percentile > h->total_count)
+    {
+        count_at_percentile = h->total_count;
+    }
+
+    while (count_to_idx < count_at_percentile) {
         // increment bucket
         sub_bucket_idx++;
         if (sub_bucket_idx >= h->sub_bucket_count)
