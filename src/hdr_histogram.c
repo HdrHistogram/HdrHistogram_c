@@ -165,11 +165,6 @@ static int32_t count_leading_zeros_64(int64_t value)
 #endif
 }
 
-static int64_t get_count_at_index_given_bucket_base_idx(const struct hdr_histogram* h, int32_t bucket_base_idx, int32_t sub_bucket_idx)
-{
-    return h->counts[(bucket_base_idx + sub_bucket_idx) - h->sub_bucket_half_count];
-}
-
 static int32_t get_bucket_base_index(const struct hdr_histogram* h, int32_t bucket_index)
 {
     return (bucket_index + 1) << h->sub_bucket_half_count_magnitude;
@@ -679,31 +674,34 @@ int64_t hdr_min(const struct hdr_histogram* h)
 static int64_t get_value_from_idx_up_to_count(const struct hdr_histogram* h, int64_t count_at_percentile)
 {
     int64_t count_to_idx = 0;
-    int64_t value_from_idx = 0;
     int32_t sub_bucket_idx = -1;
     int32_t bucket_idx = 0;
     int32_t bucket_base_idx = get_bucket_base_index(h, bucket_idx);
+    int32_t idx = bucket_base_idx + sub_bucket_idx - h->sub_bucket_half_count;
 
-    // Overflow check
-    if (count_at_percentile > h->total_count)
+    if (count_at_percentile <= 0)
     {
-        count_at_percentile = h->total_count;
+        return 0;
     }
 
     while (count_to_idx < count_at_percentile)
     {
         // increment bucket
         sub_bucket_idx++;
+        idx++;
         if (sub_bucket_idx >= h->sub_bucket_count)
         {
             sub_bucket_idx = h->sub_bucket_half_count;
             bucket_idx++;
-            bucket_base_idx = get_bucket_base_index(h, bucket_idx);
         }
-        count_to_idx += get_count_at_index_given_bucket_base_idx(h, bucket_base_idx, sub_bucket_idx);
-        value_from_idx = ((int64_t)(sub_bucket_idx)) << (((int64_t)(bucket_idx)) + h->unit_magnitude);
+        // Overflow check
+        if (idx >= h->counts_len)
+        {
+            break;
+        }
+        count_to_idx += h->counts[idx];
     }
-    return value_from_idx;
+    return ((int64_t)(sub_bucket_idx)) << (((int64_t)(bucket_idx)) + h->unit_magnitude);
 }
 
 int64_t hdr_value_at_percentile(const struct hdr_histogram* h, double percentile)
