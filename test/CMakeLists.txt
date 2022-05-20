@@ -6,8 +6,8 @@ if(HDR_HISTOGRAM_BUILD_BENCHMARK)
         include(ExternalProject)
 
         ExternalProject_Add(google_benchmark
-            URL ${PROJECT_SOURCE_DIR}/lib/benchmark-1.5.0.zip
-            URL_MD5 1af48846917b9730bee1848f6e38f563
+            URL ${PROJECT_SOURCE_DIR}/lib/benchmark-1.6.1.zip
+            URL_MD5 d061aaa421b628673cfbdd8b2b4a16a6
             CMAKE_ARGS -DBENCHMARK_ENABLE_TESTING=OFF -DBENCHMARK_ENABLE_INSTALL=OFF
             SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/googlebenchmark-src
             BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/googlebenchmark-build
