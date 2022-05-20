@@ -1,6 +1,6 @@
 #include <benchmark/benchmark.h>
-#include <hdr_histogram.h>
-#include <math.h>
+#include <hdr/hdr_histogram.h>
+#include <cmath>
 #include <random>
 
 #ifdef _WIN32
