@@ -669,38 +669,20 @@ int64_t hdr_min(const struct hdr_histogram* h)
 static int64_t get_value_from_idx_up_to_count(const struct hdr_histogram* h, int64_t count_at_percentile)
 {
     int64_t count_to_idx = 0;
-    int32_t idx = -1;
-    int32_t bucket_idx;
-    int32_t sub_bucket_idx;
 
-    if (count_at_percentile <= 0)
+    count_at_percentile = 0 < count_at_percentile ? count_at_percentile : 1;
+    for (int32_t idx = 0; idx < h->counts_len; idx++)
     {
-        return 0;
-    }
-
-    while (count_to_idx < count_at_percentile)
-    {
-        idx++;
-        // Overflow check
-        if (idx >= h->counts_len)
-        {
-            break;
-        }
         count_to_idx += h->counts[idx];
+        if (count_to_idx >= count_at_percentile)
+        {
+            return hdr_value_at_index(h, idx);
+        }
     }
 
-    if (idx >= h->sub_bucket_count)
-    {
-        bucket_idx = (idx - h->sub_bucket_half_count) / h->sub_bucket_half_count;
-        sub_bucket_idx = h->sub_bucket_half_count + ((idx - h->sub_bucket_half_count) % h->sub_bucket_half_count);
-    }
-    else
-    {
-        bucket_idx = 0;
-        sub_bucket_idx = idx;
-    }
-    return ((int64_t)(sub_bucket_idx)) << (((int64_t)(bucket_idx)) + h->unit_magnitude);
+    return 0;
 }
+
 
 int64_t hdr_value_at_percentile(const struct hdr_histogram* h, double percentile)
 {
