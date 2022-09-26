@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.12)
 
 project(hdr_histogram
-    VERSION 0.11.4
+    VERSION 0.11.6
     LANGUAGES C
     DESCRIPTION "C port of the HdrHistogram"
     HOMEPAGE_URL "http://hdrhistogram.github.io/HdrHistogram/")
@@ -21,7 +21,7 @@ include(CMakePackageConfigHelpers)
 
 set(HDR_SOVERSION_CURRENT   6)
 set(HDR_SOVERSION_AGE       1)
-set(HDR_SOVERSION_REVISION  1)
+set(HDR_SOVERSION_REVISION  2)
 
 set(HDR_VERSION ${HDR_SOVERSION_CURRENT}.${HDR_SOVERSION_AGE}.${HDR_SOVERSION_REVISION})
 set(HDR_SOVERSION ${HDR_SOVERSION_CURRENT})

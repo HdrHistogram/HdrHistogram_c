@@ -62,7 +62,7 @@ static char *format_double(double d)
     return buffer;
 }
 
-int main()
+int main(void)
 {
     struct hdr_histogram* histogram;
     hdr_timespec t0, t1;
@@ -94,8 +94,8 @@ int main()
         hdr_gettime(&t1);
 
         taken = diff(t0, t1);
-        time_taken = taken.tv_sec + taken.tv_nsec / 1000000000.0;
-        ops_sec = (iterations - 1) / time_taken;
+        time_taken = (double)taken.tv_sec + (double)taken.tv_nsec / 1000000000.0;
+        ops_sec = (double)(iterations - 1) / time_taken;
 
         printf("%s - %d, ops/sec: %s\n", "Iteration", i + 1, format_double(ops_sec));
     }

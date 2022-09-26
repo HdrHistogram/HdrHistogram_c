@@ -13,7 +13,7 @@
 
 int tests_run = 0;
 
-static char* test_store_load_64()
+static char* test_store_load_64(void)
 {
     int64_t value = 45;
     int64_t b;
@@ -28,7 +28,7 @@ static char* test_store_load_64()
     return 0;
 }
 
-static char* test_store_load_pointer()
+static char* test_store_load_pointer(void)
 {
     int64_t r = 12;
     int64_t* q = 0;
@@ -43,7 +43,7 @@ static char* test_store_load_pointer()
     return 0;
 }
 
-static char* test_exchange()
+static char* test_exchange(void)
 {
     int64_t val1 = 123124;
     int64_t val2 = 987234;
@@ -57,7 +57,7 @@ static char* test_exchange()
     return 0;
 }
 
-static char* test_add()
+static char* test_add(void)
 {
     int64_t val1 = 123124;
     int64_t val2 = 987234;
@@ -70,7 +70,7 @@ static char* test_add()
     return 0;
 }
 
-static struct mu_result all_tests()
+static struct mu_result all_tests(void)
 {
     mu_run_test(test_store_load_64);
     mu_run_test(test_store_load_pointer);
@@ -80,7 +80,7 @@ static struct mu_result all_tests()
     mu_ok;
 }
 
-static int hdr_atomic_run_tests()
+static int hdr_atomic_run_tests(void)
 {
     struct mu_result result = all_tests();
 
@@ -98,7 +98,7 @@ static int hdr_atomic_run_tests()
     return result.message == NULL ? 0 : -1;
 }
 
-int main()
+int main(void)
 {
     return hdr_atomic_run_tests();
 }

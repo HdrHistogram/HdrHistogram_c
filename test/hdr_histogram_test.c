@@ -34,7 +34,7 @@ static struct hdr_histogram* cor_histogram = NULL;
 static struct hdr_histogram* scaled_raw_histogram = NULL;
 static struct hdr_histogram* scaled_cor_histogram = NULL;
 
-static void load_histograms()
+static void load_histograms(void)
 {
     const int64_t highest_trackable_value = INT64_C(3600) * 1000 * 1000;
     const int32_t significant_figures = 3;
@@ -87,7 +87,7 @@ static void load_histograms()
     hdr_record_corrected_value(scaled_cor_histogram, 100000000 * scale, scaled_interval);
 }
 
-static char* test_create()
+static char* test_create(void)
 {
     struct hdr_histogram* h = NULL;
     int r = hdr_init(1, INT64_C(3600000000), 3, &h);
@@ -101,7 +101,7 @@ static char* test_create()
     return 0;
 }
 
-static char* test_create_with_large_values()
+static char* test_create_with_large_values(void)
 {
     struct hdr_histogram* h = NULL;
     int r = hdr_init(20000000, 100000000, 5, &h);
@@ -130,7 +130,7 @@ static char* test_create_with_large_values()
     return 0;
 }
 
-static char* test_invalid_significant_figures()
+static char* test_invalid_significant_figures(void)
 {
     struct hdr_histogram* h = NULL;
 
@@ -145,7 +145,7 @@ static char* test_invalid_significant_figures()
     return 0;
 }
 
-static char* test_invalid_init()
+static char* test_invalid_init(void)
 {
     struct hdr_histogram* h = NULL;
 
@@ -155,7 +155,7 @@ static char* test_invalid_init()
     return 0;
 }
 
-static char* test_total_count()
+static char* test_total_count(void)
 {
     load_histograms();
 
@@ -165,7 +165,7 @@ static char* test_total_count()
     return 0;
 }
 
-static char* test_get_max_value()
+static char* test_get_max_value(void)
 {
     int64_t actual_raw_max, actual_cor_max;
 
@@ -181,7 +181,7 @@ static char* test_get_max_value()
     return 0;
 }
 
-static char* test_get_min_value()
+static char* test_get_min_value(void)
 {
     load_histograms();
 
@@ -191,7 +191,7 @@ static char* test_get_min_value()
     return 0;
 }
 
-static char* test_percentiles()
+static char* test_percentiles(void)
 {
     load_histograms();
 
@@ -224,7 +224,7 @@ static char* test_percentiles()
     return 0;
 }
 
-static char* test_percentiles_by_value_at_percentiles()
+static char* test_percentiles_by_value_at_percentiles(void)
 {
     load_histograms();
     int64_t values[5] = { 0 };
@@ -240,7 +240,7 @@ static char* test_percentiles_by_value_at_percentiles()
 }
 
 
-static char* test_recorded_values()
+static char* test_recorded_values(void)
 {
     struct hdr_iter iter;
     int index;
@@ -290,7 +290,7 @@ static char* test_recorded_values()
     return 0;
 }
 
-static char* test_linear_values()
+static char* test_linear_values(void)
 {
     struct hdr_iter iter;
     int index;
@@ -345,7 +345,7 @@ static char* test_linear_values()
     return 0;
 }
 
-static char* test_logarithmic_values()
+static char* test_logarithmic_values(void)
 {
     struct hdr_iter iter;
     int index;
@@ -398,7 +398,7 @@ static char* test_logarithmic_values()
     return 0;
 }
 
-static char* test_reset()
+static char* test_reset(void)
 {
     load_histograms();
 
@@ -417,7 +417,7 @@ static char* test_reset()
     return 0;
 }
 
-static char* test_scaling_equivalence()
+static char* test_scaling_equivalence(void)
 {
     int64_t expected_99th, scaled_99th;
     load_histograms();
@@ -446,7 +446,7 @@ static char* test_scaling_equivalence()
     return 0;
 }
 
-static char* test_out_of_range_values()
+static char* test_out_of_range_values(void)
 {
     struct hdr_histogram *h;
     hdr_init(1, 1000, 4, &h);
@@ -456,7 +456,7 @@ static char* test_out_of_range_values()
     return 0;
 }
 
-static char* test_linear_iter_buckets_correctly()
+static char* test_linear_iter_buckets_correctly(void)
 {
     int step_count = 0;
     int64_t total_count = 0;
@@ -492,7 +492,7 @@ static char* test_linear_iter_buckets_correctly()
     return 0;
 }
 
-static char* test_interval_recording()
+static char* test_interval_recording(void)
 {
     int value_count, i, value;
     char* result;
@@ -536,7 +536,7 @@ static char* test_interval_recording()
     return 0;
 }
 
-static char* reset_histogram_on_sample_and_recycle()
+static char* reset_histogram_on_sample_and_recycle(void)
 {
     struct hdr_interval_recorder recorder;
     struct hdr_histogram* inactive1;
@@ -561,7 +561,7 @@ static char* reset_histogram_on_sample_and_recycle()
     return 0;
 }
 
-static struct mu_result all_tests()
+static struct mu_result all_tests(void)
 {
     mu_run_test(test_create);
     mu_run_test(test_invalid_init);
@@ -585,7 +585,7 @@ static struct mu_result all_tests()
     mu_ok;
 }
 
-static int hdr_histogram_run_tests()
+static int hdr_histogram_run_tests(void)
 {
     struct mu_result result = all_tests();
 
@@ -603,7 +603,7 @@ static int hdr_histogram_run_tests()
     return result.message == NULL ? 0 : -1;
 }
 
-int main()
+int main(void)
 {
     return hdr_histogram_run_tests();
 }

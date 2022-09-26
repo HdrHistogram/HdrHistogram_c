@@ -159,7 +159,7 @@ static bool compare_histogram(struct hdr_histogram* a, struct hdr_histogram* b)
 static struct hdr_histogram* raw_histogram = NULL;
 static struct hdr_histogram* cor_histogram = NULL;
 
-static void load_histograms()
+static void load_histograms(void)
 {
     int i;
 
@@ -199,7 +199,7 @@ int hdr_decode_compressed(
     uint8_t* buffer, size_t length, struct hdr_histogram** histogram);
 void hex_dump (char *desc, void *addr, int len);
 
-static char* test_encode_and_decode_compressed()
+static char* test_encode_and_decode_compressed(void)
 {
     uint8_t* buffer = NULL;
     size_t len = 0;
@@ -228,7 +228,7 @@ static char* test_encode_and_decode_compressed()
     return 0;
 }
 
-static char* test_encode_and_decode_compressed2()
+static char* test_encode_and_decode_compressed2(void)
 {
     uint8_t* buffer = NULL;
     size_t len = 0;
@@ -257,7 +257,7 @@ static char* test_encode_and_decode_compressed2()
     return 0;
 }
 
-static char* test_bounds_check_on_decode()
+static char* test_bounds_check_on_decode(void)
 {
     uint8_t* buffer = NULL;
     size_t len = 0;
@@ -279,7 +279,7 @@ static char* test_bounds_check_on_decode()
     return 0;
 }
 
-static char* test_encode_and_decode_base64()
+static char* test_encode_and_decode_base64(void)
 {
     uint8_t* buffer = NULL;
     uint8_t* decoded = NULL;
@@ -306,7 +306,7 @@ static char* test_encode_and_decode_base64()
     return 0;
 }
 
-static char* test_encode_and_decode_empty()
+static char* test_encode_and_decode_empty(void)
 {
     uint8_t* buffer;
     uint8_t* decoded;
@@ -336,7 +336,7 @@ static char* test_encode_and_decode_empty()
     return 0;
 }
 
-static char* test_encode_and_decode_compressed_large()
+static char* test_encode_and_decode_compressed_large(void)
 {
     const int64_t limit = INT64_C(3600) * 1000 * 1000;
     struct hdr_histogram* actual = NULL;
@@ -388,7 +388,7 @@ static bool assert_base64_encode(const char* input, const char* expected)
     return result;
 }
 
-static char* base64_encode_encodes_without_padding()
+static char* base64_encode_encodes_without_padding(void)
 {
     mu_assert(
         "Encoding without padding",
@@ -399,7 +399,7 @@ static char* base64_encode_encodes_without_padding()
     return 0;
 }
 
-static char* base64_encode_encodes_with_padding()
+static char* base64_encode_encodes_with_padding(void)
 {
     mu_assert(
         "Encoding with padding '='",
@@ -415,7 +415,7 @@ static char* base64_encode_encodes_with_padding()
     return 0;
 }
 
-static char* base64_encode_fails_with_invalid_lengths()
+static char* base64_encode_fails_with_invalid_lengths(void)
 {
     mu_assert(
         "Output length not 4/3 of input length",
@@ -424,7 +424,7 @@ static char* base64_encode_fails_with_invalid_lengths()
     return 0;
 }
 
-static char* base64_encode_block_encodes_3_bytes()
+static char* base64_encode_block_encodes_3_bytes(void)
 {
     char output[5] = { 0 };
 
@@ -434,7 +434,7 @@ static char* base64_encode_block_encodes_3_bytes()
     return 0;
 }
 
-static char* base64_decode_block_decodes_4_chars()
+static char* base64_decode_block_decodes_4_chars(void)
 {
     uint8_t output[4] = { 0 };
 
@@ -456,7 +456,7 @@ static bool assert_base64_decode(const char* base64_encoded, const char* expecte
     return result == 0 && compare_string(expected, (char*)output, output_len);
 }
 
-static char* base64_decode_decodes_strings_without_padding()
+static char* base64_decode_decodes_strings_without_padding(void)
 {
     mu_assert(
         "Encoding without padding",
@@ -467,7 +467,7 @@ static char* base64_decode_decodes_strings_without_padding()
     return 0;
 }
 
-static char* base64_decode_decodes_strings_with_padding()
+static char* base64_decode_decodes_strings_with_padding(void)
 {
     mu_assert(
         "Encoding with padding '='",
@@ -484,7 +484,7 @@ static char* base64_decode_decodes_strings_with_padding()
     return 0;
 }
 
-static char* base64_decode_fails_with_invalid_lengths()
+static char* base64_decode_fails_with_invalid_lengths(void)
 {
     mu_assert("Input length % 4 != 0", hdr_base64_decode(NULL, 5, NULL, 3) != 0);
     mu_assert("Input length < 4", hdr_base64_decode(NULL, 3, NULL, 3) != 0);
@@ -495,7 +495,7 @@ static char* base64_decode_fails_with_invalid_lengths()
     return 0;
 }
 
-static char* writes_and_reads_log()
+static char* writes_and_reads_log(void)
 {
     struct hdr_log_writer writer;
     struct hdr_log_reader reader;
@@ -585,7 +585,7 @@ static char* writes_and_reads_log()
     return 0;
 }
 
-static char* log_reader_aggregates_into_single_histogram()
+static char* log_reader_aggregates_into_single_histogram(void)
 {
     const char* file_name = "histogram.log";
     hdr_timespec timestamp;
@@ -650,7 +650,7 @@ static char* log_reader_aggregates_into_single_histogram()
     return 0;
 }
 
-static char* log_reader_fails_with_incorrect_version()
+static char* log_reader_fails_with_incorrect_version(void)
 {
     const char* log_with_invalid_version =
     "#[Test log]\n"
@@ -679,7 +679,7 @@ static char* log_reader_fails_with_incorrect_version()
     return 0;
 }
 
-static char* test_encode_decode_empty()
+static char* test_encode_decode_empty(void)
 {
     char *data;
     struct hdr_histogram *histogram, *hdr_new = NULL;
@@ -695,7 +695,7 @@ static char* test_encode_decode_empty()
     return 0;
 }
 
-static char* test_string_encode_decode()
+static char* test_string_encode_decode(void)
 {
     int i;
     char *data;
@@ -716,7 +716,7 @@ static char* test_string_encode_decode()
     return 0;
 }
 
-static char* test_string_encode_decode_2()
+static char* test_string_encode_decode_2(void)
 {
     int i;
     char *data;
@@ -741,7 +741,7 @@ static char* test_string_encode_decode_2()
 }
 
 
-static char* decode_v1_log()
+static char* decode_v1_log(void)
 {
     const char* v1_log = "jHiccup-2.0.6.logV1.hlog";
     struct hdr_histogram* accum;
@@ -788,7 +788,7 @@ static char* decode_v1_log()
 }
 
 
-static char* decode_v2_log()
+static char* decode_v2_log(void)
 {
     struct hdr_histogram* accum;
     struct hdr_histogram* h = NULL;
@@ -834,7 +834,7 @@ static char* decode_v2_log()
     return 0;
 }
 
-static char* decode_v3_log()
+static char* decode_v3_log(void)
 {
     struct hdr_histogram* accum;
     struct hdr_histogram* h = NULL;
@@ -904,7 +904,7 @@ static int parse_line_from_file(const char* filename)
     return result;
 }
 
-static char* handle_invalid_log_lines()
+static char* handle_invalid_log_lines(void)
 {
     mu_assert("Should have invalid histogram", -EINVAL == parse_line_from_file("test_tagged_invalid_histogram.txt"));
     mu_assert("Should have invalid tag key", -EINVAL == parse_line_from_file("test_tagged_invalid_tag_key.txt"));
@@ -914,7 +914,7 @@ static char* handle_invalid_log_lines()
     return 0;
 }
 
-static char* decode_v0_log()
+static char* decode_v0_log(void)
 {
     struct hdr_histogram* accum;
     const char* v1_log = "jHiccup-2.0.1.logV0.hlog";
@@ -959,7 +959,7 @@ static char* decode_v0_log()
     return 0;
 }
 
-static struct mu_result all_tests()
+static struct mu_result all_tests(void)
 {
     tests_run = 0;
 
@@ -1001,7 +1001,7 @@ static struct mu_result all_tests()
     mu_ok;
 }
 
-static int hdr_histogram_log_run_tests()
+static int hdr_histogram_log_run_tests(void)
 {
     struct mu_result result = all_tests();
 
@@ -1019,7 +1019,7 @@ static int hdr_histogram_log_run_tests()
     return result.message == NULL ? 0 : -1;
 }
 
-int main()
+int main(void)
 {
     return hdr_histogram_log_run_tests();
 }
