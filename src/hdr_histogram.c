@@ -734,19 +734,21 @@ int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percen
 double hdr_mean(const struct hdr_histogram* h)
 {
     struct hdr_iter iter;
-    int64_t total = 0;
+    int64_t total = 0, count = 0;
+    int64_t total_count = h->total_count;
 
     hdr_iter_init(&iter, h);
 
-    while (hdr_iter_next(&iter))
+    while (hdr_iter_next(&iter) && count < total_count)
     {
         if (0 != iter.count)
         {
+            count += iter.count;
             total += iter.count * hdr_median_equivalent_value(h, iter.value);
         }
     }
 
-    return (total * 1.0) / h->total_count;
+    return (total * 1.0) / total_count;
 }
 
 double hdr_stddev(const struct hdr_histogram* h)
