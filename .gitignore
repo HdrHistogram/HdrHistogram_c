@@ -53,3 +53,4 @@ test/perftest
 debug
 cmake-build-debug
 /build-afl
+.vscode
