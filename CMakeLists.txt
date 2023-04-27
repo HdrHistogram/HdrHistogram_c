@@ -1,7 +1,14 @@
 cmake_minimum_required(VERSION 3.12)
+if(POLICY CMP0135)
+    cmake_policy(SET CMP0135 NEW)
+    set(CMAKE_POLICY_DEFAULT_CMP0135 NEW)
+endif()
+
+file(STRINGS "include/hdr/hdr_histogram_version.h" HDR_VERSION_HEADER)
+string(REGEX MATCH ".*#define HDR_HISTOGRAM_VERSION \"(.*)\".*" HDR_BLACK_HOLE ${HDR_VERSION_HEADER})
 
 project(hdr_histogram
-    VERSION 0.11.6
+    VERSION ${CMAKE_MATCH_1}
     LANGUAGES C
     DESCRIPTION "C port of the HdrHistogram"
     HOMEPAGE_URL "http://hdrhistogram.github.io/HdrHistogram/")
@@ -21,7 +28,7 @@ include(CMakePackageConfigHelpers)
 
 set(HDR_SOVERSION_CURRENT   6)
 set(HDR_SOVERSION_AGE       1)
-set(HDR_SOVERSION_REVISION  2)
+set(HDR_SOVERSION_REVISION  3)
 
 set(HDR_VERSION ${HDR_SOVERSION_CURRENT}.${HDR_SOVERSION_AGE}.${HDR_SOVERSION_REVISION})
 set(HDR_SOVERSION ${HDR_SOVERSION_CURRENT})
