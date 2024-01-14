@@ -101,6 +101,8 @@ const char* hdr_strerror(int errnum)
             return "Truncated value found when decoding";
         case HDR_ENCODED_INPUT_TOO_LONG:
             return "The encoded input exceeds the size of the histogram";
+        case HDR_INVALID_WORD_SIZE:
+            return "Invalid word size";
         default:
             return strerror(errnum);
     }
@@ -499,6 +501,10 @@ static int hdr_decode_compressed_v1(
     }
 
     word_size = word_size_from_cookie(be32toh(encoding_flyweight.cookie));
+    if (word_size == 0)
+    {
+        FAIL_AND_CLEANUP(cleanup, result, HDR_INVALID_WORD_SIZE);
+    }
     counts_limit = be32toh(encoding_flyweight.payload_len) / word_size;
     lowest_discernible_value = be64toh(encoding_flyweight.lowest_discernible_value);
     highest_trackable_value = be64toh(encoding_flyweight.highest_trackable_value);
