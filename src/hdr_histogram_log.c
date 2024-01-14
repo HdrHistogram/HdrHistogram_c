@@ -442,7 +442,7 @@ cleanup:
 
     if (result != 0)
     {
-        hdr_free(h);
+        hdr_close(h);
     }
     else if (NULL == *histogram)
     {
@@ -547,7 +547,7 @@ cleanup:
 
     if (result != 0)
     {
-        hdr_free(h);
+        hdr_close(h);
     }
     else if (NULL == *histogram)
     {
@@ -649,7 +649,7 @@ cleanup:
 
     if (result != 0)
     {
-        hdr_free(h);
+        hdr_close(h);
     }
     else if (NULL == *histogram)
     {
