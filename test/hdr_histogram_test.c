@@ -450,8 +450,8 @@ static char* test_out_of_range_values(void)
 {
     struct hdr_histogram *h;
     hdr_init(1, 1000, 4, &h);
-    mu_assert("Should successfully record value", hdr_record_value(h, 32767));
-    mu_assert("Should not record value", !hdr_record_value(h, 32768));
+    mu_assert("Should successfully record value", hdr_record_value(h, 1000));
+    mu_assert("Should not record value", !hdr_record_value(h, 1001));
 
     return 0;
 }
