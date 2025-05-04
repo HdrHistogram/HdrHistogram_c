@@ -46,7 +46,7 @@ function(hdr_histogram_add_library NAME LIBRARY_TYPE DO_INSTALL)
         ${NAME}
         PUBLIC
             $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
-            $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/hdr>)
+            $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
     if(DO_INSTALL)
         install(
             TARGETS ${NAME}
