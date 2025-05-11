@@ -47,6 +47,9 @@ function(hdr_histogram_add_library NAME LIBRARY_TYPE DO_INSTALL)
         PUBLIC
             $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
             $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+
+    add_library(${PROJECT_NAME}::${NAME} ALIAS ${NAME})
+
     if(DO_INSTALL)
         install(
             TARGETS ${NAME}
