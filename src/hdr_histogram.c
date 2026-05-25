@@ -83,8 +83,10 @@ static void counts_inc_normalised_atomic(
 
 static void update_min_max(struct hdr_histogram* h, int64_t value)
 {
-    h->min_value = (value < h->min_value && value != 0) ? value : h->min_value;
-    h->max_value = (value > h->max_value) ? value : h->max_value;
+    if (__builtin_expect(value > h->max_value, 0))
+        h->max_value = value;
+    if (__builtin_expect(value != 0 && value < h->min_value, 0))
+        h->min_value = value;
 }
 
 static void update_min_max_atomic(struct hdr_histogram* h, int64_t value)
