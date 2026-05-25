@@ -74,3 +74,7 @@ option(HDR_HISTOGRAM_INSTALL_STATIC "Install static library" ON)
 if(HDR_HISTOGRAM_BUILD_STATIC)
     hdr_histogram_add_library(hdr_histogram_static STATIC ${HDR_HISTOGRAM_INSTALL_STATIC})
 endif()
+
+if(COMPILER_HAS_AVX2)
+    set_source_files_properties(hdr_histogram.c PROPERTIES COMPILE_OPTIONS "-mavx2")
+endif()
