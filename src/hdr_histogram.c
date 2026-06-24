@@ -23,8 +23,12 @@
 
 #include HDR_MALLOC_INCLUDE
 
-#if defined(__AVX2__)
-#include <immintrin.h>
+/* Runtime-dispatched AVX2 path: keep the rest of this TU at the project's
+   baseline ISA so the shipped binary does not silently require AVX2. */
+#if (defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)) \
+    && (defined(__GNUC__) || defined(__clang__)) && !defined(__INTEL_COMPILER)
+#  define HDR_HAS_AVX2_DISPATCH 1
+#  include <immintrin.h>
 #endif
 
 /*  ######   #######  ##     ## ##    ## ########  ######  */
@@ -669,50 +673,64 @@ int64_t hdr_min(const struct hdr_histogram* h)
     return non_zero_min(h);
 }
 
+static int64_t get_value_from_idx_up_to_count_scalar(
+    const struct hdr_histogram* h, int64_t count_at_percentile)
+{
+    int64_t count_to_idx = 0;
+    for (int32_t idx = 0; idx < h->counts_len; idx++) {
+        count_to_idx += h->counts[idx];
+        if (count_to_idx >= count_at_percentile)
+            return hdr_value_at_index(h, idx);
+    }
+    return 0;
+}
+
+#ifdef HDR_HAS_AVX2_DISPATCH
+__attribute__((target("avx2")))
+static int64_t get_value_from_idx_up_to_count_avx2(
+    const struct hdr_histogram* h, int64_t count_at_percentile)
+{
+    int64_t running = 0;
+    int32_t idx = 0;
+    const int32_t limit = h->counts_len & ~3;
+
+    for (; idx < limit; idx += 4) {
+        __m256i v = _mm256_loadu_si256((const __m256i*)&h->counts[idx]);
+        __m128i lo = _mm256_castsi256_si128(v);
+        __m128i hi = _mm256_extracti128_si256(v, 1);
+        __m128i s = _mm_add_epi64(lo, hi);
+        /* Lanes are non-negative counts whose total fits in int64_t (total_count
+           invariant), so the chunk sum cannot overflow under valid state. Use
+           unsigned add to avoid signed-overflow UB if invariants are violated. */
+        int64_t chunk = (int64_t)((uint64_t)_mm_extract_epi64(s, 0)
+                                + (uint64_t)_mm_extract_epi64(s, 1));
+
+        if (__builtin_expect(running + chunk >= count_at_percentile, 0)) {
+            for (int32_t j = idx; j < idx + 4; j++) {
+                running += h->counts[j];
+                if (running >= count_at_percentile)
+                    return hdr_value_at_index(h, j);
+            }
+        }
+        running += chunk;
+    }
+    for (; idx < h->counts_len; idx++) {
+        running += h->counts[idx];
+        if (running >= count_at_percentile)
+            return hdr_value_at_index(h, idx);
+    }
+    return 0;
+}
+#endif
+
 static int64_t get_value_from_idx_up_to_count(const struct hdr_histogram* h, int64_t count_at_percentile)
 {
     count_at_percentile = count_at_percentile > 0 ? count_at_percentile : 1;
-
-#if defined(__AVX2__)
-    {
-        int64_t running = 0;
-        int32_t idx = 0;
-        const int32_t limit = h->counts_len & ~3;
-
-        for (; idx < limit; idx += 4) {
-            __m256i v = _mm256_loadu_si256((const __m256i*)&h->counts[idx]);
-            __m128i lo = _mm256_castsi256_si128(v);
-            __m128i hi = _mm256_extracti128_si256(v, 1);
-            __m128i s = _mm_add_epi64(lo, hi);
-            int64_t chunk = _mm_extract_epi64(s, 0) + _mm_extract_epi64(s, 1);
-
-            if (__builtin_expect(running + chunk >= count_at_percentile, 0)) {
-                for (int32_t j = idx; j < idx + 4; j++) {
-                    running += h->counts[j];
-                    if (running >= count_at_percentile)
-                        return hdr_value_at_index(h, j);
-                }
-            }
-            running += chunk;
-        }
-        for (; idx < h->counts_len; idx++) {
-            running += h->counts[idx];
-            if (running >= count_at_percentile)
-                return hdr_value_at_index(h, idx);
-        }
-        return 0;
-    }
-#else
-    {
-        int64_t count_to_idx = 0;
-        for (int32_t idx = 0; idx < h->counts_len; idx++) {
-            count_to_idx += h->counts[idx];
-            if (count_to_idx >= count_at_percentile)
-                return hdr_value_at_index(h, idx);
-        }
-        return 0;
-    }
+#ifdef HDR_HAS_AVX2_DISPATCH
+    if (__builtin_cpu_supports("avx2"))
+        return get_value_from_idx_up_to_count_avx2(h, count_at_percentile);
 #endif
+    return get_value_from_idx_up_to_count_scalar(h, count_at_percentile);
 }
 
 

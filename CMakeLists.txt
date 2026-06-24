@@ -17,8 +17,6 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
-include(CheckCCompilerFlag)
-check_c_compiler_flag("-mavx2" COMPILER_HAS_AVX2)
 
 # Follow all steps below in order to calculate new ABI version when updating the library
 # NOTE: THIS IS UNRELATED to the actual project version

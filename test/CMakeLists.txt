@@ -75,7 +75,7 @@ endif()
 hdr_histogram_add_test_executable(hdr_histogram_perf)
 
 add_executable(hdr_percentile_bench hdr_percentile_bench.c)
-target_link_libraries(hdr_percentile_bench hdr_histogram)
+target_link_libraries(hdr_percentile_bench hdr_histogram_static)
 
 foreach(V 2.0.1.logV0 2.0.6.logV1 2.0.7S.logV2 2.0.7S.logV3)
     configure_file(jHiccup-${V}.hlog jHiccup-${V}.hlog COPYONLY)
