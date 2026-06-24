@@ -23,6 +23,15 @@
 
 #include HDR_MALLOC_INCLUDE
 
+/* Branch-prediction hints (no-op on compilers without __builtin_expect). */
+#if defined(__GNUC__) || defined(__clang__)
+#  define HDR_LIKELY(x)   __builtin_expect(!!(x), 1)
+#  define HDR_UNLIKELY(x) __builtin_expect(!!(x), 0)
+#else
+#  define HDR_LIKELY(x)   (x)
+#  define HDR_UNLIKELY(x) (x)
+#endif
+
 /*  ######   #######  ##     ## ##    ## ########  ######  */
 /* ##    ## ##     ## ##     ## ###   ##    ##    ##    ## */
 /* ##       ##     ## ##     ## ####  ##    ##    ##       */
@@ -83,9 +92,9 @@ static void counts_inc_normalised_atomic(
 
 static void update_min_max(struct hdr_histogram* h, int64_t value)
 {
-    if (__builtin_expect(value > h->max_value, 0))
+    if (HDR_UNLIKELY(value > h->max_value))
         h->max_value = value;
-    if (__builtin_expect(value != 0 && value < h->min_value, 0))
+    if (HDR_UNLIKELY(value != 0 && value < h->min_value))
         h->min_value = value;
 }
 
