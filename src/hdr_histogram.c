@@ -25,9 +25,13 @@
 
 /* Prefetch hint for upcoming write access */
 #if defined(__GNUC__) || defined(__clang__)
-#  define HDR_PREFETCH_WRITE(addr) __builtin_prefetch((addr), 1, 1)
+#  define HDR_PREFETCH_WRITE(addr) __builtin_prefetch((addr), 1, 3)
+#  define HDR_LIKELY(x)   __builtin_expect(!!(x), 1)
+#  define HDR_UNLIKELY(x) __builtin_expect(!!(x), 0)
 #else
 #  define HDR_PREFETCH_WRITE(addr) ((void)(addr))
+#  define HDR_LIKELY(x)   (x)
+#  define HDR_UNLIKELY(x) (x)
 #endif
 
 /*  ######   #######  ##     ## ##    ## ########  ######  */
@@ -74,7 +78,7 @@ static int64_t counts_get_normalised(const struct hdr_histogram* h, int32_t inde
 static void counts_inc_normalised(
     struct hdr_histogram* h, int32_t index, int64_t value)
 {
-    if (__builtin_expect(h->normalizing_index_offset == 0, 1))
+    if (HDR_LIKELY(h->normalizing_index_offset == 0))
     {
         HDR_PREFETCH_WRITE(&h->counts[index]);
         h->counts[index] += value;
@@ -91,7 +95,7 @@ static void counts_inc_normalised(
 static void counts_inc_normalised_atomic(
     struct hdr_histogram* h, int32_t index, int64_t value)
 {
-    if (__builtin_expect(h->normalizing_index_offset == 0, 1))
+    if (HDR_LIKELY(h->normalizing_index_offset == 0))
     {
         HDR_PREFETCH_WRITE(&h->counts[index]);
         hdr_atomic_add_fetch_64(&h->counts[index], value);
