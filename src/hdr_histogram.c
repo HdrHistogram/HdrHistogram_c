@@ -111,8 +111,15 @@ static void counts_inc_normalised_atomic(
 
 static void update_min_max(struct hdr_histogram* h, int64_t value)
 {
-    h->min_value = (value < h->min_value && value != 0) ? value : h->min_value;
-    h->max_value = (value > h->max_value) ? value : h->max_value;
+    if (HDR_UNLIKELY(value > h->max_value))
+    {
+        h->max_value = value;
+    }
+
+    if (HDR_UNLIKELY(value != 0 && value < h->min_value))
+    {
+        h->min_value = value;
+    }
 }
 
 static void update_min_max_atomic(struct hdr_histogram* h, int64_t value)
