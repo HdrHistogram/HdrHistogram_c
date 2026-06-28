@@ -506,7 +506,7 @@ bool hdr_record_values(struct hdr_histogram* h, int64_t value, int64_t count)
     }
 
     counts_index = counts_index_for(h, value);
-    if (counts_index < 0 || h->counts_len <= counts_index)
+    if ((uint32_t)counts_index >= (uint32_t)h->counts_len)
     {
         return false;
     }
@@ -528,7 +528,7 @@ bool hdr_record_values_atomic(struct hdr_histogram* h, int64_t value, int64_t co
 
     counts_index = counts_index_for(h, value);
 
-    if (counts_index < 0 || h->counts_len <= counts_index)
+    if ((uint32_t)counts_index >= (uint32_t)h->counts_len)
     {
         return false;
     }
