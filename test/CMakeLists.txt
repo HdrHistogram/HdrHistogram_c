@@ -1,5 +1,8 @@
 option(HDR_HISTOGRAM_BUILD_BENCHMARK "Build benchmark" OFF)
 if(HDR_HISTOGRAM_BUILD_BENCHMARK)
+    add_executable(hdr_percentile_bench hdr_percentile_bench.c)
+    target_link_libraries(hdr_percentile_bench hdr_histogram_static)
+
     if(UNIX)
         enable_language(CXX)
 
