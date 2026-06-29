@@ -715,40 +715,60 @@ static int64_t get_value_from_idx_up_to_count(const struct hdr_histogram* h, int
      * a small fixed block (4) -- large enough to amortize the branch, small
      * enough to bound the per-crossing element re-walk.
      *
-     * Like the previous scalar scan, counts[] is read directly; this assumes
-     * h->normalizing_index_offset == 0, which holds for histograms produced by
-     * the public API. */
+     * The fast block scan reads counts[] directly. When the histogram has a
+     * non-zero normalizing_index_offset (set on public-API objects by
+     * hdr_log_read / hdr_decode_compressed) the bucket layout is rotated in
+     * counts[], so a direct read would return the wrong cumulative count.
+     * Fall back to an offset-aware scan in that case. */
     enum { BLK = 4 };
     const int64_t* counts = h->counts;
     const int32_t n = h->counts_len;
-    const int32_t blk_limit = n - (n % BLK);
-    int64_t running = 0;
     int32_t idx = 0;
+    int64_t running = 0;
 
     count_at_percentile = count_at_percentile > 0 ? count_at_percentile : 1;
 
-    for (; idx < blk_limit; idx += BLK)
+    if (HDR_UNLIKELY(h->normalizing_index_offset != 0))
     {
-        int64_t block_sum = 0;
-        int32_t j;
-        for (j = 0; j < BLK; j++)
+        for (idx = 0; idx < n; idx++)
         {
-            block_sum += counts[idx + j];
-        }
-        if (running + block_sum >= count_at_percentile)
-        {
-            for (j = 0; j < BLK; j++)
+            running += counts_get_normalised(h, idx);
+            if (running >= count_at_percentile)
             {
-                running += counts[idx + j];
-                if (running >= count_at_percentile)
-                {
-                    return hdr_value_at_index(h, idx + j);
-                }
+                return hdr_value_at_index(h, idx);
             }
         }
-        else
+        return 0;
+    }
+
+    {
+        const int32_t blk_limit = n - (n % BLK);
+        for (; idx < blk_limit; idx += BLK)
         {
-            running += block_sum;
+            /* Unsigned accumulation avoids signed-overflow UB on a fuzzed or
+               corrupted histogram that violates total_count <= INT64_MAX.
+               Under valid state the result equals the signed sum. */
+            uint64_t block_sum_u = 0;
+            int32_t j;
+            for (j = 0; j < BLK; j++)
+            {
+                block_sum_u += (uint64_t)counts[idx + j];
+            }
+            if (HDR_UNLIKELY((uint64_t)running + block_sum_u >= (uint64_t)count_at_percentile))
+            {
+                for (j = 0; j < BLK; j++)
+                {
+                    running += counts[idx + j];
+                    if (running >= count_at_percentile)
+                    {
+                        return hdr_value_at_index(h, idx + j);
+                    }
+                }
+            }
+            else
+            {
+                running += (int64_t)block_sum_u;
+            }
         }
     }
 
@@ -802,10 +822,30 @@ int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percen
 
     /* Resolve every requested percentile in a single ascending pass over
        counts[], instead of one hdr_iter_next() walk per call. Same block-summed
-       shape as get_value_from_idx_up_to_count (and the same
-       normalizing_index_offset == 0 assumption): sum a block, test the running
-       total against the next outstanding target once per block, and walk a block
-       element by element only when it crosses one or more targets. */
+       shape as get_value_from_idx_up_to_count, including the same offset-aware
+       fallback for decoded histograms (hdr_log_read / hdr_decode_compressed
+       can set h->normalizing_index_offset != 0). */
+    if (HDR_UNLIKELY(h->normalizing_index_offset != 0))
+    {
+        int64_t running = 0;
+        size_t at_pos = 0;
+        int32_t idx;
+        for (idx = 0; idx < h->counts_len && at_pos < length; idx++)
+        {
+            running += counts_get_normalised(h, idx);
+            while (at_pos < length && running >= values[at_pos])
+            {
+                values[at_pos] = highest_equivalent_value(h, hdr_value_at_index(h, idx));
+                at_pos++;
+            }
+        }
+        for (; at_pos < length; at_pos++)
+        {
+            values[at_pos] = highest_equivalent_value(h, 0);
+        }
+        return 0;
+    }
+
     {
         enum { BLK = 4 };
         const int64_t* counts = h->counts;
@@ -817,13 +857,15 @@ int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percen
 
         for (; idx < blk_limit && at_pos < length; idx += BLK)
         {
-            int64_t block_sum = 0;
+            /* Unsigned accumulation: see matching note in
+               get_value_from_idx_up_to_count. */
+            uint64_t block_sum_u = 0;
             int32_t j;
             for (j = 0; j < BLK; j++)
             {
-                block_sum += counts[idx + j];
+                block_sum_u += (uint64_t)counts[idx + j];
             }
-            if (running + block_sum >= values[at_pos])
+            if (HDR_UNLIKELY((uint64_t)running + block_sum_u >= (uint64_t)values[at_pos]))
             {
                 for (j = 0; j < BLK; j++)
                 {
@@ -837,7 +879,7 @@ int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percen
             }
             else
             {
-                running += block_sum;
+                running += (int64_t)block_sum_u;
             }
         }
 
