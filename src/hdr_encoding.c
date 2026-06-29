@@ -14,9 +14,10 @@
 int zig_zag_encode_i64(uint8_t* buffer, int64_t signed_value)
 {
     int bytesWritten;
-    int64_t value = signed_value;
+    uint64_t value = (uint64_t)signed_value;
 
-    value = (value << 1) ^ (value >> 63);
+    /* Portable sign mask: negative → UINT64_MAX (all 1s), non-negative → 0 */
+    value = (value << 1) ^ (uint64_t)(-(int64_t)(value >> 63));
     if (value >> 7 == 0)
     {
         buffer[0] = (uint8_t) value;

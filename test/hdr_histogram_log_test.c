@@ -959,6 +959,27 @@ static char* decode_v0_log(void)
     return 0;
 }
 
+static char* test_zig_zag_codec(void)
+{
+    uint8_t buf[64] = { 0 };
+
+    int64_t inputs[] = { -1, INT64_MAX, INT64_MIN, 1 };
+    int inputs_count = sizeof(inputs) / sizeof(inputs[0]);
+
+    for (int i = 0; i < inputs_count; i++)
+    {
+        int64_t input = inputs[i];
+        int64_t output = 0;
+
+        zig_zag_encode_i64(buf, input);
+        zig_zag_decode_i64(buf, &output);
+
+        mu_assert("Codec failed", compare_int64(input, output));
+    }
+
+    return 0;
+}
+
 static struct mu_result all_tests(void)
 {
     tests_run = 0;
@@ -993,7 +1014,9 @@ static struct mu_result all_tests(void)
     mu_run_test(decode_v0_log);
     mu_run_test(handle_invalid_log_lines);
 
+    mu_run_test(test_zig_zag_codec);
     mu_run_test(test_encode_and_decode_empty);
+
 
     free(raw_histogram);
     free(cor_histogram);
