@@ -276,11 +276,13 @@ int64_t hdr_value_at_percentile(const struct hdr_histogram* h, double percentile
  * Get the values at the given percentiles.
  *
  * @param h "This" pointer.
- * @param percentiles The ordered percentiles array to get the values for.
+ * @param percentiles The percentiles to get the values for. Must be sorted in
+ * non-decreasing order; the values are resolved in a single ascending pass and
+ * results are unspecified if the percentiles are not ordered.
  * @param length Number of elements in the arrays.
  * @param values Destination array containing the values at the given percentiles.
  * The values array should be allocated by the caller.
- * @return 0 on success, ENOMEM if the provided destination array is null.
+ * @return 0 on success, EINVAL if percentiles or values is NULL.
  */
 int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percentiles, int64_t *values, size_t length);
 

@@ -34,14 +34,6 @@
 #  define HDR_UNLIKELY(x) (x)
 #endif
 
-/* Runtime-dispatched AVX2 path: keep the rest of this TU at the project's
-   baseline ISA so the shipped binary does not silently require AVX2. */
-#if (defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)) \
-    && (defined(__GNUC__) || defined(__clang__)) && !defined(__INTEL_COMPILER)
-#  define HDR_HAS_AVX2_DISPATCH 1
-#  include <immintrin.h>
-#endif
-
 /*  ######   #######  ##     ## ##    ## ########  ######  */
 /* ##    ## ##     ## ##     ## ###   ##    ##    ##    ## */
 /* ##       ##     ## ##     ## ####  ##    ##    ##       */
@@ -708,64 +700,68 @@ int64_t hdr_min(const struct hdr_histogram* h)
     return non_zero_min(h);
 }
 
-static int64_t get_value_from_idx_up_to_count_scalar(
-    const struct hdr_histogram* h, int64_t count_at_percentile)
-{
-    int64_t count_to_idx = 0;
-    for (int32_t idx = 0; idx < h->counts_len; idx++) {
-        count_to_idx += h->counts[idx];
-        if (count_to_idx >= count_at_percentile)
-            return hdr_value_at_index(h, idx);
-    }
-    return 0;
-}
-
-#ifdef HDR_HAS_AVX2_DISPATCH
-__attribute__((target("avx2")))
-static int64_t get_value_from_idx_up_to_count_avx2(
-    const struct hdr_histogram* h, int64_t count_at_percentile)
-{
-    int64_t running = 0;
-    int32_t idx = 0;
-    const int32_t limit = h->counts_len & ~3;
-
-    for (; idx < limit; idx += 4) {
-        __m256i v = _mm256_loadu_si256((const __m256i*)&h->counts[idx]);
-        __m128i lo = _mm256_castsi256_si128(v);
-        __m128i hi = _mm256_extracti128_si256(v, 1);
-        __m128i s = _mm_add_epi64(lo, hi);
-        /* Lanes are non-negative counts whose total fits in int64_t (total_count
-           invariant), so the chunk sum cannot overflow under valid state. Use
-           unsigned add to avoid signed-overflow UB if invariants are violated. */
-        int64_t chunk = (int64_t)((uint64_t)_mm_extract_epi64(s, 0)
-                                + (uint64_t)_mm_extract_epi64(s, 1));
-
-        if (__builtin_expect(running + chunk >= count_at_percentile, 0)) {
-            for (int32_t j = idx; j < idx + 4; j++) {
-                running += h->counts[j];
-                if (running >= count_at_percentile)
-                    return hdr_value_at_index(h, j);
-            }
-        }
-        running += chunk;
-    }
-    for (; idx < h->counts_len; idx++) {
-        running += h->counts[idx];
-        if (running >= count_at_percentile)
-            return hdr_value_at_index(h, idx);
-    }
-    return 0;
-}
-#endif
-
 static int64_t get_value_from_idx_up_to_count(const struct hdr_histogram* h, int64_t count_at_percentile)
 {
+    /* Block-summed prefix scan.
+     *
+     * The straightforward scan tests the cumulative count against the target
+     * after every single add. That data-dependent early-exit branch is a
+     * loop-carried dependency that prevents the compiler from overlapping
+     * iterations. Summing a small fixed block of counts first lets the running
+     * total be tested only once per block, so the common-path branch frequency
+     * drops from one-per-element to one-per-block; the block reduction itself is
+     * a plain sum the compiler is free to vectorize. The precise per-element
+     * walk is entered only for the single block that crosses the target. BLK is
+     * a small fixed block (4) -- large enough to amortize the branch, small
+     * enough to bound the per-crossing element re-walk.
+     *
+     * Like the previous scalar scan, counts[] is read directly; this assumes
+     * h->normalizing_index_offset == 0, which holds for histograms produced by
+     * the public API. */
+    enum { BLK = 4 };
+    const int64_t* counts = h->counts;
+    const int32_t n = h->counts_len;
+    const int32_t blk_limit = n - (n % BLK);
+    int64_t running = 0;
+    int32_t idx = 0;
+
     count_at_percentile = count_at_percentile > 0 ? count_at_percentile : 1;
-#ifdef HDR_HAS_AVX2_DISPATCH
-    if (__builtin_cpu_supports("avx2"))
-        return get_value_from_idx_up_to_count_avx2(h, count_at_percentile);
-#endif
-    return get_value_from_idx_up_to_count_scalar(h, count_at_percentile);
+
+    for (; idx < blk_limit; idx += BLK)
+    {
+        int64_t block_sum = 0;
+        int32_t j;
+        for (j = 0; j < BLK; j++)
+        {
+            block_sum += counts[idx + j];
+        }
+        if (running + block_sum >= count_at_percentile)
+        {
+            for (j = 0; j < BLK; j++)
+            {
+                running += counts[idx + j];
+                if (running >= count_at_percentile)
+                {
+                    return hdr_value_at_index(h, idx + j);
+                }
+            }
+        }
+        else
+        {
+            running += block_sum;
+        }
+    }
+
+    for (; idx < n; idx++)
+    {
+        running += counts[idx];
+        if (running >= count_at_percentile)
+        {
+            return hdr_value_at_index(h, idx);
+        }
+    }
+
+    return 0;
 }
 
 
@@ -789,32 +785,85 @@ int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percen
         return EINVAL;
     }
 
-    struct hdr_iter iter;
     const int64_t total_count = h->total_count;
-    // to avoid allocations we use the values array for intermediate computation
-    // i.e. to store the expected cumulative count at each percentile
-    for (size_t i = 0; i < length; i++)
+    /* Reuse values[] to hold the target cumulative count for each percentile.
+       The percentiles must be sorted in non-decreasing order, as the previous
+       iterator-based implementation also required. */
     {
-        const double requested_percentile = percentiles[i] < 100.0 ? percentiles[i] : 100.0;
-        const int64_t count_at_percentile =
-        (int64_t) (((requested_percentile / 100) * total_count) + 0.5);
-        values[i] = count_at_percentile > 1 ? count_at_percentile : 1;
-    }
-
-    hdr_iter_init(&iter, h);
-    int64_t total = 0;
-    size_t at_pos = 0;
-    while (hdr_iter_next(&iter) && at_pos < length)
-    {
-        total += iter.count;
-        while (at_pos < length && total >= values[at_pos])
+        size_t i;
+        for (i = 0; i < length; i++)
         {
-            values[at_pos] = highest_equivalent_value(h, iter.value);
-            at_pos++;
+            const double requested_percentile = percentiles[i] < 100.0 ? percentiles[i] : 100.0;
+            const int64_t count_at_percentile =
+                (int64_t) (((requested_percentile / 100) * total_count) + 0.5);
+            values[i] = count_at_percentile > 1 ? count_at_percentile : 1;
         }
     }
+
+    /* Resolve every requested percentile in a single ascending pass over
+       counts[], instead of one hdr_iter_next() walk per call. Same block-summed
+       shape as get_value_from_idx_up_to_count (and the same
+       normalizing_index_offset == 0 assumption): sum a block, test the running
+       total against the next outstanding target once per block, and walk a block
+       element by element only when it crosses one or more targets. */
+    {
+        enum { BLK = 4 };
+        const int64_t* counts = h->counts;
+        const int32_t n = h->counts_len;
+        const int32_t blk_limit = n - (n % BLK);
+        int64_t running = 0;
+        size_t at_pos = 0;
+        int32_t idx = 0;
+
+        for (; idx < blk_limit && at_pos < length; idx += BLK)
+        {
+            int64_t block_sum = 0;
+            int32_t j;
+            for (j = 0; j < BLK; j++)
+            {
+                block_sum += counts[idx + j];
+            }
+            if (running + block_sum >= values[at_pos])
+            {
+                for (j = 0; j < BLK; j++)
+                {
+                    running += counts[idx + j];
+                    while (at_pos < length && running >= values[at_pos])
+                    {
+                        values[at_pos] = highest_equivalent_value(h, hdr_value_at_index(h, idx + j));
+                        at_pos++;
+                    }
+                }
+            }
+            else
+            {
+                running += block_sum;
+            }
+        }
+
+        for (; idx < n && at_pos < length; idx++)
+        {
+            running += counts[idx];
+            while (at_pos < length && running >= values[at_pos])
+            {
+                values[at_pos] = highest_equivalent_value(h, hdr_value_at_index(h, idx));
+                at_pos++;
+            }
+        }
+
+        /* Any target not reached (e.g. an empty histogram, total_count == 0)
+           resolves to the same value the single-percentile API yields when its
+           scan finds nothing: highest_equivalent_value(h, 0). This also avoids
+           leaving the raw count target in the output. */
+        for (; at_pos < length; at_pos++)
+        {
+            values[at_pos] = highest_equivalent_value(h, 0);
+        }
+    }
+
     return 0;
 }
+
 
 double hdr_mean(const struct hdr_histogram* h)
 {
