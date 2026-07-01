@@ -734,6 +734,10 @@ static int64_t get_value_from_idx_up_to_count_avx2(
     const int32_t limit = h->counts_len & ~15;
 
     for (; idx < limit; idx += 16) {
+        /* Software-prefetch counts[] a few iterations ahead to hide the L2/L3
+           load latency of this ~10s-of-KB linear scan (idx+64 int64 = 512 B =
+           4 iterations ahead). */
+        _mm_prefetch((const char*)&h->counts[idx + 64], _MM_HINT_T0);
         __m256i a = _mm256_loadu_si256((const __m256i*)&h->counts[idx]);
         __m256i b = _mm256_loadu_si256((const __m256i*)&h->counts[idx + 4]);
         __m256i c = _mm256_loadu_si256((const __m256i*)&h->counts[idx + 8]);
