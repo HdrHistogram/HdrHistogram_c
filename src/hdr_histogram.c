@@ -801,16 +801,38 @@ int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percen
         values[i] = count_at_percentile > 1 ? count_at_percentile : 1;
     }
 
-    hdr_iter_init(&iter, h);
     int64_t total = 0;
     size_t at_pos = 0;
-    while (hdr_iter_next(&iter) && at_pos < length)
+
+    if (HDR_LIKELY(h->normalizing_index_offset == 0))
     {
-        total += iter.count;
-        while (at_pos < length && total >= values[at_pos])
+        /* Fast path: a single tight prefix-sum scan over the flat counts[] array
+           resolves all (ascending) percentiles at once, instead of the per-bucket
+           hdr_iter_next walk. The index->value conversion runs only at crossings. */
+        int32_t idx;
+        for (idx = 0; idx < h->counts_len && at_pos < length; idx++)
         {
-            values[at_pos] = highest_equivalent_value(h, iter.value);
-            at_pos++;
+            total += h->counts[idx];
+            while (at_pos < length && total >= values[at_pos])
+            {
+                values[at_pos] = highest_equivalent_value(h, hdr_value_at_index(h, idx));
+                at_pos++;
+            }
+        }
+    }
+    else
+    {
+        /* Offset-aware fallback for decoded/rotated histograms (normalizing_index_offset
+           != 0): the iterator dereferences counts through the normalized index. */
+        hdr_iter_init(&iter, h);
+        while (hdr_iter_next(&iter) && at_pos < length)
+        {
+            total += iter.count;
+            while (at_pos < length && total >= values[at_pos])
+            {
+                values[at_pos] = highest_equivalent_value(h, iter.value);
+                at_pos++;
+            }
         }
     }
     return 0;
