@@ -806,13 +806,42 @@ int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percen
 
     if (HDR_LIKELY(h->normalizing_index_offset == 0))
     {
-        /* Fast path: a single tight prefix-sum scan over the flat counts[] array
-           resolves all (ascending) percentiles at once, instead of the per-bucket
-           hdr_iter_next walk. The index->value conversion runs only at crossings. */
-        int32_t idx;
-        for (idx = 0; idx < h->counts_len && at_pos < length; idx++)
+        /* fast path: single prefix-sum scan resolves all ascending percentiles.
+           Sum a block (autovectorizes) and skip it whole while its subtotal can't
+           reach values[at_pos]; only the crossing block is walked element-wise.
+           Safe because counts are non-negative: if a block can't reach the target,
+           no element inside it can. index->value only at crossings. */
+        enum { BATCH_SCAN_BLOCK = 8 };
+        const int64_t* counts = h->counts;
+        const int32_t len = h->counts_len;
+        int32_t idx = 0;
+        for (; idx + BATCH_SCAN_BLOCK <= len && at_pos < length; idx += BATCH_SCAN_BLOCK)
         {
-            total += h->counts[idx];
+            const int64_t s =
+                counts[idx]     + counts[idx + 1] + counts[idx + 2] + counts[idx + 3] +
+                counts[idx + 4] + counts[idx + 5] + counts[idx + 6] + counts[idx + 7];
+            if (total + s >= values[at_pos])
+            {
+                int32_t j;
+                for (j = idx; j < idx + BATCH_SCAN_BLOCK; j++)
+                {
+                    total += counts[j];
+                    while (at_pos < length && total >= values[at_pos])
+                    {
+                        values[at_pos] = highest_equivalent_value(h, hdr_value_at_index(h, j));
+                        at_pos++;
+                    }
+                }
+            }
+            else
+            {
+                total += s;
+            }
+        }
+        /* Tail: fewer than BATCH_SCAN_BLOCK counters remain. */
+        for (; idx < len && at_pos < length; idx++)
+        {
+            total += counts[idx];
             while (at_pos < length && total >= values[at_pos])
             {
                 values[at_pos] = highest_equivalent_value(h, hdr_value_at_index(h, idx));
@@ -822,8 +851,8 @@ int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percen
     }
     else
     {
-        /* Offset-aware fallback for decoded/rotated histograms (normalizing_index_offset
-           != 0): the iterator dereferences counts through the normalized index. */
+        /* offset-aware fallback (normalizing_index_offset != 0): iterator
+           dereferences counts through the normalized index */
         hdr_iter_init(&iter, h);
         while (hdr_iter_next(&iter) && at_pos < length)
         {
