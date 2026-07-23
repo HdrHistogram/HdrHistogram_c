@@ -561,6 +561,37 @@ static char* reset_histogram_on_sample_and_recycle(void)
     return 0;
 }
 
+static char* test_top_bucket_value_range_no_overflow(void)
+{
+    /* Regression (UBSan, found via fuzzing): for a histogram whose
+       highest_trackable_value is near INT64_MAX, the top bucket's
+       lowest_equivalent + size_of_equivalent_value_range overflowed int64,
+       corrupting hdr_max / hdr_value_at_percentile / hdr_stddev and the
+       all-values iterator. Those value-range computations now saturate. */
+    struct hdr_histogram* h = NULL;
+    struct hdr_iter iter;
+
+    mu_assert("Should allocate", 0 == hdr_init(1, INT64_MAX, 3, &h));
+    hdr_record_value(h, INT64_MAX);
+    hdr_record_value(h, 5);
+
+    mu_assert("max is representable and non-negative", hdr_max(h) > 0);
+    mu_assert("p100 is representable and non-negative", hdr_value_at_percentile(h, 100.0) > 0);
+    mu_assert("stddev is finite", hdr_stddev(h) == hdr_stddev(h));
+
+    /* A full iteration visits the top bucket; highest_equivalent_value must
+       stay a representable non-negative int64 (was a negative/overflowed value). */
+    hdr_iter_init(&iter, h);
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("iter highest_equivalent_value stays representable",
+                  iter.highest_equivalent_value >= 0);
+    }
+
+    hdr_close(h);
+    return 0;
+}
+
 static struct mu_result all_tests(void)
 {
     mu_run_test(test_create);
@@ -570,6 +601,7 @@ static struct mu_result all_tests(void)
     mu_run_test(test_total_count);
     mu_run_test(test_get_min_value);
     mu_run_test(test_get_max_value);
+    mu_run_test(test_top_bucket_value_range_no_overflow);
     mu_run_test(test_percentiles);
     mu_run_test(test_percentiles_by_value_at_percentiles);
     mu_run_test(test_recorded_values);
