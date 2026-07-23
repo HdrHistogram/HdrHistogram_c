@@ -296,6 +296,39 @@ static char* test_v1_decode_rejects_oversized_counts(void)
     return 0;
 }
 
+static char* test_decode_rejects_crafted_bounds_attacks(void)
+{
+    /* Additional crafted decode inputs found by adversarial review during the
+       ClusterFuzzLite fuzzing effort. Each corrupted memory before the fixes;
+       all must now be rejected cleanly. Run under ASan this asserts the fixes. */
+    struct { const char* blob; int rc; } cases[] = {
+        /* V1 negative payload_len -> counts_limit < 0, int32 overflow of
+           counts_array_len = counts_limit * word_size. */
+        { "HISTAgAAABl42pNpmdz4////HwwQwIhGMzGgAQD3VgWu", HDR_ENCODED_INPUT_TOO_LONG },
+        /* V1 word_size == 1 -> routes to the zig-zag reader whose LEB128
+           lookahead over-reads the (unpadded) V1 counts buffer. */
+        { "HISTAgAAAB54nJNpmSzIwMDAyAABzFAawmdsWwDlMzQAAD9AAvE=", HDR_INVALID_WORD_SIZE },
+        /* V2 negative payload_len -> tiny alloc + ~4GB inflate write. */
+        { "HISTBAAAABl4nJNpmcz8HwgYIIARjWay/8CAAgD0TwZm", EINVAL },
+    };
+    size_t i;
+
+    for (i = 0; i < sizeof(cases) / sizeof(cases[0]); i++)
+    {
+        char blob[256];
+        struct hdr_histogram* actual = NULL;
+        int rc;
+
+        strcpy(blob, cases[i].blob);
+        rc = hdr_log_decode(&actual, blob, strlen(blob));
+
+        mu_assert("Crafted decode input must be rejected", compare_int64(cases[i].rc, rc));
+        mu_assert("No histogram should be built from a crafted input", NULL == actual);
+    }
+
+    return 0;
+}
+
 static char* test_encode_and_decode_base64(void)
 {
     uint8_t* buffer = NULL;
@@ -1008,6 +1041,7 @@ static struct mu_result all_tests(void)
     mu_run_test(test_encode_and_decode_base64);
     mu_run_test(test_bounds_check_on_decode);
     mu_run_test(test_v1_decode_rejects_oversized_counts);
+    mu_run_test(test_decode_rejects_crafted_bounds_attacks);
 
     mu_run_test(base64_decode_block_decodes_4_chars);
     mu_run_test(base64_decode_fails_with_invalid_lengths);

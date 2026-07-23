@@ -501,7 +501,9 @@ static int hdr_decode_compressed_v1(
     }
 
     word_size = word_size_from_cookie(be32toh(encoding_flyweight.cookie));
-    if (word_size == 0)
+    /* V1 counts are fixed-width; word_size==1 routes to the zig-zag reader whose
+       LEB128 lookahead reads up to 9 bytes past the unpadded V1 buffer (OOB) */
+    if (word_size != 2 && word_size != 4 && word_size != 8)
     {
         FAIL_AND_CLEANUP(cleanup, result, HDR_INVALID_WORD_SIZE);
     }
@@ -519,12 +521,8 @@ static int hdr_decode_compressed_v1(
         FAIL_AND_CLEANUP(cleanup, result, ENOMEM);
     }
 
-    /* counts_limit comes from the attacker-controlled payload_len; a crafted
-       log can make it exceed the histogram's counts_len. apply_to_counts()
-       below writes counts_limit entries into h->counts[0..counts_len-1], so an
-       unchecked value is a heap-buffer-overflow write. Reject it (V0 passes
-       h->counts_len; V2 bounds internally). This also keeps counts_array_len
-       (= counts_limit * word_size) from overflowing int32_t. */
+    /* attacker-controlled counts_limit > counts_len -> apply_to_counts() heap OOB
+       write; also guards counts_array_len (= counts_limit*word_size) int32 overflow */
     if (counts_limit < 0 || counts_limit > h->counts_len)
     {
         FAIL_AND_CLEANUP(cleanup, result, HDR_ENCODED_INPUT_TOO_LONG);
@@ -618,6 +616,12 @@ static int hdr_decode_compressed_v2(
     }
 
     counts_limit = be32toh(encoding_flyweight.payload_len);
+    /* negative attacker-controlled payload_len -> tiny calloc but ~4GB avail_out
+       -> inflate writes past counts_array (heap OOB) */
+    if (counts_limit < 0)
+    {
+        FAIL_AND_CLEANUP(cleanup, result, EINVAL);
+    }
     lowest_discernible_value = be64toh(encoding_flyweight.lowest_discernible_value);
     highest_trackable_value = be64toh(encoding_flyweight.highest_trackable_value);
     significant_figures = be32toh(encoding_flyweight.significant_figures);
