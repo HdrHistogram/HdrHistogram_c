@@ -394,7 +394,12 @@ int hdr_calculate_bucket_config(
 
     if (lowest_discernible_value < 1 ||
             significant_figures < 1 || 5 < significant_figures ||
-            lowest_discernible_value * 2 > highest_trackable_value)
+            /* Written as a division rather than 'lowest_discernible_value * 2 >
+               highest_trackable_value' so a crafted/decoded lowest value near
+               INT64_MAX cannot overflow int64_t (signed-overflow UB). Safe
+               because lowest_discernible_value >= 1 is checked above; the two
+               forms are equivalent for all non-overflowing inputs. */
+            lowest_discernible_value > highest_trackable_value / 2)
     {
         return EINVAL;
     }
