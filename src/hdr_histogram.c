@@ -35,8 +35,16 @@
 #endif
 
 /* Runtime-dispatched AVX2 path: keep the rest of this TU at the project's
-   baseline ISA so the shipped binary does not silently require AVX2. */
-#if (defined(__x86_64__) || defined(_M_X64)) \
+   baseline ISA so the shipped binary does not silently require AVX2.
+   Enabled only for 64-bit x86 built with a GNU-style GCC/Clang toolchain:
+     - 32-bit x86 is excluded: the 64-bit-lane extract intrinsic used below
+       (_mm_extract_epi64) is unavailable in 32-bit codegen.
+     - The MSVC-family front-ends (cl.exe, clang-cl) are excluded via _MSC_VER:
+       the dispatch relies on __builtin_cpu_supports(), whose runtime support
+       (__cpu_model) is not linked under the MSVC toolchain. clang-cl also
+       defines _M_X64 rather than __x86_64__, so it is excluded either way.
+     - ICC classic is excluded via __INTEL_COMPILER. */
+#if defined(__x86_64__) \
     && (defined(__GNUC__) || defined(__clang__)) && !defined(__INTEL_COMPILER) && !defined(_MSC_VER)
 #  define HDR_HAS_AVX2_DISPATCH 1
 #  include <immintrin.h>
