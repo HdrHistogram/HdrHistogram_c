@@ -947,7 +947,8 @@ static int64_t peek_next_value_from_index(struct hdr_iter* iter)
 static bool next_value_greater_than_reporting_level_upper_bound(
     struct hdr_iter *iter, int64_t reporting_level_upper_bound)
 {
-    if (iter->counts_index >= iter->h->counts_len)
+    /* peek reads counts_index+1; one past the last bucket is signed-shift UB */
+    if (iter->counts_index + 1 >= iter->h->counts_len)
     {
         return false;
     }
@@ -1160,15 +1161,11 @@ static bool iter_linear_next(struct hdr_iter* iter)
             {
                 update_iterated_values(iter, linear->next_value_reporting_level);
 
-                /* Advance to the next reporting level, guarding the int64
-                   overflow of `+= value_units_per_bucket` for a near-INT64_MAX
-                   range. Once no further level is representable, pin the level
-                   AND its lowest-equivalent to INT64_MAX: no bucket value ever
-                   reaches INT64_MAX, so the `iter->value >= ...` test above can
-                   no longer fire and the iterator drains the remaining buckets
-                   and terminates instead of re-reporting the same level. */
-                if (linear->next_value_reporting_level > INT64_MAX - linear->value_units_per_bucket)
+                /* advance the reporting level; on overflow pin to INT64_MAX so the emit test cannot re-fire and the iterator terminates */
+                if (linear->value_units_per_bucket <= 0 ||
+                    linear->next_value_reporting_level > INT64_MAX - linear->value_units_per_bucket)
                 {
+                    /* step <= 0 first: never-advances (infinite loop) and guards the subtraction; second clause is the overflow guard */
                     linear->next_value_reporting_level = INT64_MAX;
                     linear->next_value_reporting_level_lowest_equivalent = INT64_MAX;
                 }
@@ -1232,15 +1229,12 @@ static bool log_iter_next(struct hdr_iter *iter)
             {
                 update_iterated_values(iter, logarithmic->next_value_reporting_level);
 
-                /* Advance to the next reporting level, guarding the int64
-                   overflow of `*= log_base` for a near-INT64_MAX range. As in
-                   the linear iterator, once no further level is representable
-                   pin the level and its lowest-equivalent to INT64_MAX so the
-                   emit test cannot re-fire and the iterator terminates. */
+                /* advance the reporting level; on *= log_base overflow pin to INT64_MAX so the emit test cannot re-fire and it terminates */
                 {
                     int64_t base = (int64_t) logarithmic->log_base;
-                    if (base > 1 && logarithmic->next_value_reporting_level > INT64_MAX / base)
+                    if (base <= 1 || logarithmic->next_value_reporting_level > INT64_MAX / base)
                     {
+                        /* base <= 1 first: never-advances (infinite loop) and short-circuits /base so base==0 can't divide-by-zero; second clause is the overflow guard */
                         logarithmic->next_value_reporting_level = INT64_MAX;
                         logarithmic->next_value_reporting_level_lowest_equivalent = INT64_MAX;
                     }

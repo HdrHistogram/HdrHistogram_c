@@ -629,6 +629,45 @@ static char* test_iterator_reporting_level_no_overflow(void)
     }
 
     hdr_close(h);
+
+    /* Peek-past-end variant: at the last bucket the iterator peeked
+       hdr_value_at_index(h, counts_len), a signed-shift overflow for a
+       near-INT64_MAX range. A single top-bucket value with sig=1 exercises it. */
+    h = NULL;
+    mu_assert("Should allocate", 0 == hdr_init(1, INT64_C(1) << 62, 1, &h));
+    hdr_record_value(h, INT64_C(1) << 62);
+    hdr_iter_linear_init(&iter, h, INT64_MAX - 1);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("linear iterator (peek) must terminate", ++steps < 1000000);
+    }
+    hdr_iter_log_init(&iter, h, 1000, 2.0);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("log iterator (peek) must terminate", ++steps < 1000000);
+    }
+    hdr_close(h);
+
+    /* Degenerate iterator parameters must terminate rather than loop forever:
+       value_units_per_bucket == 0 and log_base <= 1. */
+    h = NULL;
+    mu_assert("Should allocate", 0 == hdr_init(1, 1000000, 3, &h));
+    hdr_record_value(h, 1234);
+    hdr_iter_linear_init(&iter, h, 0);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("linear iterator (vpb=0) must terminate", ++steps < 1000000);
+    }
+    hdr_iter_log_init(&iter, h, 1000, 1.0);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("log iterator (base<=1) must terminate", ++steps < 1000000);
+    }
+    hdr_close(h);
     return 0;
 }
 
