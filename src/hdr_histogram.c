@@ -830,9 +830,7 @@ double hdr_mean(const struct hdr_histogram* h)
         if (0 != iter.count)
         {
             count += iter.count;
-            /* Accumulate in double: iter.count * median_value can exceed
-               INT64_MAX for a histogram holding large values, which is
-               signed-overflow UB. hdr_stddev already sums in double likewise. */
+            /* sum in double: count*median can overflow int64 (UB) for large values */
             total += (double) iter.count * (double) hdr_median_equivalent_value(h, iter.value);
         }
     }
@@ -874,9 +872,7 @@ int64_t hdr_count_at_value(const struct hdr_histogram* h, int64_t value)
 {
     int32_t counts_index;
 
-    /* Guard the same way hdr_record_values does: a value outside the trackable
-       range maps to an index outside counts[], so returning its count without
-       this check is an out-of-bounds read. Such a value simply has count 0. */
+    /* out-of-range value maps outside counts[] (OOB read); count is 0 */
     if (value < 0 || h->highest_trackable_value < value)
     {
         return 0;
@@ -893,6 +889,11 @@ int64_t hdr_count_at_value(const struct hdr_histogram* h, int64_t value)
 
 int64_t hdr_count_at_index(const struct hdr_histogram* h, int32_t index)
 {
+    /* reject index outside counts[] (OOB read); unsigned compare also catches negatives */
+    if ((uint32_t)index >= (uint32_t)h->counts_len)
+    {
+        return 0;
+    }
     return counts_get_normalised(h, index);
 }
 
