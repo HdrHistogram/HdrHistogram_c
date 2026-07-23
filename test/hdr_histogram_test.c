@@ -598,6 +598,40 @@ static char* test_top_bucket_value_range_no_overflow(void)
     return 0;
 }
 
+static char* test_iterator_reporting_level_no_overflow(void)
+{
+    /* Regression (UBSan, found via fuzzing): the linear and logarithmic
+       iterators advanced their reporting level with `+= value_units_per_bucket`
+       / `*= log_base`, which overflowed int64 for a near-INT64_MAX range. The
+       level now saturates at INT64_MAX and the iterators still terminate. */
+    struct hdr_histogram* h = NULL;
+    struct hdr_iter iter;
+    long steps;
+
+    mu_assert("Should allocate", 0 == hdr_init(1, INT64_MAX, 3, &h));
+    hdr_record_value(h, INT64_MAX);
+    hdr_record_value(h, 5);
+
+    /* A huge linear bucket makes the reporting level cross INT64_MAX quickly. */
+    hdr_iter_linear_init(&iter, h, INT64_C(1) << 62);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("linear iterator must terminate", ++steps < 1000000);
+    }
+
+    /* Base-2 log iteration reaches INT64_MAX in ~64 steps. */
+    hdr_iter_log_init(&iter, h, 1, 2.0);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("log iterator must terminate", ++steps < 1000000);
+    }
+
+    hdr_close(h);
+    return 0;
+}
+
 static struct mu_result all_tests(void)
 {
     mu_run_test(test_create);
@@ -608,6 +642,7 @@ static struct mu_result all_tests(void)
     mu_run_test(test_get_min_value);
     mu_run_test(test_get_max_value);
     mu_run_test(test_top_bucket_value_range_no_overflow);
+    mu_run_test(test_iterator_reporting_level_no_overflow);
     mu_run_test(test_percentiles);
     mu_run_test(test_percentiles_by_value_at_percentiles);
     mu_run_test(test_recorded_values);

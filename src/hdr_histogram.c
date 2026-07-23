@@ -1160,9 +1160,24 @@ static bool iter_linear_next(struct hdr_iter* iter)
             {
                 update_iterated_values(iter, linear->next_value_reporting_level);
 
-                linear->next_value_reporting_level += linear->value_units_per_bucket;
-                linear->next_value_reporting_level_lowest_equivalent =
-                    lowest_equivalent_value(iter->h, linear->next_value_reporting_level);
+                /* Advance to the next reporting level, guarding the int64
+                   overflow of `+= value_units_per_bucket` for a near-INT64_MAX
+                   range. Once no further level is representable, pin the level
+                   AND its lowest-equivalent to INT64_MAX: no bucket value ever
+                   reaches INT64_MAX, so the `iter->value >= ...` test above can
+                   no longer fire and the iterator drains the remaining buckets
+                   and terminates instead of re-reporting the same level. */
+                if (linear->next_value_reporting_level > INT64_MAX - linear->value_units_per_bucket)
+                {
+                    linear->next_value_reporting_level = INT64_MAX;
+                    linear->next_value_reporting_level_lowest_equivalent = INT64_MAX;
+                }
+                else
+                {
+                    linear->next_value_reporting_level += linear->value_units_per_bucket;
+                    linear->next_value_reporting_level_lowest_equivalent =
+                        lowest_equivalent_value(iter->h, linear->next_value_reporting_level);
+                }
 
                 return true;
             }
@@ -1217,8 +1232,25 @@ static bool log_iter_next(struct hdr_iter *iter)
             {
                 update_iterated_values(iter, logarithmic->next_value_reporting_level);
 
-                logarithmic->next_value_reporting_level *= (int64_t)logarithmic->log_base;
-                logarithmic->next_value_reporting_level_lowest_equivalent = lowest_equivalent_value(iter->h, logarithmic->next_value_reporting_level);
+                /* Advance to the next reporting level, guarding the int64
+                   overflow of `*= log_base` for a near-INT64_MAX range. As in
+                   the linear iterator, once no further level is representable
+                   pin the level and its lowest-equivalent to INT64_MAX so the
+                   emit test cannot re-fire and the iterator terminates. */
+                {
+                    int64_t base = (int64_t) logarithmic->log_base;
+                    if (base > 1 && logarithmic->next_value_reporting_level > INT64_MAX / base)
+                    {
+                        logarithmic->next_value_reporting_level = INT64_MAX;
+                        logarithmic->next_value_reporting_level_lowest_equivalent = INT64_MAX;
+                    }
+                    else
+                    {
+                        logarithmic->next_value_reporting_level *= base;
+                        logarithmic->next_value_reporting_level_lowest_equivalent =
+                            lowest_equivalent_value(iter->h, logarithmic->next_value_reporting_level);
+                    }
+                }
 
                 return true;
             }
