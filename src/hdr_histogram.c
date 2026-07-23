@@ -293,10 +293,7 @@ int64_t hdr_next_non_equivalent_value(const struct hdr_histogram *h, int64_t val
 {
     int64_t low  = lowest_equivalent_value(h, value);
     int64_t size = hdr_size_of_equivalent_value_range(h, value);
-    /* For a value in the top bucket, low + size can exceed INT64_MAX, which is
-       signed-overflow UB. Saturate instead; highest_equivalent_value() then
-       returns INT64_MAX - 1 for the top bucket rather than overflowing. This
-       feeds hdr_max / hdr_value_at_percentile / hdr_percentiles_print. */
+    /* saturate: top-bucket low+size overflows int64 (UB) */
     if (low > INT64_MAX - size)
     {
         return INT64_MAX;
@@ -306,7 +303,14 @@ int64_t hdr_next_non_equivalent_value(const struct hdr_histogram *h, int64_t val
 
 static int64_t highest_equivalent_value(const struct hdr_histogram* h, int64_t value)
 {
-    return hdr_next_non_equivalent_value(h, value) - 1;
+    int64_t low  = lowest_equivalent_value(h, value);
+    int64_t size = hdr_size_of_equivalent_value_range(h, value);
+    /* clamp: top-bucket low+size-1 overflows int64; keep value <= highest_equivalent_value */
+    if (low > INT64_MAX - size)
+    {
+        return INT64_MAX;
+    }
+    return low + size - 1;
 }
 
 int64_t hdr_median_equivalent_value(const struct hdr_histogram *h, int64_t value)
@@ -925,10 +929,7 @@ static bool move_next(struct hdr_iter* iter)
         iter->h, bucket_index, sub_bucket_index);
     iter->lowest_equivalent_value = leq;
     iter->value = value;
-    /* Saturate: for the top bucket leq + size overflows int64 (UB). The
-       all-values iterator visits every bucket, so this fires on any full
-       iteration (hdr_stddev, hdr_percentiles_print, ...) of a histogram whose
-       highest_trackable_value is near INT64_MAX. */
+    /* saturate: top-bucket leq+size overflows int64 (UB) */
     iter->highest_equivalent_value =
         (leq > INT64_MAX - size_of_equivalent_value_range)
             ? INT64_MAX

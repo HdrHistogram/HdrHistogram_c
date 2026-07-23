@@ -575,12 +575,18 @@ static char* test_top_bucket_value_range_no_overflow(void)
     hdr_record_value(h, INT64_MAX);
     hdr_record_value(h, 5);
 
-    mu_assert("max is representable and non-negative", hdr_max(h) > 0);
-    mu_assert("p100 is representable and non-negative", hdr_value_at_percentile(h, 100.0) > 0);
+    /* The top bucket saturates to INT64_MAX; a recorded INT64_MAX must not
+       report a max below itself (invariant value <= highest_equivalent_value). */
+    mu_assert("max saturates to INT64_MAX", INT64_MAX == hdr_max(h));
+    mu_assert("p100 saturates to INT64_MAX", INT64_MAX == hdr_value_at_percentile(h, 100.0));
+    /* Plain-build guard: on the buggy code low + size overflows and
+       hdr_next_non_equivalent_value(INT64_MAX) wraps to INT64_MIN. */
+    mu_assert("next_non_equivalent_value saturates, not wrapped negative",
+              INT64_MAX == hdr_next_non_equivalent_value(h, INT64_MAX));
     mu_assert("stddev is finite", hdr_stddev(h) == hdr_stddev(h));
 
-    /* A full iteration visits the top bucket; highest_equivalent_value must
-       stay a representable non-negative int64 (was a negative/overflowed value). */
+    /* The all-values iterator visits the top bucket; its highest_equivalent_value
+       must stay a representable non-negative int64 (was an overflowed value). */
     hdr_iter_init(&iter, h);
     while (hdr_iter_next(&iter))
     {
