@@ -394,11 +394,7 @@ int hdr_calculate_bucket_config(
 
     if (lowest_discernible_value < 1 ||
             significant_figures < 1 || 5 < significant_figures ||
-            /* Written as a division rather than 'lowest_discernible_value * 2 >
-               highest_trackable_value' so a crafted/decoded lowest value near
-               INT64_MAX cannot overflow int64_t (signed-overflow UB). Safe
-               because lowest_discernible_value >= 1 is checked above; the two
-               forms are equivalent for all non-overflowing inputs. */
+            /* division form: lowest*2 near INT64_MAX overflows int64 (UB) */
             lowest_discernible_value > highest_trackable_value / 2)
     {
         return EINVAL;
@@ -422,13 +418,7 @@ int hdr_calculate_bucket_config(
     cfg->sub_bucket_count      = (int32_t) pow(2, (cfg->sub_bucket_half_count_magnitude + 1));
     cfg->sub_bucket_half_count = cfg->sub_bucket_count / 2;
 
-    /* Reject configurations whose sub_bucket_mask shift would overflow int64_t
-       BEFORE computing it. (sub_bucket_count - 1) occupies
-       (sub_bucket_half_count_magnitude + 1) bits, so the left shift below sets
-       bit (unit_magnitude + sub_bucket_half_count_magnitude); keeping that <= 61
-       leaves the result a representable, non-negative int64_t. Performing the
-       shift first is signed-left-shift undefined behaviour for large inputs
-       (e.g. a crafted decoded log with lowest_discernible_value ~= 2^56). */
+    /* reject before shifting: sub_bucket_mask shift past bit 61 is signed-shift UB */
     if (cfg->unit_magnitude + cfg->sub_bucket_half_count_magnitude > 61)
     {
         return EINVAL;

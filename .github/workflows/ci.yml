@@ -69,3 +69,25 @@ jobs:
         run: cmake --build _build --config ${{ matrix.build_type }}
       - name: Test
         run: cmake -E chdir _build ctest --build-config ${{ matrix.build_type }}
+
+  # Run the unit suite under AddressSanitizer + UndefinedBehaviorSanitizer so
+  # memory-safety and integer-overflow regressions (the class the fuzzers find)
+  # are caught deterministically per-PR, not only in the weekly fuzzing run.
+  sanitizers:
+    name: sanitizers (linux, Debug, ASan+UBSan)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+        with:
+          submodules: recursive
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev
+      - name: Configure
+        run: cmake -E make_directory _build && cmake -E chdir _build cmake .. -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS="-fsanitize=address,undefined -fno-sanitize-recover=all -g"
+      - name: Build
+        run: cmake --build _build
+      - name: Test
+        run: cmake -E chdir _build ctest --output-on-failure
+        env:
+          ASAN_OPTIONS: detect_leaks=0

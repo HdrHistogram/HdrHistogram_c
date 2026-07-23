@@ -155,6 +155,24 @@ static char* test_invalid_init(void)
     return 0;
 }
 
+static char* test_bucket_config_shift_overflow(void)
+{
+    struct hdr_histogram* h = NULL;
+
+    /* Regression test for a signed-left-shift overflow (UBSan) in
+       hdr_calculate_bucket_config. With lowest_discernible_value = 2^56 the
+       unit_magnitude is 56; a significant_figures of 2 yields
+       sub_bucket_half_count_magnitude = 7, so the sub_bucket_mask shift would
+       set bit 56 + 7 = 63 of an int64_t (undefined behaviour). This config
+       must be rejected with EINVAL rather than crashing. Originally found by
+       fuzzing via a crafted decoded log with lowest ~= 2^56. */
+    int r = hdr_init(INT64_C(1) << 56, INT64_C(1) << 58, 2, &h);
+    mu_assert("Overflowing bucket config must return EINVAL", r == EINVAL);
+    mu_assert("Histogram must be NULL on rejected config", h == NULL);
+
+    return 0;
+}
+
 static char* test_total_count(void)
 {
     load_histograms();
@@ -565,6 +583,7 @@ static struct mu_result all_tests(void)
 {
     mu_run_test(test_create);
     mu_run_test(test_invalid_init);
+    mu_run_test(test_bucket_config_shift_overflow);
     mu_run_test(test_create_with_large_values);
     mu_run_test(test_invalid_significant_figures);
     mu_run_test(test_total_count);
