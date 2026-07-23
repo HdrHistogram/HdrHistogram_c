@@ -519,6 +519,17 @@ static int hdr_decode_compressed_v1(
         FAIL_AND_CLEANUP(cleanup, result, ENOMEM);
     }
 
+    /* counts_limit comes from the attacker-controlled payload_len; a crafted
+       log can make it exceed the histogram's counts_len. apply_to_counts()
+       below writes counts_limit entries into h->counts[0..counts_len-1], so an
+       unchecked value is a heap-buffer-overflow write. Reject it (V0 passes
+       h->counts_len; V2 bounds internally). This also keeps counts_array_len
+       (= counts_limit * word_size) from overflowing int32_t. */
+    if (counts_limit < 0 || counts_limit > h->counts_len)
+    {
+        FAIL_AND_CLEANUP(cleanup, result, HDR_ENCODED_INPUT_TOO_LONG);
+    }
+
     /* Give the temp uncompressed array a little bif of extra */
     counts_array_len = counts_limit * word_size;
 

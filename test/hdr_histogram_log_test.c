@@ -279,6 +279,23 @@ static char* test_bounds_check_on_decode(void)
     return 0;
 }
 
+static char* test_v1_decode_rejects_oversized_counts(void)
+{
+    /* Regression: a crafted V1 log whose payload_len implies far more counts
+       than the (tiny lowest=1/highest=2) histogram allocates used to overflow
+       h->counts via apply_to_counts() -- a heap-buffer-overflow write. It must
+       now be rejected cleanly. Found by adversarial review during the
+       ClusterFuzzLite fuzzing effort; run under ASan this asserts the fix. */
+    char blob[] = "HISTAgAAABp4nJNpmdzIwFDLAAWMaDST/QcGFAAAdaEDZQ==";
+    struct hdr_histogram* actual = NULL;
+    int rc = hdr_log_decode(&actual, blob, strlen(blob));
+
+    mu_assert("Oversized V1 counts must be rejected", compare_int64(HDR_ENCODED_INPUT_TOO_LONG, rc));
+    mu_assert("No histogram should be built", NULL == actual);
+
+    return 0;
+}
+
 static char* test_encode_and_decode_base64(void)
 {
     uint8_t* buffer = NULL;
@@ -990,6 +1007,7 @@ static struct mu_result all_tests(void)
     mu_run_test(test_encode_and_decode_compressed_large);
     mu_run_test(test_encode_and_decode_base64);
     mu_run_test(test_bounds_check_on_decode);
+    mu_run_test(test_v1_decode_rejects_oversized_counts);
 
     mu_run_test(base64_decode_block_decodes_4_chars);
     mu_run_test(base64_decode_fails_with_invalid_lengths);
