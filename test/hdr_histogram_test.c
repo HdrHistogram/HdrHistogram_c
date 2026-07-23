@@ -561,6 +561,43 @@ static char* reset_histogram_on_sample_and_recycle(void)
     return 0;
 }
 
+static char* test_mean_does_not_overflow(void)
+{
+    /* Regression (UBSan, found via fuzzing): hdr_mean summed count*value in an
+       int64 running total, which overflows for a histogram holding values near
+       2^62, yielding a wrapped/garbage (negative) mean. It now accumulates in
+       double. The mean of these large samples must be a positive finite value. */
+    struct hdr_histogram* h = NULL;
+
+    mu_assert("Should allocate", 0 == hdr_init(1, INT64_C(1) << 62, 3, &h));
+    hdr_record_value(h, INT64_C(1) << 62);
+    hdr_record_value(h, (INT64_C(1) << 62) - 1);
+    hdr_record_value(h, INT64_C(1) << 61);
+
+    {
+        double mean = hdr_mean(h);
+        mu_assert("Mean must be a positive, finite value", mean > 0.0 && mean == mean);
+    }
+
+    hdr_close(h);
+    return 0;
+}
+
+static char* test_count_at_value_out_of_range(void)
+{
+    /* Regression (ASan, found via fuzzing): hdr_count_at_value indexed counts[]
+       without a range check, so a value beyond the trackable range read out of
+       bounds. Such a value simply has a count of 0. */
+    struct hdr_histogram* h = NULL;
+
+    mu_assert("Should allocate", 0 == hdr_init(1, 2, 1, &h));
+    mu_assert("Count above range is 0", compare_int64(0, hdr_count_at_value(h, INT64_MAX)));
+    mu_assert("Count below range is 0", compare_int64(0, hdr_count_at_value(h, -5)));
+
+    hdr_close(h);
+    return 0;
+}
+
 static struct mu_result all_tests(void)
 {
     mu_run_test(test_create);
@@ -581,6 +618,8 @@ static struct mu_result all_tests(void)
     mu_run_test(test_linear_iter_buckets_correctly);
     mu_run_test(test_interval_recording);
     mu_run_test(reset_histogram_on_sample_and_recycle);
+    mu_run_test(test_mean_does_not_overflow);
+    mu_run_test(test_count_at_value_out_of_range);
 
     mu_ok;
 }

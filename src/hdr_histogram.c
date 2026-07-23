@@ -819,7 +819,8 @@ int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percen
 double hdr_mean(const struct hdr_histogram* h)
 {
     struct hdr_iter iter;
-    int64_t total = 0, count = 0;
+    double total = 0;
+    int64_t count = 0;
     int64_t total_count = h->total_count;
 
     hdr_iter_init(&iter, h);
@@ -829,11 +830,14 @@ double hdr_mean(const struct hdr_histogram* h)
         if (0 != iter.count)
         {
             count += iter.count;
-            total += iter.count * hdr_median_equivalent_value(h, iter.value);
+            /* Accumulate in double: iter.count * median_value can exceed
+               INT64_MAX for a histogram holding large values, which is
+               signed-overflow UB. hdr_stddev already sums in double likewise. */
+            total += (double) iter.count * (double) hdr_median_equivalent_value(h, iter.value);
         }
     }
 
-    return (total * 1.0) / total_count;
+    return total / total_count;
 }
 
 double hdr_stddev(const struct hdr_histogram* h)
@@ -868,7 +872,23 @@ int64_t hdr_lowest_equivalent_value(const struct hdr_histogram* h, int64_t value
 
 int64_t hdr_count_at_value(const struct hdr_histogram* h, int64_t value)
 {
-    return counts_get_normalised(h, counts_index_for(h, value));
+    int32_t counts_index;
+
+    /* Guard the same way hdr_record_values does: a value outside the trackable
+       range maps to an index outside counts[], so returning its count without
+       this check is an out-of-bounds read. Such a value simply has count 0. */
+    if (value < 0 || h->highest_trackable_value < value)
+    {
+        return 0;
+    }
+
+    counts_index = counts_index_for(h, value);
+    if ((uint32_t)counts_index >= (uint32_t)h->counts_len)
+    {
+        return 0;
+    }
+
+    return counts_get_normalised(h, counts_index);
 }
 
 int64_t hdr_count_at_index(const struct hdr_histogram* h, int32_t index)
