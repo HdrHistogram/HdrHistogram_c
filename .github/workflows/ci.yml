@@ -95,6 +95,10 @@ jobs:
         run: cmake -E make_directory _build && cmake -E chdir _build cmake .. -DCMAKE_BUILD_TYPE=Debug -DHDR_LOG_REQUIRED=DISABLED -DCMAKE_C_FLAGS=-m32 -DCMAKE_CXX_FLAGS=-m32
       - name: Build
         run: cmake --build _build
+      - name: Assert the build is really 32-bit
+        run: |
+          file _build/test/hdr_histogram_test
+          file _build/test/hdr_histogram_test | grep -q "ELF 32-bit" || { echo "ERROR: expected a 32-bit binary; -m32 was not honored"; exit 1; }
       - name: Test
         run: cmake -E chdir _build ctest --output-on-failure
 
