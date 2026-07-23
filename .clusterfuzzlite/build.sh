@@ -11,12 +11,15 @@ cd build
 cmake ../
 make
 
-# Build and copy fuzzer executables to $OUT/
-$CC $CFLAGS $LIB_FUZZING_ENGINE \
-  $SRC/hdrhistogram_c/.clusterfuzzlite/log_reader_fuzzer.c \
-  -o $OUT/log_reader_fuzzer \
-  -I$SRC/hdrhistogram_c/include \
-  $SRC/hdrhistogram_c/build/src/libhdr_histogram_static.a -l:libz.a
+# Build and copy all fuzzer executables to $OUT/. Each links the static
+# library and zlib (used by the encode/decode paths).
+for fuzzer in log_reader_fuzzer hdr_record_fuzzer hdr_decode_fuzzer; do
+  $CC $CFLAGS $LIB_FUZZING_ENGINE \
+    $SRC/hdrhistogram_c/.clusterfuzzlite/${fuzzer}.c \
+    -o $OUT/${fuzzer} \
+    -I$SRC/hdrhistogram_c/include \
+    $SRC/hdrhistogram_c/build/src/libhdr_histogram_static.a -l:libz.a
+done
 
-# Prepare corpus
+# Prepare corpus. The sample .hlog logs seed the log-parsing entry points.
 zip -j $OUT/log_reader_fuzzer_seed_corpus.zip $SRC/hdrhistogram_c/test/*.hlog
