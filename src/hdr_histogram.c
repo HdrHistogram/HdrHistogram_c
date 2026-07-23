@@ -416,12 +416,20 @@ int hdr_calculate_bucket_config(
     cfg->unit_magnitude = (int32_t) unit_magnitude;
     cfg->sub_bucket_count      = (int32_t) pow(2, (cfg->sub_bucket_half_count_magnitude + 1));
     cfg->sub_bucket_half_count = cfg->sub_bucket_count / 2;
-    cfg->sub_bucket_mask       = ((int64_t) cfg->sub_bucket_count - 1) << cfg->unit_magnitude;
 
+    /* Reject configurations whose sub_bucket_mask shift would overflow int64_t
+       BEFORE computing it. (sub_bucket_count - 1) occupies
+       (sub_bucket_half_count_magnitude + 1) bits, so the left shift below sets
+       bit (unit_magnitude + sub_bucket_half_count_magnitude); keeping that <= 61
+       leaves the result a representable, non-negative int64_t. Performing the
+       shift first is signed-left-shift undefined behaviour for large inputs
+       (e.g. a crafted decoded log with lowest_discernible_value ~= 2^56). */
     if (cfg->unit_magnitude + cfg->sub_bucket_half_count_magnitude > 61)
     {
         return EINVAL;
     }
+
+    cfg->sub_bucket_mask       = ((int64_t) cfg->sub_bucket_count - 1) << cfg->unit_magnitude;
 
     cfg->bucket_count = buckets_needed_to_cover_value(highest_trackable_value, cfg->sub_bucket_count, (int32_t)cfg->unit_magnitude);
     cfg->counts_len = (cfg->bucket_count + 1) * (cfg->sub_bucket_count / 2);
