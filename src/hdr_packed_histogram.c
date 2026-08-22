@@ -510,21 +510,53 @@ static int64_t packed_value_from_idx_at_count(const struct hdr_packed_histogram*
     const int32_t n = h->size;
     const int32_t* idx = h->idx;
     int64_t running = 0;
-#define PK_SCAN(TYPE) \
+
+    /* Blocked prefix-sum for widths 1/2/4: sum a block of PK_BLK counts (the
+       inner sum has no loop-carried dependency, so it auto-vectorizes), and if
+       the block does not cross the target, skip it with a single compare instead
+       of one compare+branch per bucket. Only the crossing block is scanned
+       scalar. For width <= 4 the total sum is bounded (n <= counts_len buckets *
+       <2^32 each < 2^52), so no per-bucket saturation is needed; width 8 (whose
+       counts can sum past INT64_MAX on a crafted decode) keeps the saturating
+       scalar scan. Invariant on entry to each block: running < target, so
+       `target - running` is a positive int64 (no overflow). */
+    enum { PK_BLK = 16 };
+#define PK_BSCAN(TYPE) \
     do { const TYPE* c = (const TYPE*) h->cnt; \
-         for (int32_t i = 0; i < n; i++) { \
-             int64_t v = (int64_t) c[i]; \
-             running = (v > INT64_MAX - running) ? INT64_MAX : running + v; \
+         int32_t i = 0; \
+         int32_t nb = n - (n % PK_BLK); \
+         for (; i < nb; i += PK_BLK) { \
+             int64_t bs = 0; \
+             for (int32_t k = 0; k < PK_BLK; k++) bs += (int64_t) c[i + k]; \
+             if (bs >= target - running) { \
+                 for (int32_t k = 0; k < PK_BLK; k++) { \
+                     running += (int64_t) c[i + k]; \
+                     if (running >= target) return hdr_value_at_index(g, idx[i + k]); \
+                 } \
+             } else { running += bs; } \
+         } \
+         for (; i < n; i++) { \
+             running += (int64_t) c[i]; \
              if (running >= target) return hdr_value_at_index(g, idx[i]); \
          } } while (0)
     switch (h->width)
     {
-        case 1:  PK_SCAN(uint8_t);  break;
-        case 2:  PK_SCAN(uint16_t); break;
-        case 4:  PK_SCAN(uint32_t); break;
-        default: PK_SCAN(uint64_t); break;
+        case 1:  PK_BSCAN(uint8_t);  break;
+        case 2:  PK_BSCAN(uint16_t); break;
+        case 4:  PK_BSCAN(uint32_t); break;
+        default:  /* width 8: counts can sum past INT64_MAX -> saturating scalar */
+        {
+            const uint64_t* c = (const uint64_t*) h->cnt;
+            for (int32_t i = 0; i < n; i++)
+            {
+                int64_t v = (int64_t) c[i];
+                running = (v > INT64_MAX - running) ? INT64_MAX : running + v;
+                if (running >= target) return hdr_value_at_index(g, idx[i]);
+            }
+            break;
+        }
     }
-#undef PK_SCAN
+#undef PK_BSCAN
     return 0;
 }
 
