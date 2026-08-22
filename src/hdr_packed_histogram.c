@@ -498,6 +498,36 @@ int64_t hdr_packed_min(const struct hdr_packed_histogram* h)
     return hdr_lowest_equivalent_value(&h->cfg->geom, h->min_value);
 }
 
+/* Width-specialized ascending prefix-sum scan: returns the raw bucket value
+   (hdr_value_at_index of the virtual index) at which the running count first
+   reaches `target`, or 0 if unreachable (empty histogram). Hoisting the width
+   switch out of the loop turns the inner scan into a tight typed load per
+   bucket. The saturating add guards the untrusted-decode path (a crafted
+   histogram's buckets can sum past INT64_MAX before the target is reached). */
+static int64_t packed_value_from_idx_at_count(const struct hdr_packed_histogram* h, int64_t target)
+{
+    const struct hdr_histogram* g = &h->cfg->geom;
+    const int32_t n = h->size;
+    const int32_t* idx = h->idx;
+    int64_t running = 0;
+#define PK_SCAN(TYPE) \
+    do { const TYPE* c = (const TYPE*) h->cnt; \
+         for (int32_t i = 0; i < n; i++) { \
+             int64_t v = (int64_t) c[i]; \
+             running = (v > INT64_MAX - running) ? INT64_MAX : running + v; \
+             if (running >= target) return hdr_value_at_index(g, idx[i]); \
+         } } while (0)
+    switch (h->width)
+    {
+        case 1:  PK_SCAN(uint8_t);  break;
+        case 2:  PK_SCAN(uint16_t); break;
+        case 4:  PK_SCAN(uint32_t); break;
+        default: PK_SCAN(uint64_t); break;
+    }
+#undef PK_SCAN
+    return 0;
+}
+
 int64_t hdr_packed_value_at_percentile(const struct hdr_packed_histogram* h, double percentile)
 {
     const struct hdr_histogram* g = &h->cfg->geom;
@@ -521,21 +551,7 @@ int64_t hdr_packed_value_at_percentile(const struct hdr_packed_histogram* h, dou
     else
         count_at_percentile = (int64_t) cc;      /* < total: bit-for-bit dense's target */
 
-    int64_t running = 0;
-    int64_t value_from_idx = 0;
-    for (int32_t i = 0; i < h->size; i++)
-    {
-        /* saturate: a crafted decoded histogram can have buckets summing past
-           INT64_MAX before reaching the target percentile; a bare += would be
-           signed-overflow UB on this untrusted-input path. */
-        int64_t c = slot_get(h, i);
-        running = (c > INT64_MAX - running) ? INT64_MAX : running + c;
-        if (running >= count_at_percentile)
-        {
-            value_from_idx = hdr_value_at_index(g, h->idx[i]);
-            break;
-        }
-    }
+    int64_t value_from_idx = packed_value_from_idx_at_count(h, count_at_percentile);
 
     if (percentile == 0.0)
     {
