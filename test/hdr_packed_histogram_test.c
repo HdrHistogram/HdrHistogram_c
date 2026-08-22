@@ -478,6 +478,41 @@ static char* test_percentile_edges(void)
     return 0;
 }
 
+/* single-pass plural must equal the per-percentile singular for ANY input order
+   (packed sorts targets internally), for duplicates, out-of-range percentiles,
+   and length past the small-buffer threshold (the malloc path). */
+static char* test_plural_single_pass_order(void)
+{
+    struct hdr_packed_histogram* p = NULL;
+    hdr_packed_init(1, HIGHEST, SIG, &p);
+    for (int i = 1; i <= 5000; i++) hdr_packed_record_value(p, (int64_t)(i * 137) % 1000000 + 1);
+
+    double desc[] = {100, 99.9, 99, 90, 50, 25, 0};
+    double shuf[] = {99.9, 0, 50, 100, 90, 25, 1, 75};
+    double dup[]  = {50, 50, 99, 99, 0, 0, 100, 100};
+    double edge[] = {-5, 0, 50, 100, 250, 1e300};
+    struct { double* pc; size_t n; const char* what; } cases[] = {
+        {desc, 7, "descending"}, {shuf, 8, "shuffled"}, {dup, 8, "duplicates"}, {edge, 6, "edge"}
+    };
+    for (size_t k = 0; k < 4; k++)
+    {
+        int64_t got[8];
+        mu_assert("plural rc ok", hdr_packed_value_at_percentiles(p, cases[k].pc, got, cases[k].n) == 0);
+        for (size_t i = 0; i < cases[k].n; i++)
+            mu_assert("plural==singular (any order)",
+                got[i] == hdr_packed_value_at_percentile(p, cases[k].pc[i]));
+    }
+    /* length past the 32-slot small buffer -> heap scratch path */
+    enum { BIG = 100 };
+    double bigp[BIG]; int64_t bigv[BIG];
+    for (int i = 0; i < BIG; i++) bigp[i] = (double)((i * 37) % 1001) / 10.0;
+    mu_assert("plural big rc ok", hdr_packed_value_at_percentiles(p, bigp, bigv, BIG) == 0);
+    for (int i = 0; i < BIG; i++)
+        mu_assert("plural big==singular", bigv[i] == hdr_packed_value_at_percentile(p, bigp[i]));
+    hdr_packed_close(p);
+    return 0;
+}
+
 /* our added code: min with bucket-0 populated (record 0) */
 static char* test_min_with_zero(void)
 {
@@ -652,6 +687,7 @@ static struct mu_result all_tests(void)
     mu_run_test(test_encoding_count_width_growth);
     mu_run_test(test_count_widths);
     mu_run_test(test_percentile_edges);
+    mu_run_test(test_plural_single_pass_order);
     mu_run_test(test_min_with_zero);
     mu_run_test(test_memory_size);
     mu_run_test(test_count_width_boundaries);

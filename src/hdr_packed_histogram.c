@@ -528,30 +528,29 @@ static int64_t packed_value_from_idx_at_count(const struct hdr_packed_histogram*
     return 0;
 }
 
+/* Resolve a percentile to its target cumulative count in [1, total_count].
+   The int64 cast must be guarded (NaN/+/-inf/negative/>=2^63 are all UB), and
+   the target is clamped to total_count rather than INT64_MAX: when total_count
+   is just below INT64_MAX the double product rounds up to 2^63, and clamping to
+   INT64_MAX would make the target unreachable by the running sum (which maxes at
+   total_count), wrongly returning bucket 0 for p100. Clamping to total keeps
+   p100 == max even when total_count > 2^53 (where dense's FP-rounded int64
+   target undershoots to an earlier bucket) and in the dense-UB band near
+   INT64_MAX -- packed is more correct than dense here. */
+static int64_t packed_count_at_percentile(const struct hdr_packed_histogram* h, double percentile)
+{
+    double requested = percentile < 100.0 ? percentile : 100.0;
+    double cc = ((requested / 100.0) * (double) h->total_count) + 0.5;
+    if (!(cc >= 1.0))                       return 1;                /* NaN or <1 (incl. -inf) */
+    if (cc >= (double) h->total_count)      return h->total_count;   /* p100/+inf, or rounds >= total */
+    return (int64_t) cc;                                             /* < total: bit-for-bit dense's target */
+}
+
 int64_t hdr_packed_value_at_percentile(const struct hdr_packed_histogram* h, double percentile)
 {
     const struct hdr_histogram* g = &h->cfg->geom;
-    double requested = percentile < 100.0 ? percentile : 100.0;
-    /* Resolve the target cumulative count to [1, total_count] before the int64
-       cast. The cast must be guarded (NaN/+/-inf/negative/>=2^63 are all UB), and
-       the target is clamped to total_count rather than INT64_MAX: when
-       total_count is just below INT64_MAX the double product rounds up to 2^63,
-       and clamping to INT64_MAX would make the target unreachable by the running
-       sum (which maxes at total_count), wrongly returning bucket 0 for p100. */
-    double cc = ((requested / 100.0) * (double) h->total_count) + 0.5;
-    int64_t count_at_percentile;
-    if (!(cc >= 1.0))                            /* NaN or below 1 (incl. -inf) */
-        count_at_percentile = 1;
-    else if (cc >= (double) h->total_count)      /* p100/+inf, or a target that rounds >= total */
-        count_at_percentile = h->total_count;    /* clamp to the reachable total -> last/max bucket.
-                                                    Keeps p100 == max even when total_count > 2^53
-                                                    (where dense's FP-rounded int64 target undershoots
-                                                    to an earlier bucket) and in the dense-UB band near
-                                                    INT64_MAX. packed is more correct than dense here. */
-    else
-        count_at_percentile = (int64_t) cc;      /* < total: bit-for-bit dense's target */
-
-    int64_t value_from_idx = packed_value_from_idx_at_count(h, count_at_percentile);
+    int64_t value_from_idx =
+        packed_value_from_idx_at_count(h, packed_count_at_percentile(h, percentile));
 
     if (percentile == 0.0)
     {
@@ -560,6 +559,12 @@ int64_t hdr_packed_value_at_percentile(const struct hdr_packed_histogram* h, dou
     return packed_highest_equivalent(g, value_from_idx);
 }
 
+/* Single-pass plural: dense's plural assumes ascending percentiles, but packed
+   stays order-agnostic by sorting the targets internally (percentile arrays are
+   tiny), then walking the sparse buckets ONCE while a cursor emits each target
+   as the running count crosses it. Result is bit-for-bit the per-percentile
+   singular for every percentile and any input order (divergence doc item 8),
+   at ~1 scan instead of `length` scans. */
 int hdr_packed_value_at_percentiles(const struct hdr_packed_histogram* h,
     const double* percentiles, int64_t* values, size_t length)
 {
@@ -567,10 +572,80 @@ int hdr_packed_value_at_percentiles(const struct hdr_packed_histogram* h,
     {
         return EINVAL;
     }
+    if (0 == length)
+    {
+        return 0;
+    }
+
+    const struct hdr_histogram* g = &h->cfg->geom;
+    enum { PK_SMALL = 32 };
+    int64_t  s_tgt[PK_SMALL], s_vfi[PK_SMALL];
+    size_t   s_ord[PK_SMALL];
+    int64_t* tgt = s_tgt;
+    int64_t* vfi = s_vfi;
+    size_t*  ord = s_ord;
+    if (length > PK_SMALL)
+    {
+        tgt = (int64_t*) PK_MALLOC(length * sizeof(int64_t));
+        vfi = (int64_t*) PK_MALLOC(length * sizeof(int64_t));
+        ord = (size_t*)  PK_MALLOC(length * sizeof(size_t));
+        if (NULL == tgt || NULL == vfi || NULL == ord)
+        {
+            free(tgt); free(vfi); free(ord);
+            return ENOMEM;
+        }
+    }
+
     for (size_t i = 0; i < length; i++)
     {
-        values[i] = hdr_packed_value_at_percentile(h, percentiles[i]);
+        tgt[i] = packed_count_at_percentile(h, percentiles[i]);
+        vfi[i] = 0;                 /* unreached (empty histogram) -> value 0, as singular */
+        ord[i] = i;
     }
+    /* insertion sort `ord` by ascending target (length is small) */
+    for (size_t a = 1; a < length; a++)
+    {
+        size_t k = ord[a];
+        size_t b = a;
+        while (b > 0 && tgt[ord[b - 1]] > tgt[k]) { ord[b] = ord[b - 1]; b--; }
+        ord[b] = k;
+    }
+
+    const int32_t n = h->size;
+    const int32_t* idx = h->idx;
+    /* Hot path is `running >= cur` against a register-held current target, as
+       cheap as the singular scan; the dependent-load emit runs only when a
+       target is crossed. */
+#define PK_PSCAN(TYPE) \
+    do { const TYPE* c = (const TYPE*) h->cnt; \
+         int64_t running = 0; size_t j = 0; int64_t cur = tgt[ord[0]]; \
+         for (int32_t i = 0; i < n; i++) { \
+             int64_t v = (int64_t) c[i]; \
+             running = (v > INT64_MAX - running) ? INT64_MAX : running + v; \
+             if (running >= cur) { \
+                 int64_t val = hdr_value_at_index(g, idx[i]); \
+                 do { vfi[ord[j]] = val; j++; } while (j < length && running >= tgt[ord[j]]); \
+                 if (j >= length) break; \
+                 cur = tgt[ord[j]]; \
+             } \
+         } } while (0)
+    switch (h->width)
+    {
+        case 1:  PK_PSCAN(uint8_t);  break;
+        case 2:  PK_PSCAN(uint16_t); break;
+        case 4:  PK_PSCAN(uint32_t); break;
+        default: PK_PSCAN(uint64_t); break;
+    }
+#undef PK_PSCAN
+
+    for (size_t i = 0; i < length; i++)
+    {
+        values[i] = (percentiles[i] == 0.0)
+                  ? hdr_lowest_equivalent_value(g, vfi[i])
+                  : packed_highest_equivalent(g, vfi[i]);
+    }
+
+    if (length > PK_SMALL) { free(tgt); free(vfi); free(ord); }
     return 0;
 }
 
