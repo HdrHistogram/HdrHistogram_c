@@ -68,6 +68,9 @@ static int pk_take(int* f) { if (*f == 1) { *f = 0; return 1; } if (*f > 1) (*f)
 
 #define HDR_PACKED_INITIAL_CAP 4
 
+/* Block size for the blocked prefix-sum percentile scans (single + plural). */
+#define PK_BLK 16
+
 struct hdr_packed_config
 {
     struct hdr_histogram geom;   /* geometry only; geom.counts == NULL */
@@ -520,7 +523,6 @@ static int64_t packed_value_from_idx_at_count(const struct hdr_packed_histogram*
        counts can sum past INT64_MAX on a crafted decode) keeps the saturating
        scalar scan. Invariant on entry to each block: running < target, so
        `target - running` is a positive int64 (no overflow). */
-    enum { PK_BLK = 16 };
 #define PK_BSCAN(TYPE) \
     do { const TYPE* c = (const TYPE*) h->cnt; \
          int32_t i = 0; \
@@ -645,19 +647,36 @@ int hdr_packed_value_at_percentiles(const struct hdr_packed_histogram* h,
 
     const int32_t n = h->size;
     const int32_t* idx = h->idx;
-    /* Hot path is `running >= cur` against a register-held current target, as
-       cheap as the singular scan; the dependent-load emit runs only when a
-       target is crossed. */
+    /* Blocked single-pass (widths 1/2/4, same rationale as the singular scan):
+       skip a PK_BLK block with one compare when it crosses no pending target;
+       only crossing blocks emit. `cur` is the register-held current target;
+       invariant `running < cur` on block entry keeps `running + bs` from
+       overflowing (widths <= 4). Width 8 keeps the saturating scalar scan. */
+    int32_t nb = n - (n % PK_BLK);
 #define PK_PSCAN(TYPE) \
     do { const TYPE* c = (const TYPE*) h->cnt; \
-         int64_t running = 0; size_t j = 0; int64_t cur = tgt[ord[0]]; \
-         for (int32_t i = 0; i < n; i++) { \
-             int64_t v = (int64_t) c[i]; \
-             running = (v > INT64_MAX - running) ? INT64_MAX : running + v; \
+         int64_t running = 0; size_t j = 0; int64_t cur = tgt[ord[0]]; int done = 0; \
+         int32_t i = 0; \
+         for (; i < nb && !done; i += PK_BLK) { \
+             int64_t bs = 0; \
+             for (int32_t k = 0; k < PK_BLK; k++) bs += (int64_t) c[i + k]; \
+             if (running + bs < cur) { running += bs; continue; } \
+             for (int32_t k = 0; k < PK_BLK; k++) { \
+                 running += (int64_t) c[i + k]; \
+                 if (running >= cur) { \
+                     int64_t val = hdr_value_at_index(g, idx[i + k]); \
+                     do { vfi[ord[j]] = val; j++; } while (j < length && running >= tgt[ord[j]]); \
+                     if (j >= length) { done = 1; break; } \
+                     cur = tgt[ord[j]]; \
+                 } \
+             } \
+         } \
+         for (; i < n && !done; i++) { \
+             running += (int64_t) c[i]; \
              if (running >= cur) { \
                  int64_t val = hdr_value_at_index(g, idx[i]); \
                  do { vfi[ord[j]] = val; j++; } while (j < length && running >= tgt[ord[j]]); \
-                 if (j >= length) break; \
+                 if (j >= length) { done = 1; break; } \
                  cur = tgt[ord[j]]; \
              } \
          } } while (0)
@@ -666,7 +685,24 @@ int hdr_packed_value_at_percentiles(const struct hdr_packed_histogram* h,
         case 1:  PK_PSCAN(uint8_t);  break;
         case 2:  PK_PSCAN(uint16_t); break;
         case 4:  PK_PSCAN(uint32_t); break;
-        default: PK_PSCAN(uint64_t); break;
+        default: /* width 8: counts can sum past INT64_MAX -> saturating scalar */
+        {
+            const uint64_t* c = (const uint64_t*) h->cnt;
+            int64_t running = 0; size_t j = 0; int64_t cur = tgt[ord[0]];
+            for (int32_t i = 0; i < n; i++)
+            {
+                int64_t v = (int64_t) c[i];
+                running = (v > INT64_MAX - running) ? INT64_MAX : running + v;
+                if (running >= cur)
+                {
+                    int64_t val = hdr_value_at_index(g, idx[i]);
+                    do { vfi[ord[j]] = val; j++; } while (j < length && running >= tgt[ord[j]]);
+                    if (j >= length) break;
+                    cur = tgt[ord[j]];
+                }
+            }
+            break;
+        }
     }
 #undef PK_PSCAN
 
