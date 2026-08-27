@@ -711,12 +711,58 @@ int64_t hdr_min(const struct hdr_histogram* h)
 static int64_t get_value_from_idx_up_to_count_scalar(
     const struct hdr_histogram* h, int64_t count_at_percentile)
 {
-    int64_t count_to_idx = 0;
-    for (int32_t idx = 0; idx < h->counts_len; idx++) {
-        count_to_idx += h->counts[idx];
-        if (count_to_idx >= count_at_percentile)
+    /* Block-summed scan: sum BLK counts, test the running total once per block,
+       and do the exact per-element walk only for the crossing block. offset != 0
+       (decoded/rotated) reads via the offset-aware accessor. */
+    enum { BLK = 4 };
+    const int64_t* counts = h->counts;
+    const int32_t n = h->counts_len;
+    int32_t idx = 0;
+    int64_t running = 0;
+
+    if (HDR_UNLIKELY(h->normalizing_index_offset != 0))
+    {
+        for (idx = 0; idx < n; idx++)
+        {
+            running += counts_get_normalised(h, idx);
+            if (running >= count_at_percentile)
+                return hdr_value_at_index(h, idx);
+        }
+        return 0;
+    }
+
+    {
+        const int32_t blk_limit = n - (n % BLK);
+        for (; idx < blk_limit; idx += BLK)
+        {
+            /* unsigned: avoid signed-overflow UB on corrupted state */
+            uint64_t block_sum_u = 0;
+            int32_t j;
+            for (j = 0; j < BLK; j++)
+                block_sum_u += (uint64_t)counts[idx + j];
+            if (HDR_UNLIKELY((uint64_t)running + block_sum_u >= (uint64_t)count_at_percentile))
+            {
+                for (j = 0; j < BLK; j++)
+                {
+                    running += counts[idx + j];
+                    if (running >= count_at_percentile)
+                        return hdr_value_at_index(h, idx + j);
+                }
+            }
+            else
+            {
+                running += (int64_t)block_sum_u;
+            }
+        }
+    }
+
+    for (; idx < n; idx++)
+    {
+        running += counts[idx];
+        if (running >= count_at_percentile)
             return hdr_value_at_index(h, idx);
     }
+
     return 0;
 }
 
@@ -762,7 +808,8 @@ static int64_t get_value_from_idx_up_to_count(const struct hdr_histogram* h, int
 {
     count_at_percentile = count_at_percentile > 0 ? count_at_percentile : 1;
 #ifdef HDR_HAS_AVX2_DISPATCH
-    if (__builtin_cpu_supports("avx2"))
+    /* AVX2 reads counts[] directly; offset != 0 (rotated) must use the scalar scan */
+    if (h->normalizing_index_offset == 0 && __builtin_cpu_supports("avx2"))
         return get_value_from_idx_up_to_count_avx2(h, count_at_percentile);
 #endif
     return get_value_from_idx_up_to_count_scalar(h, count_at_percentile);
