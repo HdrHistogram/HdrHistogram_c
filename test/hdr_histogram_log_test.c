@@ -279,6 +279,62 @@ static char* test_bounds_check_on_decode(void)
     return 0;
 }
 
+static char* test_v1_decode_rejects_oversized_counts(void)
+{
+    /* Regression: a crafted V1 log whose payload_len implies far more counts
+       than the (tiny lowest=1/highest=2) histogram allocates used to overflow
+       h->counts via apply_to_counts() -- a heap-buffer-overflow write. It must
+       now be rejected cleanly. Found by adversarial review during the
+       ClusterFuzzLite fuzzing effort; run under ASan this asserts the fix. */
+    char blob[] = "HISTAgAAABp4nJNpmdzIwFDLAAWMaDST/QcGFAAAdaEDZQ==";
+    struct hdr_histogram* actual = NULL;
+    int rc = hdr_log_decode(&actual, blob, strlen(blob));
+
+    mu_assert("Oversized V1 counts must be rejected", compare_int64(HDR_ENCODED_INPUT_TOO_LONG, rc));
+    mu_assert("No histogram should be built", NULL == actual);
+
+    return 0;
+}
+
+static char* test_decode_rejects_crafted_bounds_attacks(void)
+{
+    /* Additional crafted decode inputs found by adversarial review during the
+       ClusterFuzzLite fuzzing effort. Each corrupted memory before the fixes;
+       all must now be rejected cleanly. Run under ASan this asserts the fixes. */
+    struct { const char* blob; int rc; } cases[] = {
+        /* V1 negative payload_len -> counts_limit < 0, int32 overflow of
+           counts_array_len = counts_limit * word_size. */
+        { "HISTAgAAABl42pNpmdz4////HwwQwIhGMzGgAQD3VgWu", HDR_ENCODED_INPUT_TOO_LONG },
+        /* V1 word_size == 1 -> routes to the zig-zag reader whose LEB128
+           lookahead over-reads the (unpadded) V1 counts buffer. */
+        { "HISTAgAAAB54nJNpmSzIwMDAyAABzFAawmdsWwDlMzQAAD9AAvE=", HDR_INVALID_WORD_SIZE },
+        /* V0 word_size == 1 -> same zig-zag over-read on the V0 path. */
+        { "HISTCQAAACd4nJNpmSzBwMDAzAABjFCaiQHGGAWjYBSMglEwCkbBSAMNAMTQEdA=", HDR_INVALID_WORD_SIZE },
+        /* V2 negative payload_len -> tiny alloc + ~4GB inflate write. */
+        { "HISTBAAAABl4nJNpmcz8HwgYIIARjWay/8CAAgD0TwZm", EINVAL },
+        /* V2 oversized-but-positive payload_len (~2GB) -> counts_limit far
+           exceeds MAX_BYTES_LEB128 * counts_len; would attempt a ~2GB calloc
+           (resource exhaustion). Must be capped at the encoder bound. */
+        { "HISTFAAAABl4nJNpmSxczwAHjGg0k/0HqAATEwBUyQL+", HDR_ENCODED_INPUT_TOO_LONG },
+    };
+    size_t i;
+
+    for (i = 0; i < sizeof(cases) / sizeof(cases[0]); i++)
+    {
+        char blob[256];
+        struct hdr_histogram* actual = NULL;
+        int rc;
+
+        strcpy(blob, cases[i].blob);
+        rc = hdr_log_decode(&actual, blob, strlen(blob));
+
+        mu_assert("Crafted decode input must be rejected", compare_int64(cases[i].rc, rc));
+        mu_assert("No histogram should be built from a crafted input", NULL == actual);
+    }
+
+    return 0;
+}
+
 static char* test_encode_and_decode_base64(void)
 {
     uint8_t* buffer = NULL;
@@ -990,6 +1046,8 @@ static struct mu_result all_tests(void)
     mu_run_test(test_encode_and_decode_compressed_large);
     mu_run_test(test_encode_and_decode_base64);
     mu_run_test(test_bounds_check_on_decode);
+    mu_run_test(test_v1_decode_rejects_oversized_counts);
+    mu_run_test(test_decode_rejects_crafted_bounds_attacks);
 
     mu_run_test(base64_decode_block_decodes_4_chars);
     mu_run_test(base64_decode_fails_with_invalid_lengths);
