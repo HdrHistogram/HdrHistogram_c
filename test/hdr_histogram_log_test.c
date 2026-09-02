@@ -308,6 +308,8 @@ static char* test_decode_rejects_crafted_bounds_attacks(void)
         /* V1 word_size == 1 -> routes to the zig-zag reader whose LEB128
            lookahead over-reads the (unpadded) V1 counts buffer. */
         { "HISTAgAAAB54nJNpmSzIwMDAyAABzFAawmdsWwDlMzQAAD9AAvE=", HDR_INVALID_WORD_SIZE },
+        /* V0 word_size == 1 -> same zig-zag over-read on the V0 path. */
+        { "HISTCQAAACd4nJNpmSzBwMDAzAABjFCaiQHGGAWjYBSMglEwCkbBSAMNAMTQEdA=", HDR_INVALID_WORD_SIZE },
         /* V2 negative payload_len -> tiny alloc + ~4GB inflate write. */
         { "HISTBAAAABl4nJNpmcz8HwgYIIARjWay/8CAAgD0TwZm", EINVAL },
     };

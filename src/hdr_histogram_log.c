@@ -403,6 +403,12 @@ static int hdr_decode_compressed_v0(
     }
 
     word_size = word_size_from_cookie(be32toh(encoding_flyweight.cookie));
+    /* V0 counts are fixed-width; word_size==1 routes to the zig-zag reader whose
+       LEB128 lookahead reads past the unpadded V0 buffer (OOB read) */
+    if (word_size != 2 && word_size != 4 && word_size != 8)
+    {
+        FAIL_AND_CLEANUP(cleanup, result, HDR_INVALID_WORD_SIZE);
+    }
     lowest_discernible_value = be64toh(encoding_flyweight.lowest_discernible_value);
     highest_trackable_value = be64toh(encoding_flyweight.highest_trackable_value);
     significant_figures = be32toh(encoding_flyweight.significant_figures);
