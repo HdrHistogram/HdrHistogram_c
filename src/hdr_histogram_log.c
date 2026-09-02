@@ -638,6 +638,14 @@ static int hdr_decode_compressed_v2(
         FAIL_AND_CLEANUP(cleanup, result, rc);
     }
 
+    /* counts_limit is non-negative but still unbounded above: a tiny crafted log
+       can request a ~2GB alloc (resource exhaustion). Each of h->counts_len entries
+       encodes to at most MAX_BYTES_LEB128 bytes, so reject anything larger. */
+    if ((size_t) counts_limit > (size_t) MAX_BYTES_LEB128 * (size_t) h->counts_len)
+    {
+        FAIL_AND_CLEANUP(cleanup, result, HDR_ENCODED_INPUT_TOO_LONG);
+    }
+
     /* Make sure there at least 9 bytes to read */
     /* if there is a corrupt value at the end */
     /* of the array we won't read corrupt data or crash. */

@@ -312,6 +312,10 @@ static char* test_decode_rejects_crafted_bounds_attacks(void)
         { "HISTCQAAACd4nJNpmSzBwMDAzAABjFCaiQHGGAWjYBSMglEwCkbBSAMNAMTQEdA=", HDR_INVALID_WORD_SIZE },
         /* V2 negative payload_len -> tiny alloc + ~4GB inflate write. */
         { "HISTBAAAABl4nJNpmcz8HwgYIIARjWay/8CAAgD0TwZm", EINVAL },
+        /* V2 oversized-but-positive payload_len (~2GB) -> counts_limit far
+           exceeds MAX_BYTES_LEB128 * counts_len; would attempt a ~2GB calloc
+           (resource exhaustion). Must be capped at the encoder bound. */
+        { "HISTFAAAABl4nJNpmSxczwAHjGg0k/0HqAATEwBUyQL+", HDR_ENCODED_INPUT_TOO_LONG },
     };
     size_t i;
 
