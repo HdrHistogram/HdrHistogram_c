@@ -561,6 +561,52 @@ static char* reset_histogram_on_sample_and_recycle(void)
     return 0;
 }
 
+static char* test_percentile_scan_matches_naive_reference(void)
+{
+    /* pin dispatched scan to an offset-aware naive reference across a spread of percentiles */
+    struct hdr_histogram* h = NULL;
+    mu_assert("Failed to allocate hdr_histogram",
+        hdr_init(1, INT64_C(3600) * 1000 * 1000, 3, &h) == 0);
+
+    /* densely populate a wide spread of values across many 16-count scan blocks */
+    for (int64_t v = 1; v <= 1000000; v += 3)
+    {
+        hdr_record_values(h, v, (v % 5) + 1);
+    }
+
+    const double percentiles[] = {0.0, 25.0, 50.0, 90.0, 99.0, 99.9, 99.99, 100.0};
+    const size_t n = sizeof(percentiles) / sizeof(percentiles[0]);
+    const int64_t total = h->total_count;
+
+    for (size_t p = 0; p < n; p++)
+    {
+        int64_t count_at_percentile =
+            (int64_t)(((percentiles[p] / 100.0) * total) + 0.5);
+        /* mirror get_value_from_idx_up_to_count's clamp */
+        int64_t target = count_at_percentile > 0 ? count_at_percentile : 1;
+        int64_t cum = 0;
+        int64_t reference = 0;
+        for (int32_t i = 0; i < h->counts_len; i++)
+        {
+            cum += hdr_count_at_index(h, i);
+            if (cum >= target)
+            {
+                int64_t v = hdr_value_at_index(h, i);
+                reference = (percentiles[p] == 0.0)
+                    ? hdr_lowest_equivalent_value(h, v)
+                    : hdr_next_non_equivalent_value(h, v) - 1;
+                break;
+            }
+        }
+        mu_assert(
+            "percentile scan disagrees with naive offset-aware reference",
+            reference == hdr_value_at_percentile(h, percentiles[p]));
+    }
+
+    free(h);
+    return 0;
+}
+
 static struct mu_result all_tests(void)
 {
     mu_run_test(test_create);
@@ -571,6 +617,7 @@ static struct mu_result all_tests(void)
     mu_run_test(test_get_min_value);
     mu_run_test(test_get_max_value);
     mu_run_test(test_percentiles);
+    mu_run_test(test_percentile_scan_matches_naive_reference);
     mu_run_test(test_percentiles_by_value_at_percentiles);
     mu_run_test(test_recorded_values);
     mu_run_test(test_linear_values);
