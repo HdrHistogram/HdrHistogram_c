@@ -271,7 +271,7 @@ static char* test_value_at_percentiles_with_offset(void)
         offsetted[2] == unrotated[2] && offsetted[3] == unrotated[3] &&
         offsetted[4] == unrotated[4]);
 
-    free(rotated);
+    hdr_close(rotated);
     return 0;
 }
 
