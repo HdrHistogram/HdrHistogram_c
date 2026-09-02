@@ -248,7 +248,8 @@ static char* test_value_at_percentiles_with_offset(void)
     load_histograms();
 
     struct hdr_histogram* rotated;
-    hdr_init(1, INT64_C(3600) * 1000 * 1000, 3, &rotated);
+    mu_assert("init rotated",
+        hdr_init(1, INT64_C(3600) * 1000 * 1000, 3, &rotated) == 0);
 
     const int32_t k = 37; /* arbitrary non-zero offset */
     const int32_t len = raw_histogram->counts_len;
@@ -271,7 +272,7 @@ static char* test_value_at_percentiles_with_offset(void)
         offsetted[2] == unrotated[2] && offsetted[3] == unrotated[3] &&
         offsetted[4] == unrotated[4]);
 
-    free(rotated);
+    hdr_close(rotated); /* free(struct) alone leaks counts[] */
     return 0;
 }
 
