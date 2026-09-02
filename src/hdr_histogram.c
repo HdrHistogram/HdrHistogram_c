@@ -817,9 +817,12 @@ int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percen
         int32_t idx = 0;
         for (; idx + BATCH_SCAN_BLOCK <= len && at_pos < length; idx += BATCH_SCAN_BLOCK)
         {
-            const int64_t s =
-                counts[idx]     + counts[idx + 1] + counts[idx + 2] + counts[idx + 3] +
-                counts[idx + 4] + counts[idx + 5] + counts[idx + 6] + counts[idx + 7];
+            /* unsigned block sum: avoid signed-overflow UB on hostile decoded counts (cf. AVX2 reducer) */
+            const int64_t s = (int64_t)(
+                (uint64_t)counts[idx]     + (uint64_t)counts[idx + 1] +
+                (uint64_t)counts[idx + 2] + (uint64_t)counts[idx + 3] +
+                (uint64_t)counts[idx + 4] + (uint64_t)counts[idx + 5] +
+                (uint64_t)counts[idx + 6] + (uint64_t)counts[idx + 7]);
             if (total + s >= values[at_pos])
             {
                 int32_t j;
