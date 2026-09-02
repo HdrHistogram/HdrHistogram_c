@@ -941,7 +941,22 @@ static bool move_next(struct hdr_iter* iter)
 
 static int64_t peek_next_value_from_index(struct hdr_iter* iter)
 {
-    return hdr_value_at_index(iter->h, iter->counts_index + 1);
+    const int32_t index = iter->counts_index + 1;
+    int32_t bucket_index = (index >> iter->h->sub_bucket_half_count_magnitude) - 1;
+    int32_t sub_bucket_index = (index & (iter->h->sub_bucket_half_count - 1)) + iter->h->sub_bucket_half_count;
+    int32_t shift;
+    if (bucket_index < 0)
+    {
+        sub_bucket_index -= iter->h->sub_bucket_half_count;
+        bucket_index = 0;
+    }
+    shift = bucket_index + iter->h->unit_magnitude;
+    /* one past the top bucket shifts into the sign bit for a near-INT64_MAX range; saturate */
+    if (shift >= 63 || (int64_t) sub_bucket_index > (INT64_MAX >> shift))
+    {
+        return INT64_MAX;
+    }
+    return value_from_index(bucket_index, sub_bucket_index, iter->h->unit_magnitude);
 }
 
 static bool next_value_greater_than_reporting_level_upper_bound(
@@ -1160,9 +1175,20 @@ static bool iter_linear_next(struct hdr_iter* iter)
             {
                 update_iterated_values(iter, linear->next_value_reporting_level);
 
-                linear->next_value_reporting_level += linear->value_units_per_bucket;
-                linear->next_value_reporting_level_lowest_equivalent =
-                    lowest_equivalent_value(iter->h, linear->next_value_reporting_level);
+                /* advance the reporting level; on overflow pin to INT64_MAX so the emit test cannot re-fire and the iterator terminates */
+                if (linear->value_units_per_bucket <= 0 ||
+                    linear->next_value_reporting_level > INT64_MAX - linear->value_units_per_bucket)
+                {
+                    /* step <= 0 first: never-advances (infinite loop) and guards the subtraction; second clause is the overflow guard */
+                    linear->next_value_reporting_level = INT64_MAX;
+                    linear->next_value_reporting_level_lowest_equivalent = INT64_MAX;
+                }
+                else
+                {
+                    linear->next_value_reporting_level += linear->value_units_per_bucket;
+                    linear->next_value_reporting_level_lowest_equivalent =
+                        lowest_equivalent_value(iter->h, linear->next_value_reporting_level);
+                }
 
                 return true;
             }
@@ -1187,8 +1213,19 @@ void hdr_iter_linear_init(struct hdr_iter* iter, const struct hdr_histogram* h, 
 
     iter->specifics.linear.count_added_in_this_iteration_step = 0;
     iter->specifics.linear.value_units_per_bucket = value_units_per_bucket;
-    iter->specifics.linear.next_value_reporting_level = value_units_per_bucket;
-    iter->specifics.linear.next_value_reporting_level_lowest_equivalent = lowest_equivalent_value(h, value_units_per_bucket);
+    if (value_units_per_bucket <= 0)
+    {
+        /* non-positive step never advances; a negative one also reaches
+           negative left-shift UB in lowest_equivalent_value below. Pin to the
+           terminating state (matches the advance-path guard). */
+        iter->specifics.linear.next_value_reporting_level = INT64_MAX;
+        iter->specifics.linear.next_value_reporting_level_lowest_equivalent = INT64_MAX;
+    }
+    else
+    {
+        iter->specifics.linear.next_value_reporting_level = value_units_per_bucket;
+        iter->specifics.linear.next_value_reporting_level_lowest_equivalent = lowest_equivalent_value(h, value_units_per_bucket);
+    }
 
     iter->_next_fp = iter_linear_next;
 }
@@ -1217,8 +1254,22 @@ static bool log_iter_next(struct hdr_iter *iter)
             {
                 update_iterated_values(iter, logarithmic->next_value_reporting_level);
 
-                logarithmic->next_value_reporting_level *= (int64_t)logarithmic->log_base;
-                logarithmic->next_value_reporting_level_lowest_equivalent = lowest_equivalent_value(iter->h, logarithmic->next_value_reporting_level);
+                /* advance the reporting level; on *= log_base overflow pin to INT64_MAX so the emit test cannot re-fire and it terminates */
+                {
+                    int64_t base = (int64_t) logarithmic->log_base;
+                    if (base <= 1 || logarithmic->next_value_reporting_level <= 0 || logarithmic->next_value_reporting_level > INT64_MAX / base)
+                    {
+                        /* base <= 1 first: never-advances (infinite loop) and short-circuits /base so base==0 can't divide-by-zero; level <= 0 never advances (0*=base loops) and *=base on a negative is overflow UB; last clause is the positive-overflow guard */
+                        logarithmic->next_value_reporting_level = INT64_MAX;
+                        logarithmic->next_value_reporting_level_lowest_equivalent = INT64_MAX;
+                    }
+                    else
+                    {
+                        logarithmic->next_value_reporting_level *= base;
+                        logarithmic->next_value_reporting_level_lowest_equivalent =
+                            lowest_equivalent_value(iter->h, logarithmic->next_value_reporting_level);
+                    }
+                }
 
                 return true;
             }
@@ -1246,7 +1297,22 @@ void hdr_iter_log_init(
     iter->specifics.log.count_added_in_this_iteration_step = 0;
     iter->specifics.log.log_base = log_base;
     iter->specifics.log.next_value_reporting_level = value_units_first_bucket;
-    iter->specifics.log.next_value_reporting_level_lowest_equivalent = lowest_equivalent_value(h, value_units_first_bucket);
+    if (value_units_first_bucket <= 0 || !isfinite(log_base) || log_base <= 1.0 ||
+        log_base >= (double) INT64_MAX)
+    {
+        /* non-positive first bucket or base <= 1 never advances; a negative
+           first bucket also reaches negative left-shift UB in
+           lowest_equivalent_value below. A non-finite (NaN/Inf) or out-of-int64-
+           range base would hit float-cast-overflow UB at the (int64_t) log_base
+           cast in log_iter_next. Pin to the terminating state (matches the
+           advance-path guard) so that cast is never reached for a bad base. */
+        iter->specifics.log.next_value_reporting_level = INT64_MAX;
+        iter->specifics.log.next_value_reporting_level_lowest_equivalent = INT64_MAX;
+    }
+    else
+    {
+        iter->specifics.log.next_value_reporting_level_lowest_equivalent = lowest_equivalent_value(h, value_units_first_bucket);
+    }
 
     iter->_next_fp = log_iter_next;
 }
