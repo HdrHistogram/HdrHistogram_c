@@ -239,6 +239,100 @@ static char* test_percentiles_by_value_at_percentiles(void)
     return 0;
 }
 
+/* A decoded/foreign histogram can carry normalizing_index_offset != 0, so counts[] is
+   rotated in storage. hdr_value_at_percentiles must honor the offset (via the iterator
+   fallback) rather than read counts[] directly — otherwise it returns wrong percentiles.
+   Build a rotated copy representing the same data and assert identical percentiles. */
+static char* test_value_at_percentiles_with_offset(void)
+{
+    load_histograms();
+
+    struct hdr_histogram* rotated;
+    hdr_init(1, INT64_C(3600) * 1000 * 1000, 3, &rotated);
+
+    const int32_t k = 37; /* arbitrary non-zero offset */
+    const int32_t len = raw_histogram->counts_len;
+    rotated->normalizing_index_offset = k;
+    rotated->total_count = raw_histogram->total_count;
+    for (int32_t j = 0; j < len; j++)
+    {
+        rotated->counts[j] = raw_histogram->counts[((int64_t)j + k) % len];
+    }
+
+    double percentiles[5] = { 30.0, 99.0, 99.99, 99.999, 100.0 };
+    int64_t unrotated[5] = { 0 };
+    int64_t offsetted[5] = { 0 };
+    mu_assert("unrotated value_at_percentiles return 0",
+        hdr_value_at_percentiles(raw_histogram, percentiles, unrotated, 5) == 0);
+    mu_assert("offset value_at_percentiles return 0",
+        hdr_value_at_percentiles(rotated, percentiles, offsetted, 5) == 0);
+    mu_assert("offset histogram percentiles differ from unrotated",
+        offsetted[0] == unrotated[0] && offsetted[1] == unrotated[1] &&
+        offsetted[2] == unrotated[2] && offsetted[3] == unrotated[3] &&
+        offsetted[4] == unrotated[4]);
+
+    hdr_close(rotated);
+    return 0;
+}
+
+/* Exhaustive parity check for the blocked skip-scan in hdr_value_at_percentiles:
+   a dense histogram (many populated buckets, so block boundaries and crossing
+   blocks are exercised, not just all-zero skips) resolved via the fast blocked
+   path (offset 0) must return byte-identical values to the offset-aware iterator
+   fallback for a fine sweep of percentiles. */
+static char* test_value_at_percentiles_blocked_parity(void)
+{
+    struct hdr_histogram *dense, *rotated;
+    hdr_init(1, INT64_C(3600) * 1000 * 1000, 3, &dense);
+    hdr_init(1, INT64_C(3600) * 1000 * 1000, 3, &rotated);
+
+    /* Spread records densely across the range so counts[] has clusters and gaps. */
+    int64_t v;
+    for (v = 1; v <= 2000000; v += 7)
+    {
+        hdr_record_value(dense, v);
+    }
+    hdr_record_value(dense, INT64_C(3000) * 1000 * 1000); /* a far outlier */
+
+    const int32_t k = 101;
+    const int32_t len = dense->counts_len;
+    rotated->normalizing_index_offset = k;
+    rotated->total_count = dense->total_count;
+    int32_t j;
+    for (j = 0; j < len; j++)
+    {
+        rotated->counts[j] = dense->counts[((int64_t)j + k) % len];
+    }
+
+    /* Fine sweep including edges and values likely to land on block boundaries. */
+    double pcts[64];
+    int n = 0;
+    pcts[n++] = 0.0;
+    double p;
+    for (p = 0.5; p < 100.0 && n < 62; p += 1.7)
+    {
+        pcts[n++] = p;
+    }
+    pcts[n++] = 99.999;
+    pcts[n++] = 100.0;
+
+    int64_t blocked[64] = { 0 };
+    int64_t reference[64] = { 0 };
+    mu_assert("blocked value_at_percentiles return 0",
+        hdr_value_at_percentiles(dense, pcts, blocked, (size_t)n) == 0);
+    mu_assert("iterator value_at_percentiles return 0",
+        hdr_value_at_percentiles(rotated, pcts, reference, (size_t)n) == 0);
+    int i;
+    for (i = 0; i < n; i++)
+    {
+        mu_assert("blocked scan differs from iterator reference", blocked[i] == reference[i]);
+    }
+
+    hdr_close(dense);
+    hdr_close(rotated);
+    return 0;
+}
+
 
 static char* test_recorded_values(void)
 {
@@ -572,6 +666,8 @@ static struct mu_result all_tests(void)
     mu_run_test(test_get_max_value);
     mu_run_test(test_percentiles);
     mu_run_test(test_percentiles_by_value_at_percentiles);
+    mu_run_test(test_value_at_percentiles_with_offset);
+    mu_run_test(test_value_at_percentiles_blocked_parity);
     mu_run_test(test_recorded_values);
     mu_run_test(test_linear_values);
     mu_run_test(test_logarithmic_values);
