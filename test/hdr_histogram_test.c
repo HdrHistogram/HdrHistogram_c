@@ -239,6 +239,42 @@ static char* test_percentiles_by_value_at_percentiles(void)
     return 0;
 }
 
+/* Singular and plural percentile APIs both scan counts via counts_get_normalised, so
+   they must locate the same crossing bucket for any normalizing_index_offset. p0 is
+   excluded: hdr_value_at_percentile special-cases it to lowest_equivalent_value while
+   the plural API returns highest_equivalent_value, a documented divergence unrelated to
+   the offset-aware scan. */
+static char* test_percentile_singular_equals_plural_with_offset(void)
+{
+    struct hdr_histogram* h = NULL;
+    double percentiles[5] = { 50.0, 90.0, 99.0, 99.9, 100.0 };
+    int64_t values[5] = { 0 };
+    int i;
+
+    mu_assert("Failed to allocate hdr_histogram", hdr_init(1, INT64_C(3600000000), 3, &h) == 0);
+
+    for (i = 0; i < 10000; i++)
+    {
+        hdr_record_value(h, 1000);
+    }
+    hdr_record_value(h, 100000000);
+
+    /* Non-zero offset in [1, counts_len): both scans must still agree. */
+    h->normalizing_index_offset = h->counts_len / 2;
+
+    mu_assert("value_at_percentiles return should be 0",
+        hdr_value_at_percentiles(h, percentiles, values, 5) == 0);
+
+    for (i = 0; i < 5; i++)
+    {
+        mu_assert("singular != plural under non-zero offset",
+            hdr_value_at_percentile(h, percentiles[i]) == values[i]);
+    }
+
+    free(h);
+    return 0;
+}
+
 
 static char* test_recorded_values(void)
 {
@@ -572,6 +608,7 @@ static struct mu_result all_tests(void)
     mu_run_test(test_get_max_value);
     mu_run_test(test_percentiles);
     mu_run_test(test_percentiles_by_value_at_percentiles);
+    mu_run_test(test_percentile_singular_equals_plural_with_offset);
     mu_run_test(test_recorded_values);
     mu_run_test(test_linear_values);
     mu_run_test(test_logarithmic_values);
