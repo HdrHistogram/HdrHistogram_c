@@ -872,12 +872,8 @@ int64_t hdr_count_at_value(const struct hdr_histogram* h, int64_t value)
 {
     int32_t counts_index;
 
-    /* out-of-range value maps outside counts[] (OOB read); count is 0 */
-    if (value < 0 || h->highest_trackable_value < value)
-    {
-        return 0;
-    }
-
+    if (value < 0) { return 0; }
+    /* value past the array's top half-bucket maps outside counts[] (OOB); count 0 */
     counts_index = counts_index_for(h, value);
     if ((uint32_t)counts_index >= (uint32_t)h->counts_len)
     {

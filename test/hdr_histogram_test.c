@@ -607,6 +607,15 @@ static char* test_count_at_value_out_of_range(void)
     mu_assert("Count above range is 0", compare_int64(0, hdr_count_at_value(h, INT64_MAX)));
 
     hdr_close(h);
+
+    {   /* value above highest_trackable_value but equivalent to a tracked value: still counted */
+        struct hdr_histogram* h2 = NULL;
+        mu_assert("alloc", 0 == hdr_init(1, 1000, 1, &h2));
+        hdr_record_value(h2, 1000);
+        mu_assert("equivalent value above highest is still counted", compare_int64(1, hdr_count_at_value(h2, 1010)));
+        hdr_close(h2);
+    }
+
     return 0;
 }
 
