@@ -563,7 +563,7 @@ static char* reset_histogram_on_sample_and_recycle(void)
 
 static char* test_percentile_scan_matches_naive_reference(void)
 {
-    /* pin dispatched scan to an offset-aware naive reference across a spread of percentiles */
+    /* pin dispatched scan to a naive reference across a spread of percentiles */
     struct hdr_histogram* h = NULL;
     mu_assert("Failed to allocate hdr_histogram",
         hdr_init(1, INT64_C(3600) * 1000 * 1000, 3, &h) == 0);
@@ -599,7 +599,7 @@ static char* test_percentile_scan_matches_naive_reference(void)
             }
         }
         mu_assert(
-            "percentile scan disagrees with naive offset-aware reference",
+            "percentile scan disagrees with naive reference",
             reference == hdr_value_at_percentile(h, percentiles[p]));
     }
 
