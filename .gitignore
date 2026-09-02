@@ -54,3 +54,4 @@ debug
 cmake-build-debug
 /build-afl
 .vscode
+_build

@@ -89,5 +89,3 @@ jobs:
         run: cmake --build _build
       - name: Test
         run: cmake -E chdir _build ctest --output-on-failure
-        env:
-          ASAN_OPTIONS: detect_leaks=0

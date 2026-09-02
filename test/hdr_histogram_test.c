@@ -45,28 +45,28 @@ static void load_histograms(void)
     int i;
     if (raw_histogram)
     {
-        free(raw_histogram);
+        hdr_close(raw_histogram); /* hdr_close: counts is a separate alloc; free() leaks it */
     }
 
     hdr_init(1, highest_trackable_value, significant_figures, &raw_histogram);
 
     if (cor_histogram)
     {
-        free(cor_histogram);
+        hdr_close(cor_histogram);
     }
 
     hdr_init(1, highest_trackable_value, significant_figures, &cor_histogram);
 
     if (scaled_raw_histogram)
     {
-        free(scaled_raw_histogram);
+        hdr_close(scaled_raw_histogram);
     }
 
     hdr_init(1000, highest_trackable_value * 512, significant_figures, &scaled_raw_histogram);
 
     if (scaled_cor_histogram)
     {
-        free(scaled_cor_histogram);
+        hdr_close(scaled_cor_histogram);
     }
 
     hdr_init(1000, highest_trackable_value * 512, significant_figures, &scaled_cor_histogram);
@@ -96,7 +96,7 @@ static char* test_create(void)
     mu_assert("Failed to allocate hdr_histogram", h != NULL);
     mu_assert("Incorrect array length", compare_int64(h->counts_len, 23552));
 
-    free(h);
+    hdr_close(h);
 
     return 0;
 }
@@ -126,6 +126,8 @@ static char* test_create_with_large_values(void)
     mu_assert(
         "99.0% Percentile",
         hdr_values_are_equivalent(h, 100000000, hdr_value_at_percentile(h, 99.0)));
+
+    hdr_close(h);
 
     return 0;
 }
@@ -471,6 +473,8 @@ static char* test_out_of_range_values(void)
     mu_assert("Should successfully record value", hdr_record_value(h, 1000));
     mu_assert("Should not record value", !hdr_record_value(h, 1001));
 
+    hdr_close(h);
+
     return 0;
 }
 
@@ -507,6 +511,8 @@ static char* test_linear_iter_buckets_correctly(void)
     mu_assert("Number of steps", compare_int64(4, step_count));
     mu_assert("Total count", compare_int64(6, total_count));
 
+    hdr_close(h);
+
     return 0;
 }
 
@@ -541,17 +547,20 @@ static char* test_interval_recording(void)
     result = compare_histograms(expected_histogram, recorder_histogram);
     if (result)
     {
-        return result;
+        goto cleanup;
     }
 
     recorder_corrected_histogram = hdr_interval_recorder_sample(&recorder_corrected);
     result = compare_histograms(expected_corrected_histogram, recorder_corrected_histogram);
-    if (result)
-    {
-        return result;
-    }
 
-    return 0;
+cleanup:
+    /* destroy closes recorder active+inactive (incl. sampled histograms) */
+    hdr_close(expected_histogram);
+    hdr_close(expected_corrected_histogram);
+    hdr_interval_recorder_destroy(&recorder);
+    hdr_interval_recorder_destroy(&recorder_corrected);
+
+    return result;
 }
 
 static char* reset_histogram_on_sample_and_recycle(void)
@@ -575,6 +584,9 @@ static char* reset_histogram_on_sample_and_recycle(void)
     sample1 = hdr_interval_recorder_sample_and_recycle(&recorder, sample2);
 
     mu_assert("Should have been reset", compare_int64(0, sample1->total_count));
+
+    hdr_close(sample1); /* leftover not held by recorder */
+    hdr_interval_recorder_destroy(&recorder);
 
     return 0;
 }
@@ -607,6 +619,12 @@ static struct mu_result all_tests(void)
 static int hdr_histogram_run_tests(void)
 {
     struct mu_result result = all_tests();
+
+    /* free static fixtures (hdr_close is NULL-safe) */
+    hdr_close(raw_histogram);
+    hdr_close(cor_histogram);
+    hdr_close(scaled_raw_histogram);
+    hdr_close(scaled_cor_histogram);
 
     if (result.message != 0)
     {

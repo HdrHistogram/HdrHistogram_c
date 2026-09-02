@@ -451,7 +451,7 @@ cleanup:
     else
     {
         hdr_add(*histogram, h);
-        hdr_free(h);
+        hdr_close(h); /* hdr_close: counts is a separate alloc; hdr_free leaks it */
     }
 
     return result;
@@ -556,7 +556,7 @@ cleanup:
     else
     {
         hdr_add(*histogram, h);
-        hdr_free(h);
+        hdr_close(h);
     }
 
     return result;
@@ -658,7 +658,7 @@ cleanup:
     else
     {
         hdr_add(*histogram, h);
-        hdr_free(h);
+        hdr_close(h);
     }
 
     return result;
