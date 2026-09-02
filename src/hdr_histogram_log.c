@@ -538,6 +538,14 @@ static int hdr_decode_compressed_v1(
     apply_to_counts(h, word_size, counts_array, counts_limit);
 
     h->normalizing_index_offset = be32toh(encoding_flyweight.normalizing_index_offset);
+    /* Reduce a decoded offset into (-counts_len, counts_len): normalize_index applies
+       only a single +/-counts_len wrap, so an out-of-range offset (untrusted log input)
+       would index counts[] out of bounds on the offset-aware read paths. No-op for
+       valid logs, where |offset| < counts_len. */
+    if (h->normalizing_index_offset != 0)
+    {
+        h->normalizing_index_offset %= h->counts_len;
+    }
     h->conversion_ratio = int64_bits_to_double(be64toh(encoding_flyweight.conversion_ratio_bits));
     hdr_reset_internal_counters(h);
 
@@ -640,6 +648,14 @@ static int hdr_decode_compressed_v2(
     }
 
     h->normalizing_index_offset = be32toh(encoding_flyweight.normalizing_index_offset);
+    /* Reduce a decoded offset into (-counts_len, counts_len): normalize_index applies
+       only a single +/-counts_len wrap, so an out-of-range offset (untrusted log input)
+       would index counts[] out of bounds on the offset-aware read paths. No-op for
+       valid logs, where |offset| < counts_len. */
+    if (h->normalizing_index_offset != 0)
+    {
+        h->normalizing_index_offset %= h->counts_len;
+    }
     h->conversion_ratio = int64_bits_to_double(be64toh(encoding_flyweight.conversion_ratio_bits));
     hdr_reset_internal_counters(h);
 
