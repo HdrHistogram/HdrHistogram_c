@@ -561,6 +561,82 @@ static char* reset_histogram_on_sample_and_recycle(void)
     return 0;
 }
 
+static char* test_mean_does_not_overflow(void)
+{
+    /* Regression (UBSan, found via fuzzing): hdr_mean summed count*value in an
+       int64 running total, which overflows for a histogram holding values near
+       2^62, yielding a wrapped/garbage (negative) mean. It now accumulates in
+       double. The mean of these large samples must be a positive finite value. */
+    struct hdr_histogram* h = NULL;
+
+    mu_assert("Should allocate", 0 == hdr_init(1, INT64_C(1) << 62, 3, &h));
+    hdr_record_value(h, INT64_C(1) << 62);
+    hdr_record_value(h, (INT64_C(1) << 62) - 1);
+    hdr_record_value(h, INT64_C(1) << 61);
+
+    {
+        double mean = hdr_mean(h);
+        /* Old int64 accumulation overflowed to a negative (~-2.3e18) mean.
+           The three recorded values are all <= 2^62 and >= 2^61, so a correct
+           mean must be a positive, finite value in that magnitude band. */
+        mu_assert("Mean must be positive and finite", mean > 0.0 && mean == mean);
+        mu_assert("Mean magnitude must be plausible (no overflow)", mean > 2.0e18 && mean < 5.0e18);
+    }
+
+    hdr_close(h);
+    return 0;
+}
+
+static char* test_count_at_value_out_of_range(void)
+{
+    /* Regression (ASan, found via fuzzing): hdr_count_at_value indexed counts[]
+       without a range check, so a value beyond the trackable range read out of
+       bounds. Such a value simply has a count of 0. Also pin in-range and the
+       value == highest_trackable_value boundary (catchable without a sanitizer)
+       so a '<' vs '<=' off-by-one in the guard is noticed. */
+    struct hdr_histogram* h = NULL;
+
+    mu_assert("Should allocate", 0 == hdr_init(1, 1000, 3, &h));
+    hdr_record_value(h, 1);
+    hdr_record_value(h, 1);
+    hdr_record_value(h, 1000); /* == highest_trackable_value */
+
+    mu_assert("In-range count is exact", compare_int64(2, hdr_count_at_value(h, 1)));
+    mu_assert("Boundary value (== highest) is counted", compare_int64(1, hdr_count_at_value(h, 1000)));
+    mu_assert("Count below range is 0", compare_int64(0, hdr_count_at_value(h, -5)));
+    mu_assert("Count above range is 0", compare_int64(0, hdr_count_at_value(h, INT64_MAX)));
+
+    hdr_close(h);
+
+    {   /* value above highest_trackable_value but equivalent to a tracked value: still counted */
+        struct hdr_histogram* h2 = NULL;
+        mu_assert("alloc", 0 == hdr_init(1, 1000, 1, &h2));
+        hdr_record_value(h2, 1000);
+        mu_assert("equivalent value above highest is still counted", compare_int64(1, hdr_count_at_value(h2, 1010)));
+        hdr_close(h2);
+    }
+
+    return 0;
+}
+
+static char* test_count_at_index_out_of_range(void)
+{
+    /* Regression (ASan, found via fuzzing): hdr_count_at_index dereferenced
+       counts[] with the raw caller index and no bounds check -> out-of-bounds
+       read for an out-of-range index. Such an index has count 0. */
+    struct hdr_histogram* h = NULL;
+
+    mu_assert("Should allocate", 0 == hdr_init(1, 1000, 3, &h));
+    hdr_record_value(h, 1);
+
+    mu_assert("index == counts_len is 0", compare_int64(0, hdr_count_at_index(h, h->counts_len)));
+    mu_assert("negative index is 0", compare_int64(0, hdr_count_at_index(h, -1)));
+    mu_assert("huge index is 0", compare_int64(0, hdr_count_at_index(h, INT32_MAX)));
+
+    hdr_close(h);
+    return 0;
+}
+
 static struct mu_result all_tests(void)
 {
     mu_run_test(test_create);
@@ -581,6 +657,9 @@ static struct mu_result all_tests(void)
     mu_run_test(test_linear_iter_buckets_correctly);
     mu_run_test(test_interval_recording);
     mu_run_test(reset_histogram_on_sample_and_recycle);
+    mu_run_test(test_mean_does_not_overflow);
+    mu_run_test(test_count_at_value_out_of_range);
+    mu_run_test(test_count_at_index_out_of_range);
 
     mu_ok;
 }

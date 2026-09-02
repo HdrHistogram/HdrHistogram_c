@@ -819,7 +819,8 @@ int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percen
 double hdr_mean(const struct hdr_histogram* h)
 {
     struct hdr_iter iter;
-    int64_t total = 0, count = 0;
+    double total = 0;
+    int64_t count = 0;
     int64_t total_count = h->total_count;
 
     hdr_iter_init(&iter, h);
@@ -829,11 +830,12 @@ double hdr_mean(const struct hdr_histogram* h)
         if (0 != iter.count)
         {
             count += iter.count;
-            total += iter.count * hdr_median_equivalent_value(h, iter.value);
+            /* sum in double: count*median can overflow int64 (UB) for large values */
+            total += (double) iter.count * (double) hdr_median_equivalent_value(h, iter.value);
         }
     }
 
-    return (total * 1.0) / total_count;
+    return total / total_count;
 }
 
 double hdr_stddev(const struct hdr_histogram* h)
@@ -868,11 +870,26 @@ int64_t hdr_lowest_equivalent_value(const struct hdr_histogram* h, int64_t value
 
 int64_t hdr_count_at_value(const struct hdr_histogram* h, int64_t value)
 {
-    return counts_get_normalised(h, counts_index_for(h, value));
+    int32_t counts_index;
+
+    if (value < 0) { return 0; }
+    /* value past the array's top half-bucket maps outside counts[] (OOB); count 0 */
+    counts_index = counts_index_for(h, value);
+    if ((uint32_t)counts_index >= (uint32_t)h->counts_len)
+    {
+        return 0;
+    }
+
+    return counts_get_normalised(h, counts_index);
 }
 
 int64_t hdr_count_at_index(const struct hdr_histogram* h, int32_t index)
 {
+    /* reject index outside counts[] (OOB read); unsigned compare also catches negatives */
+    if ((uint32_t)index >= (uint32_t)h->counts_len)
+    {
+        return 0;
+    }
     return counts_get_normalised(h, index);
 }
 
