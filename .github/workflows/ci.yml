@@ -84,7 +84,7 @@ jobs:
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y zlib1g-dev
       - name: Configure
-        run: cmake -E make_directory _build && cmake -E chdir _build cmake .. -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS="-fsanitize=address,undefined -fno-sanitize-recover=all -g"
+        run: cmake -E make_directory _build && cmake -E chdir _build cmake .. -DCMAKE_BUILD_TYPE=Debug -DHDR_LOG_REQUIRED=ON -DCMAKE_C_FLAGS="-fsanitize=address,undefined -fno-sanitize-recover=all -g"
       - name: Build
         run: cmake --build _build
       - name: Test
