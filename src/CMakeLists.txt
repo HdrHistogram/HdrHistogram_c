@@ -6,15 +6,19 @@ check_library_exists(rt clock_gettime "" HAVE_LIBRT)
 if (HDR_LOG_ENABLED)
     set(HDR_LOG_IMPLEMENTATION hdr_histogram_log.c)
     set(HDR_ZLIB ZLIB::ZLIB)
+    # The packed variant's V2 codec needs zlib and the log error codes.
+    set(HDR_PACKED_IMPLEMENTATION hdr_packed_histogram.c)
 else()
     set(HDR_LOG_IMPLEMENTATION hdr_histogram_log_no_op.c)
     set(HDR_ZLIB "")
+    set(HDR_PACKED_IMPLEMENTATION hdr_packed_histogram_no_op.c)
 endif()
 
 set(HDR_HISTOGRAM_SOURCES
     hdr_encoding.c
     hdr_histogram.c
     ${HDR_LOG_IMPLEMENTATION}
+    ${HDR_PACKED_IMPLEMENTATION}
     hdr_interval_recorder.c
     hdr_thread.c
     hdr_time.c
