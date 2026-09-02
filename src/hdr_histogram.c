@@ -34,9 +34,13 @@
 #  define HDR_UNLIKELY(x) (x)
 #endif
 
-/* Runtime-dispatched AVX2 path: keep the rest of this TU at the project's
-   baseline ISA so the shipped binary does not silently require AVX2. */
-#if (defined(__x86_64__) || defined(_M_X64)) \
+/* Runtime-dispatched AVX2 path; rest of TU stays at baseline ISA so the binary
+   doesn't silently require AVX2. 64-bit x86 + GCC/Clang only:
+     - 32-bit x86: _mm_extract_epi64 unavailable in 32-bit codegen.
+     - _MSC_VER: __builtin_cpu_supports's __cpu_model isn't linked under MSVC;
+       clang-cl also defines __x86_64__/__clang__ so this exclusion is load-bearing.
+     - __INTEL_COMPILER: ICC classic. */
+#if defined(__x86_64__) \
     && (defined(__GNUC__) || defined(__clang__)) && !defined(__INTEL_COMPILER) && !defined(_MSC_VER)
 #  define HDR_HAS_AVX2_DISPATCH 1
 #  include <immintrin.h>
@@ -187,7 +191,9 @@ static int64_t power(int64_t base, int64_t exp)
 static int32_t count_leading_zeros_64(int64_t value)
 {
 #if defined(_MSC_VER) && !(defined(__clang__) && (defined(_M_ARM) || defined(_M_ARM64)))
-    uint32_t leading_zero = 0;
+    /* _BitScanReverse* out-param is 'unsigned long*' (32-bit on Windows);
+       uint32_t* is a hard error under clang-cl */
+    unsigned long leading_zero = 0;
 #if defined(_WIN64)
     _BitScanReverse64(&leading_zero, value);
 #else

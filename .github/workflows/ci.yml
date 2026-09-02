@@ -67,5 +67,76 @@ jobs:
         run: cmake -E make_directory _build && cmake -E chdir _build cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DHDR_LOG_REQUIRED=${{ matrix.hdr_log_required }} ${{ matrix.cmake_args }}
       - name: Build
         run: cmake --build _build --config ${{ matrix.build_type }}
+      - name: Assert AVX2 dispatch enabled on 64-bit x86
+        if: matrix.os == 'linux'
+        run: |
+          cc -E -dM -Iinclude src/hdr_histogram.c | grep -q "define HDR_HAS_AVX2_DISPATCH" \
+            || { echo "ERROR: AVX2 dispatch unexpectedly compiled out on 64-bit x86"; exit 1; }
       - name: Test
         run: cmake -E chdir _build ctest --build-config ${{ matrix.build_type }}
+
+  # Regression coverage for the AVX2-dispatch guard in src/hdr_histogram.c.
+  # The default matrix above excludes 32-bit Linux and never uses the ClangCL
+  # toolset, so neither of the two configurations the guard specifically
+  # handles was exercised. These two jobs close that gap.
+
+  # 32-bit x86 GCC (i386): HDR_HAS_AVX2_DISPATCH must be compiled out here,
+  # because the AVX2 kernel uses _mm_extract_epi64, which is unavailable in
+  # 32-bit codegen. HDR_LOG_REQUIRED=DISABLED avoids needing a 32-bit zlib;
+  # the core suites still exercise hdr_value_at_percentile (the dispatched path).
+  build-linux-i386:
+    name: build (linux, Debug, i386, gcc -m32)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+        with:
+          submodules: recursive
+      - name: Install 32-bit toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-multilib g++-multilib
+      - name: Configure
+        run: cmake -E make_directory _build && cmake -E chdir _build cmake .. -DCMAKE_BUILD_TYPE=Debug -DHDR_LOG_REQUIRED=DISABLED -DCMAKE_C_FLAGS=-m32 -DCMAKE_CXX_FLAGS=-m32
+      - name: Build
+        run: cmake --build _build
+      - name: Assert the build is really 32-bit
+        run: |
+          file _build/test/hdr_histogram_test
+          file _build/test/hdr_histogram_test | grep -q "ELF 32-bit" || { echo "ERROR: expected a 32-bit binary; -m32 was not honored"; exit 1; }
+      - name: Assert AVX2 dispatch compiled out on i386
+        run: |
+          # Write macros to a file first so a broken 'cc -m32' (e.g. missing
+          # multilib) fails the step under 'set -e' instead of feeding grep
+          # empty input and silently passing this negative assert.
+          cc -m32 -E -dM -Iinclude src/hdr_histogram.c > macros.txt
+          if grep -q "define HDR_HAS_AVX2_DISPATCH" macros.txt; then
+            echo "ERROR: AVX2 dispatch unexpectedly enabled on i386"; exit 1
+          fi
+      - name: Test
+        run: cmake -E chdir _build ctest --output-on-failure
+
+  # clang-cl on Windows (the ClangCL VS toolset): clang-cl defines __clang__
+  # AND _MSC_VER, so before the guard was fixed it enabled the dispatch and
+  # failed to link (__cpu_model). HDR_HAS_AVX2_DISPATCH must be compiled out
+  # here; this job fails if the exclusion regresses.
+  build-windows-clangcl:
+    name: build (windows, Debug, x64, ClangCL toolset)
+    runs-on: windows-latest
+    env:
+      VCPKG_DEFAULT_TRIPLET: x64-windows
+      VCPKG_TARGET_ARCHITECTURE: x64
+      VCPKG_LIBRARY_LINKAGE: static
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+        with:
+          submodules: recursive
+      - name: Install dependencies (windows)
+        run: vcpkg install zlib
+      - name: Configure
+        run: cmake -E make_directory _build && cmake -E chdir _build cmake .. -T ClangCL -A x64 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
+      - name: Build
+        run: cmake --build _build --config Debug
+      - name: Test
+        run: cmake -E chdir _build ctest --build-config Debug --output-on-failure
