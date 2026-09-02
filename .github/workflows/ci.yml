@@ -67,6 +67,11 @@ jobs:
         run: cmake -E make_directory _build && cmake -E chdir _build cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DHDR_LOG_REQUIRED=${{ matrix.hdr_log_required }} ${{ matrix.cmake_args }}
       - name: Build
         run: cmake --build _build --config ${{ matrix.build_type }}
+      - name: Assert AVX2 dispatch enabled on 64-bit x86
+        if: matrix.os == 'linux'
+        run: |
+          cc -E -dM -Iinclude src/hdr_histogram.c | grep -q "define HDR_HAS_AVX2_DISPATCH" \
+            || { echo "ERROR: AVX2 dispatch unexpectedly compiled out on 64-bit x86"; exit 1; }
       - name: Test
         run: cmake -E chdir _build ctest --build-config ${{ matrix.build_type }}
 
