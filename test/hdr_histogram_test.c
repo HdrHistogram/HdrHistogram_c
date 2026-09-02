@@ -10,6 +10,7 @@
 #include <errno.h>
 
 #include <stdio.h>
+#include <math.h>
 #include <hdr/hdr_histogram.h>
 #include <hdr/hdr_interval_recorder.h>
 
@@ -688,6 +689,27 @@ static char* test_iterator_reporting_level_no_overflow(void)
     while (hdr_iter_next(&iter))
     {
         mu_assert("log iterator (first bucket=-100) must terminate", ++steps < 1000000);
+    }
+    /* Non-finite / out-of-int64-range log_base must not trip float-cast-overflow
+       UBSan at the (int64_t) log_base cast in log_iter_next, and must terminate.
+       The init guard pins the terminating state so the cast is never reached. */
+    hdr_iter_log_init(&iter, h, 1, 1e300);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("log iterator (base=1e300) must terminate", ++steps < 1000000);
+    }
+    hdr_iter_log_init(&iter, h, 1, INFINITY);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("log iterator (base=INF) must terminate", ++steps < 1000000);
+    }
+    hdr_iter_log_init(&iter, h, 1, NAN);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("log iterator (base=NaN) must terminate", ++steps < 1000000);
     }
     hdr_close(h);
 
