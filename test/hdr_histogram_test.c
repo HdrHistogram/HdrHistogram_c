@@ -239,6 +239,43 @@ static char* test_percentiles_by_value_at_percentiles(void)
     return 0;
 }
 
+/* A decoded/foreign histogram can carry normalizing_index_offset != 0, so counts[] is
+   rotated in storage. hdr_value_at_percentiles must honor the offset (via the iterator
+   fallback) rather than read counts[] directly — otherwise it returns wrong percentiles.
+   Build a rotated copy representing the same data and assert identical percentiles. */
+static char* test_value_at_percentiles_with_offset(void)
+{
+    load_histograms();
+
+    struct hdr_histogram* rotated;
+    mu_assert("init rotated",
+        hdr_init(1, INT64_C(3600) * 1000 * 1000, 3, &rotated) == 0);
+
+    const int32_t k = 37; /* arbitrary non-zero offset */
+    const int32_t len = raw_histogram->counts_len;
+    rotated->normalizing_index_offset = k;
+    rotated->total_count = raw_histogram->total_count;
+    for (int32_t j = 0; j < len; j++)
+    {
+        rotated->counts[j] = raw_histogram->counts[((int64_t)j + k) % len];
+    }
+
+    double percentiles[5] = { 30.0, 99.0, 99.99, 99.999, 100.0 };
+    int64_t unrotated[5] = { 0 };
+    int64_t offsetted[5] = { 0 };
+    mu_assert("unrotated value_at_percentiles return 0",
+        hdr_value_at_percentiles(raw_histogram, percentiles, unrotated, 5) == 0);
+    mu_assert("offset value_at_percentiles return 0",
+        hdr_value_at_percentiles(rotated, percentiles, offsetted, 5) == 0);
+    mu_assert("offset histogram percentiles differ from unrotated",
+        offsetted[0] == unrotated[0] && offsetted[1] == unrotated[1] &&
+        offsetted[2] == unrotated[2] && offsetted[3] == unrotated[3] &&
+        offsetted[4] == unrotated[4]);
+
+    hdr_close(rotated); /* free(struct) alone leaks counts[] */
+    return 0;
+}
+
 
 static char* test_recorded_values(void)
 {
@@ -572,6 +609,7 @@ static struct mu_result all_tests(void)
     mu_run_test(test_get_max_value);
     mu_run_test(test_percentiles);
     mu_run_test(test_percentiles_by_value_at_percentiles);
+    mu_run_test(test_value_at_percentiles_with_offset);
     mu_run_test(test_recorded_values);
     mu_run_test(test_linear_values);
     mu_run_test(test_logarithmic_values);

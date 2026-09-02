@@ -801,16 +801,37 @@ int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percen
         values[i] = count_at_percentile > 1 ? count_at_percentile : 1;
     }
 
-    hdr_iter_init(&iter, h);
     int64_t total = 0;
     size_t at_pos = 0;
-    while (hdr_iter_next(&iter) && at_pos < length)
+
+    if (HDR_LIKELY(h->normalizing_index_offset == 0))
     {
-        total += iter.count;
-        while (at_pos < length && total >= values[at_pos])
+        /* fast path: single prefix-sum scan resolves all ascending percentiles;
+           index->value only at crossings */
+        int32_t idx;
+        for (idx = 0; idx < h->counts_len && at_pos < length; idx++)
         {
-            values[at_pos] = highest_equivalent_value(h, iter.value);
-            at_pos++;
+            total += h->counts[idx];
+            while (at_pos < length && total >= values[at_pos])
+            {
+                values[at_pos] = highest_equivalent_value(h, hdr_value_at_index(h, idx));
+                at_pos++;
+            }
+        }
+    }
+    else
+    {
+        /* offset-aware fallback (normalizing_index_offset != 0): iterator
+           dereferences counts through the normalized index */
+        hdr_iter_init(&iter, h);
+        while (hdr_iter_next(&iter) && at_pos < length)
+        {
+            total += iter.count;
+            while (at_pos < length && total >= values[at_pos])
+            {
+                values[at_pos] = highest_equivalent_value(h, iter.value);
+                at_pos++;
+            }
         }
     }
     return 0;
