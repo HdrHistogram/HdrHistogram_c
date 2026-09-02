@@ -8,6 +8,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <string.h>
 
 #include <stdio.h>
 #include <hdr/hdr_histogram.h>
@@ -171,6 +172,23 @@ static char* test_bucket_config_shift_overflow(void)
     int r = hdr_init(INT64_C(1) << 56, INT64_C(1) << 58, 2, &h);
     mu_assert("Overflowing bucket config must return EINVAL", r == EINVAL);
     mu_assert("Histogram must be NULL on rejected config", h == NULL);
+
+    return 0;
+}
+
+static char* test_bucket_config_reject_defines_cfg(void)
+{
+    /* The >61 guard rejects before sub_bucket_mask/bucket_count/counts_len are
+       computed; cfg must still be fully defined so a two-step-init caller that
+       mishandles the EINVAL return does not read uninitialized fields. */
+    struct hdr_histogram_bucket_config cfg;
+    memset(&cfg, 0xAB, sizeof(cfg));
+
+    mu_assert("Overflowing bucket config must return EINVAL",
+              hdr_calculate_bucket_config(INT64_C(1) << 56, INT64_C(1) << 58, 2, &cfg) == EINVAL);
+    mu_assert("sub_bucket_mask must be defined on reject", cfg.sub_bucket_mask == 0);
+    mu_assert("bucket_count must be defined on reject", cfg.bucket_count == 0);
+    mu_assert("counts_len must be defined on reject", cfg.counts_len == 0);
 
     return 0;
 }
@@ -596,6 +614,7 @@ static struct mu_result all_tests(void)
     mu_run_test(test_create);
     mu_run_test(test_invalid_init);
     mu_run_test(test_bucket_config_shift_overflow);
+    mu_run_test(test_bucket_config_reject_defines_cfg);
     mu_run_test(test_create_with_large_values);
     mu_run_test(test_invalid_significant_figures);
     mu_run_test(test_total_count);

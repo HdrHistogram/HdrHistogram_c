@@ -392,6 +392,10 @@ int hdr_calculate_bucket_config(
     int32_t sub_bucket_count_magnitude;
     int64_t largest_value_with_single_unit_resolution;
 
+    /* define cfg on every reject path so a two-step-init caller that mishandles
+       the EINVAL return never reads uninitialized fields */
+    memset(cfg, 0, sizeof(*cfg));
+
     if (lowest_discernible_value < 1 ||
             significant_figures < 1 || 5 < significant_figures ||
             /* division form: lowest*2 near INT64_MAX overflows int64 (UB) */
