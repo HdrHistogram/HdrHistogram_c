@@ -8,6 +8,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <math.h>
 
 #include <stdio.h>
 #include <hdr/hdr_histogram.h>
@@ -561,6 +562,47 @@ static char* reset_histogram_on_sample_and_recycle(void)
     return 0;
 }
 
+static char* test_top_bucket_value_range_no_overflow(void)
+{
+    /* Regression (UBSan, found via fuzzing): for a histogram whose
+       highest_trackable_value is near INT64_MAX, the top bucket's
+       lowest_equivalent + size_of_equivalent_value_range overflowed int64,
+       corrupting hdr_max / hdr_value_at_percentile / hdr_stddev and the
+       all-values iterator. Those value-range computations now saturate. */
+    struct hdr_histogram* h = NULL;
+    struct hdr_iter iter;
+
+    mu_assert("Should allocate", 0 == hdr_init(1, INT64_MAX, 3, &h));
+    hdr_record_value(h, INT64_MAX);
+    hdr_record_value(h, 5);
+
+    /* hdr_next_non_equivalent_value is the only assertion here that distinguishes
+       fixed from broken on a plain (non-UBSan) build: on the buggy code low + size
+       overflows and hdr_next_non_equivalent_value(INT64_MAX) wraps to INT64_MIN,
+       whereas the fix saturates to INT64_MAX. */
+    mu_assert("next_non_equivalent_value saturates, not wrapped negative",
+              INT64_MAX == hdr_next_non_equivalent_value(h, INT64_MAX));
+    /* The remaining checks pass on the unfixed code too (the overflow is UB but
+       happens to produce these values on common targets); they are UBSan-only
+       guards against the signed-overflow itself, plus invariant/sanity pins. */
+    mu_assert("max saturates to INT64_MAX", INT64_MAX == hdr_max(h));
+    mu_assert("p100 saturates to INT64_MAX", INT64_MAX == hdr_value_at_percentile(h, 100.0));
+    mu_assert("stddev is finite", isfinite(hdr_stddev(h)));
+
+    /* The all-values iterator visits the top bucket; its highest_equivalent_value
+       must stay a representable non-negative int64 (UBSan-only guard: the overflow
+       is UB, but the wrapped value is typically still >= 0 on a plain build). */
+    hdr_iter_init(&iter, h);
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("iter highest_equivalent_value stays representable",
+                  iter.highest_equivalent_value >= 0);
+    }
+
+    hdr_close(h);
+    return 0;
+}
+
 static struct mu_result all_tests(void)
 {
     mu_run_test(test_create);
@@ -570,6 +612,7 @@ static struct mu_result all_tests(void)
     mu_run_test(test_total_count);
     mu_run_test(test_get_min_value);
     mu_run_test(test_get_max_value);
+    mu_run_test(test_top_bucket_value_range_no_overflow);
     mu_run_test(test_percentiles);
     mu_run_test(test_percentiles_by_value_at_percentiles);
     mu_run_test(test_recorded_values);
