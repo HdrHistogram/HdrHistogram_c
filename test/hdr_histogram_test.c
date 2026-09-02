@@ -674,6 +674,21 @@ static char* test_iterator_reporting_level_no_overflow(void)
     {
         mu_assert("log iterator (level<=0) must terminate", ++steps < 1000000);
     }
+    /* Negative init params reach negative left-shift UB in lowest_equivalent_value
+       at init time (before any advance-path guard). Must not trip UBSan and must
+       terminate. */
+    hdr_iter_linear_init(&iter, h, -1);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("linear iterator (vpb=-1) must terminate", ++steps < 1000000);
+    }
+    hdr_iter_log_init(&iter, h, -100, 2.0);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("log iterator (first bucket=-100) must terminate", ++steps < 1000000);
+    }
     hdr_close(h);
 
     /* Value-pinning regression: an over-eager peek guard truncated the tail of

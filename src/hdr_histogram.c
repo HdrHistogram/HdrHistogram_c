@@ -1213,8 +1213,19 @@ void hdr_iter_linear_init(struct hdr_iter* iter, const struct hdr_histogram* h, 
 
     iter->specifics.linear.count_added_in_this_iteration_step = 0;
     iter->specifics.linear.value_units_per_bucket = value_units_per_bucket;
-    iter->specifics.linear.next_value_reporting_level = value_units_per_bucket;
-    iter->specifics.linear.next_value_reporting_level_lowest_equivalent = lowest_equivalent_value(h, value_units_per_bucket);
+    if (value_units_per_bucket <= 0)
+    {
+        /* non-positive step never advances; a negative one also reaches
+           negative left-shift UB in lowest_equivalent_value below. Pin to the
+           terminating state (matches the advance-path guard). */
+        iter->specifics.linear.next_value_reporting_level = INT64_MAX;
+        iter->specifics.linear.next_value_reporting_level_lowest_equivalent = INT64_MAX;
+    }
+    else
+    {
+        iter->specifics.linear.next_value_reporting_level = value_units_per_bucket;
+        iter->specifics.linear.next_value_reporting_level_lowest_equivalent = lowest_equivalent_value(h, value_units_per_bucket);
+    }
 
     iter->_next_fp = iter_linear_next;
 }
@@ -1286,7 +1297,19 @@ void hdr_iter_log_init(
     iter->specifics.log.count_added_in_this_iteration_step = 0;
     iter->specifics.log.log_base = log_base;
     iter->specifics.log.next_value_reporting_level = value_units_first_bucket;
-    iter->specifics.log.next_value_reporting_level_lowest_equivalent = lowest_equivalent_value(h, value_units_first_bucket);
+    if (value_units_first_bucket <= 0 || log_base <= 1.0)
+    {
+        /* non-positive first bucket or base <= 1 never advances; a negative
+           first bucket also reaches negative left-shift UB in
+           lowest_equivalent_value below. Pin to the terminating state (matches
+           the advance-path guard). */
+        iter->specifics.log.next_value_reporting_level = INT64_MAX;
+        iter->specifics.log.next_value_reporting_level_lowest_equivalent = INT64_MAX;
+    }
+    else
+    {
+        iter->specifics.log.next_value_reporting_level_lowest_equivalent = lowest_equivalent_value(h, value_units_first_bucket);
+    }
 
     iter->_next_fp = log_iter_next;
 }
