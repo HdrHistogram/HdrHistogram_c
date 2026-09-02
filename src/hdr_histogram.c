@@ -734,7 +734,9 @@ static int64_t get_value_from_idx_up_to_count_avx2(
     for (; idx < limit; idx += 16) {
         /* prefetch 4 iterations (512 B) ahead to hide L2/L3 latency of the
            linear scan; distance = 4x the idx+=16 stride, keep them coupled. */
-        _mm_prefetch((const char*)&h->counts[idx + 4 * 16], _MM_HINT_T0);
+        /* 512 B ahead; clamp in-bounds — past-end pointer arith is UB even for a hint */
+        int32_t pf = idx + 4 * 16;
+        _mm_prefetch((const char*)&h->counts[pf < h->counts_len ? pf : h->counts_len - 1], _MM_HINT_T0);
         __m256i a = _mm256_loadu_si256((const __m256i*)&h->counts[idx]);
         __m256i b = _mm256_loadu_si256((const __m256i*)&h->counts[idx + 4]);
         __m256i c = _mm256_loadu_si256((const __m256i*)&h->counts[idx + 8]);
