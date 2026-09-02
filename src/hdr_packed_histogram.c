@@ -624,6 +624,11 @@ int hdr_packed_value_at_percentiles(const struct hdr_packed_histogram* h,
     size_t*  ord = s_ord;
     if (length > PK_SMALL)
     {
+        /* guard length*sizeof overflow on 32-bit */
+        if (length > SIZE_MAX / sizeof(int64_t))
+        {
+            return ENOMEM;
+        }
         tgt = (int64_t*) PK_MALLOC(length * sizeof(int64_t));
         vfi = (int64_t*) PK_MALLOC(length * sizeof(int64_t));
         ord = (size_t*)  PK_MALLOC(length * sizeof(size_t));
