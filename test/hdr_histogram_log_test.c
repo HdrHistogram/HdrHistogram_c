@@ -163,8 +163,8 @@ static void load_histograms(void)
 {
     int i;
 
-    free(raw_histogram);
-    free(cor_histogram);
+    hdr_close(raw_histogram); /* hdr_close: counts is a separate alloc; free() leaks it */
+    hdr_close(cor_histogram);
 
     hdr_alloc(INT64_C(3600) * 1000 * 1000, 3, &raw_histogram);
     hdr_alloc(INT64_C(3600) * 1000 * 1000, 3, &cor_histogram);
@@ -223,7 +223,8 @@ static char* test_encode_and_decode_compressed(void)
         "Comparison did not match",
         compare_histogram(expected, actual));
 
-    free(actual);
+    hdr_close(actual);
+    free(buffer); /* encode buffer */
 
     return 0;
 }
@@ -252,7 +253,8 @@ static char* test_encode_and_decode_compressed2(void)
             "Comparison did not match",
             compare_histogram(expected, actual));
 
-    free(actual);
+    hdr_close(actual);
+    free(buffer);
 
     return 0;
 }
@@ -275,6 +277,8 @@ static char* test_bounds_check_on_decode(void)
     rc = hdr_decode_compressed(buffer, len - 1, &actual);
     mu_assert("Should have be invalid", compare_int64(EINVAL, rc));
     mu_assert("Should not have built histogram", NULL == actual);
+
+    free(buffer); /* encode buffer; decode failed so actual is NULL */
 
     return 0;
 }
@@ -303,6 +307,10 @@ static char* test_encode_and_decode_base64(void)
 
     mu_assert("Should be same", memcmp(buffer, decoded, len) == 0);
 
+    free(buffer);
+    free(encoded);
+    free(decoded);
+
     return 0;
 }
 
@@ -316,7 +324,7 @@ static char* test_encode_and_decode_empty(void)
     size_t encoded_len;
     size_t decoded_len;
 
-    free(raw_histogram);
+    hdr_close(raw_histogram);
 
     mu_assert("allocation should be valid", 0 == hdr_init(1, 1000000, 1, &raw_histogram));
 
@@ -332,6 +340,10 @@ static char* test_encode_and_decode_empty(void)
     hdr_base64_decode(encoded, encoded_len, decoded, decoded_len);
 
     mu_assert("Should be same", memcmp(buffer, decoded, len) == 0);
+
+    free(buffer);
+    free(encoded);
+    free(decoded);
 
     return 0;
 }
@@ -366,8 +378,9 @@ static char* test_encode_and_decode_compressed_large(void)
         "Comparison did not match",
         compare_histogram(expected, actual));
 
-    free(expected);
-    free(actual);
+    hdr_close(expected);
+    hdr_close(actual);
+    free(buffer);
 
     return 0;
 }
@@ -452,8 +465,11 @@ static bool assert_base64_decode(const char* base64_encoded, const char* expecte
     uint8_t* output = calloc(sizeof(uint8_t), output_len);
 
     int result = hdr_base64_decode(base64_encoded, encoded_len, output, output_len);
+    bool ok = result == 0 && compare_string(expected, (char*)output, output_len);
 
-    return result == 0 && compare_string(expected, (char*)output, output_len);
+    free(output);
+
+    return ok;
 }
 
 static char* base64_decode_decodes_strings_without_padding(void)
@@ -582,6 +598,9 @@ static char* writes_and_reads_log(void)
     fclose(log_file);
     remove(file_name);
 
+    hdr_close(read_cor_histogram);
+    hdr_close(read_raw_histogram);
+
     return 0;
 }
 
@@ -645,7 +664,7 @@ static char* log_reader_aggregates_into_single_histogram(void)
 
     fclose(log_file);
     remove(file_name);
-    free(histogram);
+    hdr_close(histogram);
 
     return 0;
 }
@@ -689,9 +708,9 @@ static char* test_encode_decode_empty(void)
     mu_assert("Failed to encode histogram data", hdr_log_encode(histogram, &data) == 0);
     mu_assert("Failed to decode histogram data", hdr_log_decode(&hdr_new, data, strlen(data)) == 0);
     mu_assert("Histograms should be the same", compare_histogram(histogram, hdr_new));
-    free(histogram);
-    free(hdr_new);
-    free(data);
+    hdr_close(histogram);
+    hdr_close(hdr_new);
+    free(data); /* encoded string */
     return 0;
 }
 
@@ -712,6 +731,10 @@ static char* test_string_encode_decode(void)
     mu_assert("Failed to decode histogram data", hdr_log_decode(&hdr_new, data, strlen(data)) == 0);
     mu_assert("Histograms should be the same", compare_histogram(histogram, hdr_new));
     mu_assert("Mean different after encode/decode", compare_double(hdr_mean(histogram), hdr_mean(hdr_new), 0.001));
+
+    hdr_close(histogram);
+    hdr_close(hdr_new);
+    free(data);
 
     return 0;
 }
@@ -736,6 +759,10 @@ static char* test_string_encode_decode_2(void)
         "Failed to decode histogram data", validate_return_code(hdr_log_decode(&hdr_new, data, strlen(data))));
     mu_assert("Histograms should be the same", compare_histogram(histogram, hdr_new));
     mu_assert("Mean different after encode/decode", compare_double(hdr_mean(histogram), hdr_mean(hdr_new), 0.001));
+
+    hdr_close(histogram);
+    hdr_close(hdr_new);
+    free(data);
 
     return 0;
 }
@@ -773,7 +800,7 @@ static char* decode_v1_log(void)
         dropped = hdr_add(accum, h);
         mu_assert("Dropped events", compare_int64(dropped, 0));
 
-        free(h);
+        hdr_close(h);
         h = NULL;
     }
 
@@ -783,6 +810,8 @@ static char* decode_v1_log(void)
     mu_assert("max value wrong", compare_int64(1888485375, hdr_max(accum)));
     mu_assert("Seconds wrong", compare_int64(1438867590, reader.start_timestamp.tv_sec));
     mu_assert("Nanoseconds wrong", compare_int64(285000000, reader.start_timestamp.tv_nsec));
+
+    hdr_close(accum);
 
     return 0;
 }
@@ -820,7 +849,7 @@ static char* decode_v2_log(void)
         dropped = hdr_add(accum, h);
         mu_assert("Dropped events", compare_int64(dropped, 0));
 
-        free(h);
+        hdr_close(h);
         h = NULL;
     }
 
@@ -830,6 +859,8 @@ static char* decode_v2_log(void)
     mu_assert("max value wrong", compare_int64(1796210687, hdr_max(accum)));
     mu_assert("Seconds wrong", compare_int64(1441812279, reader.start_timestamp.tv_sec));
     mu_assert("Nanoseconds wrong", compare_int64(474000000, reader.start_timestamp.tv_nsec));
+
+    hdr_close(accum);
 
     return 0;
 }
@@ -870,7 +901,7 @@ static char* decode_v3_log(void)
         dropped = hdr_add(accum, h);
         mu_assert("Dropped events", compare_int64(dropped, 0));
 
-        free(h);
+        hdr_close(h);
         h = NULL;
     }
 
@@ -880,6 +911,8 @@ static char* decode_v3_log(void)
     mu_assert("max value wrong", compare_int64(1796210687, hdr_max(accum)));
     mu_assert("Seconds wrong", compare_int64(1441812279, reader.start_timestamp.tv_sec));
     mu_assert("Nanoseconds wrong", compare_int64(474000000, reader.start_timestamp.tv_nsec));
+
+    hdr_close(accum);
 
     return 0;
 }
@@ -945,7 +978,7 @@ static char* decode_v0_log(void)
         dropped = hdr_add(accum, h);
         mu_assert("Dropped events", compare_int64(dropped, 0));
 
-        free(h);
+        hdr_close(h);
         h = NULL;
     }
 
@@ -955,6 +988,8 @@ static char* decode_v0_log(void)
     mu_assert("max value wrong", compare_int64(1569718271, hdr_max(accum)));
     mu_assert("Seconds wrong", compare_int64(1438869961, reader.start_timestamp.tv_sec));
     mu_assert("Nanoseconds wrong", compare_int64(225000000, reader.start_timestamp.tv_nsec));
+
+    hdr_close(accum);
 
     return 0;
 }
@@ -1018,8 +1053,8 @@ static struct mu_result all_tests(void)
     mu_run_test(test_encode_and_decode_empty);
 
 
-    free(raw_histogram);
-    free(cor_histogram);
+    hdr_close(raw_histogram); /* free static fixtures */
+    hdr_close(cor_histogram);
 
     mu_ok;
 }
