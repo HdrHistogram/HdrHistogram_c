@@ -735,7 +735,7 @@ static int64_t get_value_from_idx_up_to_count_scalar(
         const int32_t blk_limit = n - (n % BLK);
         for (; idx < blk_limit; idx += BLK)
         {
-            /* unsigned: avoid signed-overflow UB on corrupted state */
+            /* unsigned block sum: cannot overflow under valid state (matches AVX2 path) */
             uint64_t block_sum_u = 0;
             int32_t j;
             for (j = 0; j < BLK; j++)
