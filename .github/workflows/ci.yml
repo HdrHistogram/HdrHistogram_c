@@ -106,8 +106,13 @@ jobs:
           file _build/test/hdr_histogram_test | grep -q "ELF 32-bit" || { echo "ERROR: expected a 32-bit binary; -m32 was not honored"; exit 1; }
       - name: Assert AVX2 dispatch compiled out on i386
         run: |
-          cc -m32 -E -dM -Iinclude src/hdr_histogram.c | grep -q "define HDR_HAS_AVX2_DISPATCH" \
-            && { echo "ERROR: AVX2 dispatch unexpectedly enabled on i386"; exit 1; } || true
+          # Write macros to a file first so a broken 'cc -m32' (e.g. missing
+          # multilib) fails the step under 'set -e' instead of feeding grep
+          # empty input and silently passing this negative assert.
+          cc -m32 -E -dM -Iinclude src/hdr_histogram.c > macros.txt
+          if grep -q "define HDR_HAS_AVX2_DISPATCH" macros.txt; then
+            echo "ERROR: AVX2 dispatch unexpectedly enabled on i386"; exit 1
+          fi
       - name: Test
         run: cmake -E chdir _build ctest --output-on-failure
 
