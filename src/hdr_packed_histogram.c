@@ -35,6 +35,8 @@
 #include "hdr/hdr_time.h"            /* hdr_timespec, needed by the log header */
 #include "hdr/hdr_histogram_log.h"  /* canonical HDR_ error codes (single source) */
 #include "hdr_endian.h"             /* portable byte-order helpers (all platforms) */
+#include "hdr_tests.h"              /* counts_index_for */
+#include "hdr_encoding.h"           /* zig_zag_encode_i64/decode_i64, MAX_BYTES_LEB128 */
 #include "hdr/hdr_packed_histogram.h"
 
 #if defined(_MSC_VER)
@@ -42,11 +44,6 @@
    which live in ws2_32; mirror the dense hdr_histogram_log.c linkage directive. */
 #pragma comment(lib, "ws2_32.lib")
 #endif
-
-/* Exported by the hdr static lib but not declared in the public header. */
-extern int32_t counts_index_for(const struct hdr_histogram* h, int64_t value);
-extern int zig_zag_encode_i64(uint8_t* buffer, int64_t signed_value);
-extern int zig_zag_decode_i64(const uint8_t* buffer, int64_t* signed_value);
 
 /* Allocation/compress hooks. Default build maps straight to libc/zlib with zero
    overhead; a coverage build (-DPACKED_FAULT_HOOKS) can force any single UUT
@@ -104,10 +101,12 @@ static int64_t width_max(uint8_t w)
     }
 }
 
-static int64_t slot_get(const struct hdr_packed_histogram* h, int32_t i)
+/* Width-parameterized load/store: native-endian in each slot, so widening just
+   re-stores each value at the new width (no partial-byte memcpy -- correct on
+   both endiannesses). */
+static int64_t load_w(const uint8_t* p, uint8_t w)
 {
-    const uint8_t* p = h->cnt + (size_t) i * h->width;
-    switch (h->width)
+    switch (w)
     {
         case 1:  return *p;
         case 2:  { uint16_t v; memcpy(&v, p, 2); return v; }
@@ -116,16 +115,25 @@ static int64_t slot_get(const struct hdr_packed_histogram* h, int32_t i)
     }
 }
 
-static void slot_set(struct hdr_packed_histogram* h, int32_t i, int64_t val)
+static void store_w(uint8_t* p, uint8_t w, int64_t val)
 {
-    uint8_t* p = h->cnt + (size_t) i * h->width;
-    switch (h->width)
+    switch (w)
     {
         case 1:  *p = (uint8_t) val; break;
         case 2:  { uint16_t v = (uint16_t) val; memcpy(p, &v, 2); break; }
         case 4:  { uint32_t v = (uint32_t) val; memcpy(p, &v, 4); break; }
         default: { uint64_t v = (uint64_t) val; memcpy(p, &v, 8); break; }
     }
+}
+
+static int64_t slot_get(const struct hdr_packed_histogram* h, int32_t i)
+{
+    return load_w(h->cnt + (size_t) i * h->width, h->width);
+}
+
+static void slot_set(struct hdr_packed_histogram* h, int32_t i, int64_t val)
+{
+    store_w(h->cnt + (size_t) i * h->width, h->width, val);
 }
 
 /* Grow the uniform count width to hold `need`, re-packing existing values. */
@@ -151,11 +159,7 @@ static bool widen_to_fit(struct hdr_packed_histogram* h, int64_t need)
     uint8_t ow = h->width;
     for (int32_t i = h->size - 1; i >= 0; i--)
     {
-        uint64_t v = 0;
-        memcpy(&v, nb + (size_t) i * ow, ow);   /* read narrow */
-        uint8_t* d = nb + (size_t) i * nw;
-        memset(d, 0, nw);
-        memcpy(d, &v, ow);                       /* little-endian widen */
+        store_w(nb + (size_t) i * nw, nw, load_w(nb + (size_t) i * ow, ow));
     }
     h->width = nw;
     return true;
@@ -740,7 +744,6 @@ int hdr_packed_count_width(const struct hdr_packed_histogram* h)
 
 /* ##  V2 serialization  ####################################################### */
 
-#define PK_MAX_LEB128 9
 static const uint32_t PK_V2_ENCODING_COOKIE    = 0x1c849303;
 static const uint32_t PK_V2_COMPRESSION_COOKIE = 0x1c849304;
 
@@ -820,11 +823,11 @@ int hdr_packed_encode_compressed(
 
     /* Emit-token budget is O(populated), NOT O(counts_limit): at most one value
        token per populated bucket plus one zero-run token before each and one
-       trailing => <= 2*size+1 tokens, each <= PK_MAX_LEB128 bytes. This both
+       trailing => <= 2*size+1 tokens, each <= MAX_BYTES_LEB128 bytes. This both
        sizes the scratch to the populated set and makes encode O(populated) in
        time (we walk the sparse array, not the index range). */
     size_t max_tokens = (size_t) 2 * (size_t) h->size + 1;
-    size_t enc_cap = PK_SIZEOF_ENC + (size_t) PK_MAX_LEB128 * max_tokens;
+    size_t enc_cap = PK_SIZEOF_ENC + (size_t) MAX_BYTES_LEB128 * max_tokens;
     enc = (pk_encoding_flyweight_t*) PK_CALLOC(enc_cap ? enc_cap : 1, 1);
     if (!enc) { result = ENOMEM; goto done; }
 
@@ -921,9 +924,9 @@ int hdr_packed_decode_compressed(
     if (rc) { hdr_packed_config_destroy(cfg); ret = rc; goto done; }
 
     /* Bound the payload against the geometry before allocating: a valid zig-zag
-       stream for counts_len buckets is at most PK_MAX_LEB128 bytes per bucket.
+       stream for counts_len buckets is at most MAX_BYTES_LEB128 bytes per bucket.
        This caps attacker-driven allocation (decompression-bomb defense). */
-    if ((int64_t) counts_limit > (int64_t) PK_MAX_LEB128 * h->cfg->geom.counts_len)
+    if ((int64_t) counts_limit > (int64_t) MAX_BYTES_LEB128 * h->cfg->geom.counts_len)
     {
         ret = HDR_ENCODED_INPUT_TOO_LONG; goto done;
     }

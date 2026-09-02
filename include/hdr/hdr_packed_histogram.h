@@ -22,7 +22,7 @@
  * order is O(n^2) worst case); count-width re-pack fires at most 3 times over a
  * histogram's life. A populated-only trie (O(1)-ish access) is deferred: it does
  * not improve memory and is only warranted if access speed becomes a proven
- * bottleneck. See FINDINGS.md.
+ * bottleneck.
  *
  * THREAD SAFETY: single-threaded. Unlike the dense library there is NO atomic
  * record variant; concurrent record/record-vs-read on one histogram is a data

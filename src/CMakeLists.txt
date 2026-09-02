@@ -11,7 +11,7 @@ if (HDR_LOG_ENABLED)
 else()
     set(HDR_LOG_IMPLEMENTATION hdr_histogram_log_no_op.c)
     set(HDR_ZLIB "")
-    set(HDR_PACKED_IMPLEMENTATION "")
+    set(HDR_PACKED_IMPLEMENTATION hdr_packed_histogram_no_op.c)
 endif()
 
 set(HDR_HISTOGRAM_SOURCES

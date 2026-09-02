@@ -8,7 +8,7 @@
  * assertions -- the exact Java pattern ("same asserts, different class"). Each
  * test notes the Java method it ports. Tests whose Java counterpart exercises a
  * feature this Phase-2 core does not implement (add/subtract/copy/shift/
- * iterators/auto-resize) are listed in PORT-MATRIX.md, not here.
+ * iterators/auto-resize) are omitted here.
  *
  * minunit style, matching HdrHistogram_c/test.
  */
@@ -198,6 +198,41 @@ static char* test_repack_survival(void)
     }
     mu_assert("repack width 8", hdr_packed_count_width(p) == 8);
     hdr_packed_close(p); hdr_close(d);
+    return 0;
+}
+
+/* endian-safe widen: distinct known counts survive width 1->2->4 verbatim
+   (guards the re-pack against LE-only partial-byte widening) */
+static char* test_widen_preserves_counts(void)
+{
+    enum { N = 64 };
+    int64_t vals[N], cnts[N];
+    struct hdr_packed_histogram* p = NULL;
+    hdr_packed_init(1, HIGHEST, SIG, &p);
+    /* N distinct buckets, each a distinct count that fits in width 1 */
+    for (int i = 0; i < N; i++)
+    {
+        vals[i] = (int64_t)(i + 1) * 500 + 1;
+        cnts[i] = (int64_t)(i + 3);            /* 3..66, all <= 255 */
+        mu_assert("widen seed record", hdr_packed_record_values(p, vals[i], cnts[i]));
+    }
+    mu_assert("width starts at 1", hdr_packed_count_width(p) == 1);
+
+    /* force width 1 -> 2 on one bucket, then re-read EVERY bucket verbatim */
+    mu_assert("widen to 2", hdr_packed_record_values(p, vals[0], 400));
+    cnts[0] += 400;
+    mu_assert("width now 2", hdr_packed_count_width(p) == 2);
+    for (int i = 0; i < N; i++)
+        mu_assert("count intact after ->2", hdr_packed_count_at_value(p, vals[i]) == cnts[i]);
+
+    /* force width 2 -> 4 on another bucket, re-read EVERY bucket verbatim */
+    mu_assert("widen to 4", hdr_packed_record_values(p, vals[1], 70000));
+    cnts[1] += 70000;
+    mu_assert("width now 4", hdr_packed_count_width(p) == 4);
+    for (int i = 0; i < N; i++)
+        mu_assert("count intact after ->4", hdr_packed_count_at_value(p, vals[i]) == cnts[i]);
+
+    hdr_packed_close(p);
     return 0;
 }
 
@@ -692,6 +727,7 @@ static struct mu_result all_tests(void)
     mu_run_test(test_memory_size);
     mu_run_test(test_count_width_boundaries);
     mu_run_test(test_repack_survival);
+    mu_run_test(test_widen_preserves_counts);
     mu_run_test(test_count_and_value_edges);
     mu_run_test(test_encode_empty);
     mu_run_test(test_percentile_robustness);
