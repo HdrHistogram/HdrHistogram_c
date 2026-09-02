@@ -667,6 +667,31 @@ static char* test_iterator_reporting_level_no_overflow(void)
     {
         mu_assert("log iterator (base<=1) must terminate", ++steps < 1000000);
     }
+    /* Non-positive log level must terminate (0 *= base loops forever otherwise). */
+    hdr_iter_log_init(&iter, h, 0, 2.0);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("log iterator (level<=0) must terminate", ++steps < 1000000);
+    }
+    hdr_close(h);
+
+    /* Value-pinning regression: an over-eager peek guard truncated the tail of
+       ordinary linear iteration. init(1,1000,1) + record 999, linear step 1
+       must emit one step per equivalent-value range up to the top of the last
+       bucket (value_iterated_to == 1023). A tail-truncation regresses loudly. */
+    h = NULL;
+    mu_assert("Should allocate", 0 == hdr_init(1, 1000, 1, &h));
+    hdr_record_value(h, 999);
+    hdr_iter_linear_init(&iter, h, 1);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        steps++;
+    }
+    mu_assert("linear step=1 must emit 1023 steps", 1023 == steps);
+    mu_assert("linear step=1 must reach top of last bucket (1023)",
+              1023 == iter.value_iterated_to);
     hdr_close(h);
     return 0;
 }

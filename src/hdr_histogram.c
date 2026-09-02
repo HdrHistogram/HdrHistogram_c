@@ -941,14 +941,28 @@ static bool move_next(struct hdr_iter* iter)
 
 static int64_t peek_next_value_from_index(struct hdr_iter* iter)
 {
-    return hdr_value_at_index(iter->h, iter->counts_index + 1);
+    const int32_t index = iter->counts_index + 1;
+    int32_t bucket_index = (index >> iter->h->sub_bucket_half_count_magnitude) - 1;
+    int32_t sub_bucket_index = (index & (iter->h->sub_bucket_half_count - 1)) + iter->h->sub_bucket_half_count;
+    int32_t shift;
+    if (bucket_index < 0)
+    {
+        sub_bucket_index -= iter->h->sub_bucket_half_count;
+        bucket_index = 0;
+    }
+    shift = bucket_index + iter->h->unit_magnitude;
+    /* one past the top bucket shifts into the sign bit for a near-INT64_MAX range; saturate */
+    if (shift >= 63 || (int64_t) sub_bucket_index > (INT64_MAX >> shift))
+    {
+        return INT64_MAX;
+    }
+    return value_from_index(bucket_index, sub_bucket_index, iter->h->unit_magnitude);
 }
 
 static bool next_value_greater_than_reporting_level_upper_bound(
     struct hdr_iter *iter, int64_t reporting_level_upper_bound)
 {
-    /* peek reads counts_index+1; one past the last bucket is signed-shift UB */
-    if (iter->counts_index + 1 >= iter->h->counts_len)
+    if (iter->counts_index >= iter->h->counts_len)
     {
         return false;
     }
@@ -1232,9 +1246,9 @@ static bool log_iter_next(struct hdr_iter *iter)
                 /* advance the reporting level; on *= log_base overflow pin to INT64_MAX so the emit test cannot re-fire and it terminates */
                 {
                     int64_t base = (int64_t) logarithmic->log_base;
-                    if (base <= 1 || logarithmic->next_value_reporting_level > INT64_MAX / base)
+                    if (base <= 1 || logarithmic->next_value_reporting_level <= 0 || logarithmic->next_value_reporting_level > INT64_MAX / base)
                     {
-                        /* base <= 1 first: never-advances (infinite loop) and short-circuits /base so base==0 can't divide-by-zero; second clause is the overflow guard */
+                        /* base <= 1 first: never-advances (infinite loop) and short-circuits /base so base==0 can't divide-by-zero; level <= 0 never advances (0*=base loops) and *=base on a negative is overflow UB; last clause is the positive-overflow guard */
                         logarithmic->next_value_reporting_level = INT64_MAX;
                         logarithmic->next_value_reporting_level_lowest_equivalent = INT64_MAX;
                     }
