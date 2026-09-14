@@ -392,9 +392,14 @@ int hdr_calculate_bucket_config(
     int32_t sub_bucket_count_magnitude;
     int64_t largest_value_with_single_unit_resolution;
 
+    /* define cfg on every reject path so a two-step-init caller that mishandles
+       the EINVAL return never reads uninitialized fields */
+    memset(cfg, 0, sizeof(*cfg));
+
     if (lowest_discernible_value < 1 ||
             significant_figures < 1 || 5 < significant_figures ||
-            lowest_discernible_value * 2 > highest_trackable_value)
+            /* division form: lowest*2 near INT64_MAX overflows int64 (UB) */
+            lowest_discernible_value > highest_trackable_value / 2)
     {
         return EINVAL;
     }
@@ -416,12 +421,14 @@ int hdr_calculate_bucket_config(
     cfg->unit_magnitude = (int32_t) unit_magnitude;
     cfg->sub_bucket_count      = (int32_t) pow(2, (cfg->sub_bucket_half_count_magnitude + 1));
     cfg->sub_bucket_half_count = cfg->sub_bucket_count / 2;
-    cfg->sub_bucket_mask       = ((int64_t) cfg->sub_bucket_count - 1) << cfg->unit_magnitude;
 
+    /* reject before shifting: sub_bucket_mask shift past bit 61 is signed-shift UB */
     if (cfg->unit_magnitude + cfg->sub_bucket_half_count_magnitude > 61)
     {
         return EINVAL;
     }
+
+    cfg->sub_bucket_mask       = ((int64_t) cfg->sub_bucket_count - 1) << cfg->unit_magnitude;
 
     cfg->bucket_count = buckets_needed_to_cover_value(highest_trackable_value, cfg->sub_bucket_count, (int32_t)cfg->unit_magnitude);
     cfg->counts_len = (cfg->bucket_count + 1) * (cfg->sub_bucket_count / 2);
