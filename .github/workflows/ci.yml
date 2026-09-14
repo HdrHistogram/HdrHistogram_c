@@ -25,9 +25,9 @@ jobs:
             hdr_log_required: DISABLED
         include:
           - cmake: minimal
-            cmake_url_part: v3.12/cmake-3.12.4
+            cmake_version: 3.12.4
           - cmake: latest
-            cmake_url_part: v3.17/cmake-3.17.3
+            cmake_version: 3.17.3
           - os: linux
             runner: ubuntu-latest
           - os: windows
@@ -53,7 +53,9 @@ jobs:
         if: matrix.os == 'linux'
         run: |
           sudo apt-get install -y zlib1g-dev
-          wget --no-check-certificate https://cmake.org/files/${{ matrix.cmake_url_part }}-Linux-x86_64.tar.gz -O /tmp/cmake.tar.gz
+          wget --tries=3 --retry-connrefused --timeout=30 \
+            https://github.com/Kitware/CMake/releases/download/v${{ matrix.cmake_version }}/cmake-${{ matrix.cmake_version }}-Linux-x86_64.tar.gz \
+            -O /tmp/cmake.tar.gz
           sudo tar xf /tmp/cmake.tar.gz -C /usr/local --strip-components 1
       - name: Install dependencies (windows)
         if: matrix.os == 'windows'
