@@ -403,6 +403,12 @@ static int hdr_decode_compressed_v0(
     }
 
     word_size = word_size_from_cookie(be32toh(encoding_flyweight.cookie));
+    /* V0 counts are fixed-width; word_size==1 routes to the zig-zag reader whose
+       LEB128 lookahead reads past the unpadded V0 buffer (OOB read) */
+    if (word_size != 2 && word_size != 4 && word_size != 8)
+    {
+        FAIL_AND_CLEANUP(cleanup, result, HDR_INVALID_WORD_SIZE);
+    }
     lowest_discernible_value = be64toh(encoding_flyweight.lowest_discernible_value);
     highest_trackable_value = be64toh(encoding_flyweight.highest_trackable_value);
     significant_figures = be32toh(encoding_flyweight.significant_figures);
@@ -501,7 +507,9 @@ static int hdr_decode_compressed_v1(
     }
 
     word_size = word_size_from_cookie(be32toh(encoding_flyweight.cookie));
-    if (word_size == 0)
+    /* V1 counts are fixed-width; word_size==1 routes to the zig-zag reader whose
+       LEB128 lookahead reads up to 9 bytes past the unpadded V1 buffer (OOB) */
+    if (word_size != 2 && word_size != 4 && word_size != 8)
     {
         FAIL_AND_CLEANUP(cleanup, result, HDR_INVALID_WORD_SIZE);
     }
@@ -517,6 +525,13 @@ static int hdr_decode_compressed_v1(
         &h) != 0)
     {
         FAIL_AND_CLEANUP(cleanup, result, ENOMEM);
+    }
+
+    /* attacker-controlled counts_limit > counts_len -> apply_to_counts() heap OOB
+       write; also guards counts_array_len (= counts_limit*word_size) int32 overflow */
+    if (counts_limit < 0 || counts_limit > h->counts_len)
+    {
+        FAIL_AND_CLEANUP(cleanup, result, HDR_ENCODED_INPUT_TOO_LONG);
     }
 
     /* Give the temp uncompressed array a little bif of extra */
@@ -607,6 +622,12 @@ static int hdr_decode_compressed_v2(
     }
 
     counts_limit = be32toh(encoding_flyweight.payload_len);
+    /* negative attacker-controlled payload_len -> tiny calloc but ~4GB avail_out
+       -> inflate writes past counts_array (heap OOB) */
+    if (counts_limit < 0)
+    {
+        FAIL_AND_CLEANUP(cleanup, result, EINVAL);
+    }
     lowest_discernible_value = be64toh(encoding_flyweight.lowest_discernible_value);
     highest_trackable_value = be64toh(encoding_flyweight.highest_trackable_value);
     significant_figures = be32toh(encoding_flyweight.significant_figures);
@@ -615,6 +636,14 @@ static int hdr_decode_compressed_v2(
     if (rc)
     {
         FAIL_AND_CLEANUP(cleanup, result, rc);
+    }
+
+    /* counts_limit is non-negative but still unbounded above: a tiny crafted log
+       can request a ~2GB alloc (resource exhaustion). Each of h->counts_len entries
+       encodes to at most MAX_BYTES_LEB128 bytes, so reject anything larger. */
+    if ((size_t) counts_limit > (size_t) MAX_BYTES_LEB128 * (size_t) h->counts_len)
+    {
+        FAIL_AND_CLEANUP(cleanup, result, HDR_ENCODED_INPUT_TOO_LONG);
     }
 
     /* Make sure there at least 9 bytes to read */
