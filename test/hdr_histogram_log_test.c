@@ -999,6 +999,30 @@ static char* handle_invalid_log_lines(void)
     mu_assert("Should have invalid tag key", -EINVAL == parse_line_from_file("test_tagged_invalid_tag_key.txt"));
     mu_assert("Should have invalid timestamp", -EINVAL == parse_line_from_file("test_tagged_invalid_timestamp.txt"));
     mu_assert("Should have missing histogram", -EINVAL == parse_line_from_file("test_tagged_missing_histogram.txt"));
+    mu_assert("Should have overflowing timestamp", -EINVAL == parse_line_from_file("test_overflow_timestamp_seconds.txt"));
+
+    return 0;
+}
+
+/* A fraction longer than nanosecond resolution must truncate, not overflow (UBSan). */
+static char* handle_sub_nanosecond_timestamp(void)
+{
+    struct hdr_histogram* h = NULL;
+    hdr_timespec timestamp;
+    hdr_timespec interval;
+    int rc;
+
+    FILE* f = fopen("test_overflow_timestamp_nanos.txt", "r");
+    mu_assert("Can not open sub-nanosecond timestamp file", f != NULL);
+
+    rc = hdr_log_read(NULL, f, &h, &timestamp, &interval);
+    fclose(f);
+
+    mu_assert("Failed to read entry", compare_int(0, rc));
+    mu_assert("Seconds wrong", compare_int64(1, timestamp.tv_sec));
+    mu_assert("Nanoseconds wrong", compare_int64(134000000, timestamp.tv_nsec));
+
+    hdr_close(h);
 
     return 0;
 }
@@ -1106,6 +1130,7 @@ static struct mu_result all_tests(void)
     mu_run_test(decode_v1_log);
     mu_run_test(decode_v0_log);
     mu_run_test(handle_invalid_log_lines);
+    mu_run_test(handle_sub_nanosecond_timestamp);
 
     mu_run_test(test_zig_zag_codec);
     mu_run_test(test_encode_and_decode_empty);

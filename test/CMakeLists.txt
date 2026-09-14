@@ -85,6 +85,6 @@ foreach(V 2.0.1.logV0 2.0.6.logV1 2.0.7S.logV2 2.0.7S.logV3)
     configure_file(jHiccup-${V}.hlog jHiccup-${V}.hlog COPYONLY)
 endforeach()
 
-foreach(V test_tagged_invalid_histogram.txt test_tagged_invalid_tag_key.txt test_tagged_invalid_timestamp.txt test_tagged_missing_histogram.txt)
+foreach(V test_tagged_invalid_histogram.txt test_tagged_invalid_tag_key.txt test_tagged_invalid_timestamp.txt test_tagged_missing_histogram.txt test_overflow_timestamp_seconds.txt test_overflow_timestamp_nanos.txt)
     configure_file(${V} ${V} COPYONLY)
 endforeach()
