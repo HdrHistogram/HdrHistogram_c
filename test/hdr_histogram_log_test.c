@@ -1004,6 +1004,35 @@ static char* handle_invalid_log_lines(void)
     return 0;
 }
 
+/* sec is a long, which is 32-bit on MSVC: 2^31 parses where long is 64-bit and is
+   rejected where it is not. Pins that boundary rather than leaving it to the platform. */
+static char* handle_timestamp_at_long_boundary(void)
+{
+    struct hdr_histogram* h = NULL;
+    hdr_timespec timestamp;
+    hdr_timespec interval;
+    int rc;
+
+    FILE* f = fopen("test_timestamp_seconds_2pow31.txt", "r");
+    mu_assert("Can not open 2^31 timestamp file", f != NULL);
+
+    rc = hdr_log_read(NULL, f, &h, &timestamp, &interval);
+    fclose(f);
+
+    if (sizeof(long) >= 8)
+    {
+        mu_assert("Failed to read entry", compare_int(0, rc));
+        mu_assert("Seconds wrong", compare_int64(INT64_C(2147483648), (int64_t) timestamp.tv_sec));
+        hdr_close(h);
+    }
+    else
+    {
+        mu_assert("Should not fit a 32-bit long", -EINVAL == rc);
+    }
+
+    return 0;
+}
+
 /* A fraction longer than nanosecond resolution must truncate, not overflow (UBSan). */
 static char* handle_sub_nanosecond_timestamp(void)
 {
@@ -1131,6 +1160,7 @@ static struct mu_result all_tests(void)
     mu_run_test(decode_v0_log);
     mu_run_test(handle_invalid_log_lines);
     mu_run_test(handle_sub_nanosecond_timestamp);
+    mu_run_test(handle_timestamp_at_long_boundary);
 
     mu_run_test(test_zig_zag_codec);
     mu_run_test(test_encode_and_decode_empty);
