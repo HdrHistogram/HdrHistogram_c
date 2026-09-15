@@ -8,6 +8,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <string.h>
 
 #include <stdio.h>
 #include <hdr/hdr_histogram.h>
@@ -45,28 +46,28 @@ static void load_histograms(void)
     int i;
     if (raw_histogram)
     {
-        free(raw_histogram);
+        hdr_close(raw_histogram); /* hdr_close: counts is a separate alloc; free() leaks it */
     }
 
     hdr_init(1, highest_trackable_value, significant_figures, &raw_histogram);
 
     if (cor_histogram)
     {
-        free(cor_histogram);
+        hdr_close(cor_histogram);
     }
 
     hdr_init(1, highest_trackable_value, significant_figures, &cor_histogram);
 
     if (scaled_raw_histogram)
     {
-        free(scaled_raw_histogram);
+        hdr_close(scaled_raw_histogram);
     }
 
     hdr_init(1000, highest_trackable_value * 512, significant_figures, &scaled_raw_histogram);
 
     if (scaled_cor_histogram)
     {
-        free(scaled_cor_histogram);
+        hdr_close(scaled_cor_histogram);
     }
 
     hdr_init(1000, highest_trackable_value * 512, significant_figures, &scaled_cor_histogram);
@@ -96,7 +97,7 @@ static char* test_create(void)
     mu_assert("Failed to allocate hdr_histogram", h != NULL);
     mu_assert("Incorrect array length", compare_int64(h->counts_len, 23552));
 
-    free(h);
+    hdr_close(h);
 
     return 0;
 }
@@ -127,6 +128,8 @@ static char* test_create_with_large_values(void)
         "99.0% Percentile",
         hdr_values_are_equivalent(h, 100000000, hdr_value_at_percentile(h, 99.0)));
 
+    hdr_close(h);
+
     return 0;
 }
 
@@ -151,6 +154,41 @@ static char* test_invalid_init(void)
 
     mu_assert("Should not allow 0 as lowest trackable value", EINVAL == hdr_init(0, 64*1024, 2, &h));
     mu_assert("Should have lowest < 2 * highest", EINVAL == hdr_init(80, 110, 5, &h));
+
+    return 0;
+}
+
+static char* test_bucket_config_shift_overflow(void)
+{
+    struct hdr_histogram* h = NULL;
+
+    /* Regression test for a signed-left-shift overflow (UBSan) in
+       hdr_calculate_bucket_config. With lowest_discernible_value = 2^56 the
+       unit_magnitude is 56; a significant_figures of 2 yields
+       sub_bucket_half_count_magnitude = 7, so the sub_bucket_mask shift would
+       set bit 56 + 7 = 63 of an int64_t (undefined behaviour). This config
+       must be rejected with EINVAL rather than crashing. Originally found by
+       fuzzing via a crafted decoded log with lowest ~= 2^56. */
+    int r = hdr_init(INT64_C(1) << 56, INT64_C(1) << 58, 2, &h);
+    mu_assert("Overflowing bucket config must return EINVAL", r == EINVAL);
+    mu_assert("Histogram must be NULL on rejected config", h == NULL);
+
+    return 0;
+}
+
+static char* test_bucket_config_reject_defines_cfg(void)
+{
+    /* The >61 guard rejects before sub_bucket_mask/bucket_count/counts_len are
+       computed; cfg must still be fully defined so a two-step-init caller that
+       mishandles the EINVAL return does not read uninitialized fields. */
+    struct hdr_histogram_bucket_config cfg;
+    memset(&cfg, 0xAB, sizeof(cfg));
+
+    mu_assert("Overflowing bucket config must return EINVAL",
+              hdr_calculate_bucket_config(INT64_C(1) << 56, INT64_C(1) << 58, 2, &cfg) == EINVAL);
+    mu_assert("sub_bucket_mask must be defined on reject", cfg.sub_bucket_mask == 0);
+    mu_assert("bucket_count must be defined on reject", cfg.bucket_count == 0);
+    mu_assert("counts_len must be defined on reject", cfg.counts_len == 0);
 
     return 0;
 }
@@ -453,6 +491,8 @@ static char* test_out_of_range_values(void)
     mu_assert("Should successfully record value", hdr_record_value(h, 1000));
     mu_assert("Should not record value", !hdr_record_value(h, 1001));
 
+    hdr_close(h);
+
     return 0;
 }
 
@@ -489,6 +529,8 @@ static char* test_linear_iter_buckets_correctly(void)
     mu_assert("Number of steps", compare_int64(4, step_count));
     mu_assert("Total count", compare_int64(6, total_count));
 
+    hdr_close(h);
+
     return 0;
 }
 
@@ -523,17 +565,20 @@ static char* test_interval_recording(void)
     result = compare_histograms(expected_histogram, recorder_histogram);
     if (result)
     {
-        return result;
+        goto cleanup;
     }
 
     recorder_corrected_histogram = hdr_interval_recorder_sample(&recorder_corrected);
     result = compare_histograms(expected_corrected_histogram, recorder_corrected_histogram);
-    if (result)
-    {
-        return result;
-    }
 
-    return 0;
+cleanup:
+    /* destroy closes recorder active+inactive (incl. sampled histograms) */
+    hdr_close(expected_histogram);
+    hdr_close(expected_corrected_histogram);
+    hdr_interval_recorder_destroy(&recorder);
+    hdr_interval_recorder_destroy(&recorder_corrected);
+
+    return result;
 }
 
 static char* reset_histogram_on_sample_and_recycle(void)
@@ -558,6 +603,9 @@ static char* reset_histogram_on_sample_and_recycle(void)
 
     mu_assert("Should have been reset", compare_int64(0, sample1->total_count));
 
+    hdr_close(sample1); /* leftover not held by recorder */
+    hdr_interval_recorder_destroy(&recorder);
+
     return 0;
 }
 
@@ -565,6 +613,8 @@ static struct mu_result all_tests(void)
 {
     mu_run_test(test_create);
     mu_run_test(test_invalid_init);
+    mu_run_test(test_bucket_config_shift_overflow);
+    mu_run_test(test_bucket_config_reject_defines_cfg);
     mu_run_test(test_create_with_large_values);
     mu_run_test(test_invalid_significant_figures);
     mu_run_test(test_total_count);
@@ -588,6 +638,12 @@ static struct mu_result all_tests(void)
 static int hdr_histogram_run_tests(void)
 {
     struct mu_result result = all_tests();
+
+    /* free static fixtures (hdr_close is NULL-safe) */
+    hdr_close(raw_histogram);
+    hdr_close(cor_histogram);
+    hdr_close(scaled_raw_histogram);
+    hdr_close(scaled_cor_histogram);
 
     if (result.message != 0)
     {
