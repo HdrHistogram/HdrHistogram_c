@@ -1,0 +1,34 @@
+name: ClusterFuzzLite batch fuzzing
+on:
+  # Manual "deep fuzz now" button.
+  workflow_dispatch:
+  # Weekly deep run: Mondays 03:00 UTC.
+  schedule:
+    - cron: '0 3 * * 1'
+permissions: read-all
+jobs:
+  BatchFuzzing:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer:
+          - address
+          - undefined
+    steps:
+      - name: Build Fuzzers (${{ matrix.sanitizer }})
+        id: build
+        uses: google/clusterfuzzlite/actions/build_fuzzers@v1
+        with:
+          language: c
+          sanitizer: ${{ matrix.sanitizer }}
+      - name: Run Fuzzers (${{ matrix.sanitizer }})
+        id: run
+        uses: google/clusterfuzzlite/actions/run_fuzzers@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          # Total budget across all fuzz targets, per sanitizer. Bump for a
+          # deeper run (GitHub-hosted jobs allow up to 6h).
+          fuzz-seconds: 3600
+          mode: 'batch'
+          sanitizer: ${{ matrix.sanitizer }}
