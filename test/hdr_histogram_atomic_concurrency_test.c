@@ -50,6 +50,7 @@ static char* test_recording_concurrently(void)
     struct hdr_iter expected_iter;
     struct hdr_iter actual_iter;
     pthread_t threads[2];
+    char* result;
     int i;
 
     mu_assert("init", 0 == hdr_init(1, 10000000, 2, &expected_histogram));
@@ -82,7 +83,13 @@ static char* test_recording_concurrently(void)
     hdr_iter_init(&expected_iter, expected_histogram);
     hdr_iter_init(&actual_iter, actual_histogram);
 
-    return compare_histograms(expected_histogram, actual_histogram);
+    result = compare_histograms(expected_histogram, actual_histogram);
+
+    free(values); /* plain array */
+    hdr_close(expected_histogram);
+    hdr_close(actual_histogram);
+
+    return result;
 }
 
 static struct mu_result all_tests(void)
