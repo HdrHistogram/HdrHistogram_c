@@ -651,7 +651,7 @@ static char* test_percentile_scan_matches_naive_reference(void)
             reference == hdr_value_at_percentile(h, percentiles[p]));
     }
 
-    free(h);
+    hdr_close(h);
     return 0;
 }
 
