@@ -172,9 +172,9 @@ static char* test_timespec_from_double(void)
     mu_assert("negative seconds wrong", compare_int64(INT64_C(-2), (int64_t) t.tv_sec));
     mu_assert("negative nanoseconds wrong", compare_int64(INT64_C(0), (int64_t) t.tv_nsec));
 
-    /* Exceeds int but fits a 64-bit tv_sec; reachable from a log header StartTime. */
+    /* Exceeds int but fits a 64-bit long; reachable from a log header StartTime. */
     hdr_timespec_from_double(&t, 1403476110183.0);
-    if (sizeof(t.tv_sec) >= 8)
+    if (sizeof(long) >= 8)
     {
         mu_assert("wide seconds wrong", compare_int64(INT64_C(1403476110183), (int64_t) t.tv_sec));
     }
