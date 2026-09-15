@@ -163,8 +163,8 @@ static void load_histograms(void)
 {
     int i;
 
-    free(raw_histogram);
-    free(cor_histogram);
+    hdr_close(raw_histogram); /* hdr_close: counts is a separate alloc; free() leaks it */
+    hdr_close(cor_histogram);
 
     hdr_alloc(INT64_C(3600) * 1000 * 1000, 3, &raw_histogram);
     hdr_alloc(INT64_C(3600) * 1000 * 1000, 3, &cor_histogram);
@@ -223,7 +223,8 @@ static char* test_encode_and_decode_compressed(void)
         "Comparison did not match",
         compare_histogram(expected, actual));
 
-    free(actual);
+    hdr_close(actual);
+    free(buffer); /* encode buffer */
 
     return 0;
 }
@@ -252,7 +253,8 @@ static char* test_encode_and_decode_compressed2(void)
             "Comparison did not match",
             compare_histogram(expected, actual));
 
-    free(actual);
+    hdr_close(actual);
+    free(buffer);
 
     return 0;
 }
@@ -275,6 +277,64 @@ static char* test_bounds_check_on_decode(void)
     rc = hdr_decode_compressed(buffer, len - 1, &actual);
     mu_assert("Should have be invalid", compare_int64(EINVAL, rc));
     mu_assert("Should not have built histogram", NULL == actual);
+
+    free(buffer); /* encode buffer; decode failed so actual is NULL */
+
+    return 0;
+}
+
+static char* test_v1_decode_rejects_oversized_counts(void)
+{
+    /* Regression: a crafted V1 log whose payload_len implies far more counts
+       than the (tiny lowest=1/highest=2) histogram allocates used to overflow
+       h->counts via apply_to_counts() -- a heap-buffer-overflow write. It must
+       now be rejected cleanly. Found by adversarial review during the
+       ClusterFuzzLite fuzzing effort; run under ASan this asserts the fix. */
+    char blob[] = "HISTAgAAABp4nJNpmdzIwFDLAAWMaDST/QcGFAAAdaEDZQ==";
+    struct hdr_histogram* actual = NULL;
+    int rc = hdr_log_decode(&actual, blob, strlen(blob));
+
+    mu_assert("Oversized V1 counts must be rejected", compare_int64(HDR_ENCODED_INPUT_TOO_LONG, rc));
+    mu_assert("No histogram should be built", NULL == actual);
+
+    return 0;
+}
+
+static char* test_decode_rejects_crafted_bounds_attacks(void)
+{
+    /* Additional crafted decode inputs found by adversarial review during the
+       ClusterFuzzLite fuzzing effort. Each corrupted memory before the fixes;
+       all must now be rejected cleanly. Run under ASan this asserts the fixes. */
+    struct { const char* blob; int rc; } cases[] = {
+        /* V1 negative payload_len -> counts_limit < 0, int32 overflow of
+           counts_array_len = counts_limit * word_size. */
+        { "HISTAgAAABl42pNpmdz4////HwwQwIhGMzGgAQD3VgWu", HDR_ENCODED_INPUT_TOO_LONG },
+        /* V1 word_size == 1 -> routes to the zig-zag reader whose LEB128
+           lookahead over-reads the (unpadded) V1 counts buffer. */
+        { "HISTAgAAAB54nJNpmSzIwMDAyAABzFAawmdsWwDlMzQAAD9AAvE=", HDR_INVALID_WORD_SIZE },
+        /* V0 word_size == 1 -> same zig-zag over-read on the V0 path. */
+        { "HISTCQAAACd4nJNpmSzBwMDAzAABjFCaiQHGGAWjYBSMglEwCkbBSAMNAMTQEdA=", HDR_INVALID_WORD_SIZE },
+        /* V2 negative payload_len -> tiny alloc + ~4GB inflate write. */
+        { "HISTBAAAABl4nJNpmcz8HwgYIIARjWay/8CAAgD0TwZm", EINVAL },
+        /* V2 oversized-but-positive payload_len (~2GB) -> counts_limit far
+           exceeds MAX_BYTES_LEB128 * counts_len; would attempt a ~2GB calloc
+           (resource exhaustion). Must be capped at the encoder bound. */
+        { "HISTFAAAABl4nJNpmSxczwAHjGg0k/0HqAATEwBUyQL+", HDR_ENCODED_INPUT_TOO_LONG },
+    };
+    size_t i;
+
+    for (i = 0; i < sizeof(cases) / sizeof(cases[0]); i++)
+    {
+        char blob[256];
+        struct hdr_histogram* actual = NULL;
+        int rc;
+
+        strcpy(blob, cases[i].blob);
+        rc = hdr_log_decode(&actual, blob, strlen(blob));
+
+        mu_assert("Crafted decode input must be rejected", compare_int64(cases[i].rc, rc));
+        mu_assert("No histogram should be built from a crafted input", NULL == actual);
+    }
 
     return 0;
 }
@@ -303,6 +363,10 @@ static char* test_encode_and_decode_base64(void)
 
     mu_assert("Should be same", memcmp(buffer, decoded, len) == 0);
 
+    free(buffer);
+    free(encoded);
+    free(decoded);
+
     return 0;
 }
 
@@ -316,7 +380,7 @@ static char* test_encode_and_decode_empty(void)
     size_t encoded_len;
     size_t decoded_len;
 
-    free(raw_histogram);
+    hdr_close(raw_histogram);
 
     mu_assert("allocation should be valid", 0 == hdr_init(1, 1000000, 1, &raw_histogram));
 
@@ -332,6 +396,10 @@ static char* test_encode_and_decode_empty(void)
     hdr_base64_decode(encoded, encoded_len, decoded, decoded_len);
 
     mu_assert("Should be same", memcmp(buffer, decoded, len) == 0);
+
+    free(buffer);
+    free(encoded);
+    free(decoded);
 
     return 0;
 }
@@ -366,8 +434,9 @@ static char* test_encode_and_decode_compressed_large(void)
         "Comparison did not match",
         compare_histogram(expected, actual));
 
-    free(expected);
-    free(actual);
+    hdr_close(expected);
+    hdr_close(actual);
+    free(buffer);
 
     return 0;
 }
@@ -452,8 +521,11 @@ static bool assert_base64_decode(const char* base64_encoded, const char* expecte
     uint8_t* output = calloc(sizeof(uint8_t), output_len);
 
     int result = hdr_base64_decode(base64_encoded, encoded_len, output, output_len);
+    bool ok = result == 0 && compare_string(expected, (char*)output, output_len);
 
-    return result == 0 && compare_string(expected, (char*)output, output_len);
+    free(output);
+
+    return ok;
 }
 
 static char* base64_decode_decodes_strings_without_padding(void)
@@ -582,6 +654,9 @@ static char* writes_and_reads_log(void)
     fclose(log_file);
     remove(file_name);
 
+    hdr_close(read_cor_histogram);
+    hdr_close(read_raw_histogram);
+
     return 0;
 }
 
@@ -645,7 +720,7 @@ static char* log_reader_aggregates_into_single_histogram(void)
 
     fclose(log_file);
     remove(file_name);
-    free(histogram);
+    hdr_close(histogram);
 
     return 0;
 }
@@ -689,9 +764,9 @@ static char* test_encode_decode_empty(void)
     mu_assert("Failed to encode histogram data", hdr_log_encode(histogram, &data) == 0);
     mu_assert("Failed to decode histogram data", hdr_log_decode(&hdr_new, data, strlen(data)) == 0);
     mu_assert("Histograms should be the same", compare_histogram(histogram, hdr_new));
-    free(histogram);
-    free(hdr_new);
-    free(data);
+    hdr_close(histogram);
+    hdr_close(hdr_new);
+    free(data); /* encoded string */
     return 0;
 }
 
@@ -712,6 +787,10 @@ static char* test_string_encode_decode(void)
     mu_assert("Failed to decode histogram data", hdr_log_decode(&hdr_new, data, strlen(data)) == 0);
     mu_assert("Histograms should be the same", compare_histogram(histogram, hdr_new));
     mu_assert("Mean different after encode/decode", compare_double(hdr_mean(histogram), hdr_mean(hdr_new), 0.001));
+
+    hdr_close(histogram);
+    hdr_close(hdr_new);
+    free(data);
 
     return 0;
 }
@@ -736,6 +815,10 @@ static char* test_string_encode_decode_2(void)
         "Failed to decode histogram data", validate_return_code(hdr_log_decode(&hdr_new, data, strlen(data))));
     mu_assert("Histograms should be the same", compare_histogram(histogram, hdr_new));
     mu_assert("Mean different after encode/decode", compare_double(hdr_mean(histogram), hdr_mean(hdr_new), 0.001));
+
+    hdr_close(histogram);
+    hdr_close(hdr_new);
+    free(data);
 
     return 0;
 }
@@ -773,7 +856,7 @@ static char* decode_v1_log(void)
         dropped = hdr_add(accum, h);
         mu_assert("Dropped events", compare_int64(dropped, 0));
 
-        free(h);
+        hdr_close(h);
         h = NULL;
     }
 
@@ -783,6 +866,8 @@ static char* decode_v1_log(void)
     mu_assert("max value wrong", compare_int64(1888485375, hdr_max(accum)));
     mu_assert("Seconds wrong", compare_int64(1438867590, reader.start_timestamp.tv_sec));
     mu_assert("Nanoseconds wrong", compare_int64(285000000, reader.start_timestamp.tv_nsec));
+
+    hdr_close(accum);
 
     return 0;
 }
@@ -820,7 +905,7 @@ static char* decode_v2_log(void)
         dropped = hdr_add(accum, h);
         mu_assert("Dropped events", compare_int64(dropped, 0));
 
-        free(h);
+        hdr_close(h);
         h = NULL;
     }
 
@@ -830,6 +915,8 @@ static char* decode_v2_log(void)
     mu_assert("max value wrong", compare_int64(1796210687, hdr_max(accum)));
     mu_assert("Seconds wrong", compare_int64(1441812279, reader.start_timestamp.tv_sec));
     mu_assert("Nanoseconds wrong", compare_int64(474000000, reader.start_timestamp.tv_nsec));
+
+    hdr_close(accum);
 
     return 0;
 }
@@ -870,7 +957,7 @@ static char* decode_v3_log(void)
         dropped = hdr_add(accum, h);
         mu_assert("Dropped events", compare_int64(dropped, 0));
 
-        free(h);
+        hdr_close(h);
         h = NULL;
     }
 
@@ -880,6 +967,8 @@ static char* decode_v3_log(void)
     mu_assert("max value wrong", compare_int64(1796210687, hdr_max(accum)));
     mu_assert("Seconds wrong", compare_int64(1441812279, reader.start_timestamp.tv_sec));
     mu_assert("Nanoseconds wrong", compare_int64(474000000, reader.start_timestamp.tv_nsec));
+
+    hdr_close(accum);
 
     return 0;
 }
@@ -945,7 +1034,7 @@ static char* decode_v0_log(void)
         dropped = hdr_add(accum, h);
         mu_assert("Dropped events", compare_int64(dropped, 0));
 
-        free(h);
+        hdr_close(h);
         h = NULL;
     }
 
@@ -955,6 +1044,8 @@ static char* decode_v0_log(void)
     mu_assert("max value wrong", compare_int64(1569718271, hdr_max(accum)));
     mu_assert("Seconds wrong", compare_int64(1438869961, reader.start_timestamp.tv_sec));
     mu_assert("Nanoseconds wrong", compare_int64(225000000, reader.start_timestamp.tv_nsec));
+
+    hdr_close(accum);
 
     return 0;
 }
@@ -990,6 +1081,8 @@ static struct mu_result all_tests(void)
     mu_run_test(test_encode_and_decode_compressed_large);
     mu_run_test(test_encode_and_decode_base64);
     mu_run_test(test_bounds_check_on_decode);
+    mu_run_test(test_v1_decode_rejects_oversized_counts);
+    mu_run_test(test_decode_rejects_crafted_bounds_attacks);
 
     mu_run_test(base64_decode_block_decodes_4_chars);
     mu_run_test(base64_decode_fails_with_invalid_lengths);
@@ -1018,8 +1111,8 @@ static struct mu_result all_tests(void)
     mu_run_test(test_encode_and_decode_empty);
 
 
-    free(raw_histogram);
-    free(cor_histogram);
+    hdr_close(raw_histogram); /* free static fixtures */
+    hdr_close(cor_histogram);
 
     mu_ok;
 }
