@@ -309,7 +309,7 @@ static char* test_percentile_singular_equals_plural_with_offset(void)
             hdr_value_at_percentile(h, percentiles[i]) == values[i]);
     }
 
-    free(h);
+    hdr_close(h);
     return 0;
 }
 
