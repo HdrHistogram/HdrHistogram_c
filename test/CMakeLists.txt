@@ -87,6 +87,6 @@ endforeach()
 
 configure_file(regression-log-start-time-overflow.hlog regression-log-start-time-overflow.hlog COPYONLY)
 
-foreach(V test_tagged_invalid_histogram.txt test_tagged_invalid_tag_key.txt test_tagged_invalid_timestamp.txt test_tagged_missing_histogram.txt)
+foreach(V test_tagged_invalid_histogram.txt test_tagged_invalid_tag_key.txt test_tagged_invalid_timestamp.txt test_tagged_missing_histogram.txt test_overflow_timestamp_seconds.txt test_overflow_timestamp_nanos.txt test_timestamp_seconds_2pow31.txt)
     configure_file(${V} ${V} COPYONLY)
 endforeach()

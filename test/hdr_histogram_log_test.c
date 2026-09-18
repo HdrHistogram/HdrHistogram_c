@@ -1023,6 +1023,59 @@ static char* handle_invalid_log_lines(void)
     mu_assert("Should have invalid tag key", -EINVAL == parse_line_from_file("test_tagged_invalid_tag_key.txt"));
     mu_assert("Should have invalid timestamp", -EINVAL == parse_line_from_file("test_tagged_invalid_timestamp.txt"));
     mu_assert("Should have missing histogram", -EINVAL == parse_line_from_file("test_tagged_missing_histogram.txt"));
+    mu_assert("Should have overflowing timestamp", -EINVAL == parse_line_from_file("test_overflow_timestamp_seconds.txt"));
+
+    return 0;
+}
+
+/* sec is a long, which is 32-bit on MSVC: 2^31 parses where long is 64-bit and is
+   rejected where it is not. Pins that boundary rather than leaving it to the platform. */
+static char* handle_timestamp_at_long_boundary(void)
+{
+    struct hdr_histogram* h = NULL;
+    hdr_timespec timestamp;
+    hdr_timespec interval;
+    int rc;
+
+    FILE* f = fopen("test_timestamp_seconds_2pow31.txt", "r");
+    mu_assert("Can not open 2^31 timestamp file", f != NULL);
+
+    rc = hdr_log_read(NULL, f, &h, &timestamp, &interval);
+    fclose(f);
+
+    if (sizeof(long) >= 8)
+    {
+        mu_assert("Failed to read entry", compare_int(0, rc));
+        mu_assert("Seconds wrong", compare_int64(INT64_C(2147483648), (int64_t) timestamp.tv_sec));
+        hdr_close(h);
+    }
+    else
+    {
+        mu_assert("Should not fit a 32-bit long", -EINVAL == rc);
+    }
+
+    return 0;
+}
+
+/* A fraction longer than nanosecond resolution must truncate, not overflow (UBSan). */
+static char* handle_sub_nanosecond_timestamp(void)
+{
+    struct hdr_histogram* h = NULL;
+    hdr_timespec timestamp;
+    hdr_timespec interval;
+    int rc;
+
+    FILE* f = fopen("test_overflow_timestamp_nanos.txt", "r");
+    mu_assert("Can not open sub-nanosecond timestamp file", f != NULL);
+
+    rc = hdr_log_read(NULL, f, &h, &timestamp, &interval);
+    fclose(f);
+
+    mu_assert("Failed to read entry", compare_int(0, rc));
+    mu_assert("Seconds wrong", compare_int64(1, timestamp.tv_sec));
+    mu_assert("Nanoseconds wrong", compare_int64(134000000, timestamp.tv_nsec));
+
+    hdr_close(h);
 
     return 0;
 }
@@ -1131,6 +1184,8 @@ static struct mu_result all_tests(void)
     mu_run_test(decode_v0_log);
     mu_run_test(handle_invalid_log_lines);
     mu_run_test(handle_wide_start_time);
+    mu_run_test(handle_sub_nanosecond_timestamp);
+    mu_run_test(handle_timestamp_at_long_boundary);
 
     mu_run_test(test_zig_zag_codec);
     mu_run_test(test_encode_and_decode_empty);
