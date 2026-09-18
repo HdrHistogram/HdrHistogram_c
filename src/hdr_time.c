@@ -92,18 +92,33 @@ void hdr_timespec_from_double(hdr_timespec* t, double value)
 {
     /* tv_sec is a long on Windows; 2^(bits-1) is exact as a double and one past its max */
     const double limit = ldexp(1.0, (int) (sizeof(long) * CHAR_BIT) - 1);
-    double seconds = trunc(value);
-    int milliseconds;
+    double seconds;
+    long milliseconds;
 
-    /* converting a non-finite or out-of-range double to an integer is UB */
-    if (!isfinite(value) || seconds >= limit || seconds < -limit)
+    if (!isfinite(value))
     {
         t->tv_sec = 0;
         t->tv_nsec = 0;
         return;
     }
 
-    milliseconds = (int) round((value - seconds) * 1000);
+    /* floor, not trunc: tv_nsec must be in [0, 1e9), so the remainder cannot be negative */
+    seconds = floor(value);
+    milliseconds = (long) round((value - seconds) * 1000);
+    if (milliseconds == 1000)
+    {
+        /* rounded up to a whole second; carry rather than emit tv_nsec == 1e9 */
+        seconds += 1.0;
+        milliseconds = 0;
+    }
+
+    /* converting an out-of-range double to an integer is UB */
+    if (seconds >= limit || seconds < -limit)
+    {
+        t->tv_sec = 0;
+        t->tv_nsec = 0;
+        return;
+    }
 
     t->tv_sec = (long) seconds;
     t->tv_nsec = milliseconds * 1000000;

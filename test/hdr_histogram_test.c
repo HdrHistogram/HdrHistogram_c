@@ -173,6 +173,24 @@ static char* test_timespec_from_double(void)
     mu_assert("negative seconds wrong", compare_int64(INT64_C(-2), (int64_t) t.tv_sec));
     mu_assert("negative nanoseconds wrong", compare_int64(INT64_C(0), (int64_t) t.tv_nsec));
 
+    /* A fraction that rounds up to a whole second must carry, not emit tv_nsec == 1e9. */
+    hdr_timespec_from_double(&t, 1.9996);
+    mu_assert("carry seconds wrong", compare_int64(INT64_C(2), (int64_t) t.tv_sec));
+    mu_assert("carry nanoseconds wrong", compare_int64(INT64_C(0), (int64_t) t.tv_nsec));
+
+    hdr_timespec_from_double(&t, 0.9999);
+    mu_assert("carry from zero seconds wrong", compare_int64(INT64_C(1), (int64_t) t.tv_sec));
+    mu_assert("carry from zero nanoseconds wrong", compare_int64(INT64_C(0), (int64_t) t.tv_nsec));
+
+    /* A negative non-integral value must floor, keeping tv_nsec non-negative. */
+    hdr_timespec_from_double(&t, -2.5);
+    mu_assert("negative fractional seconds wrong", compare_int64(INT64_C(-3), (int64_t) t.tv_sec));
+    mu_assert("negative fractional nanoseconds wrong", compare_int64(INT64_C(500000000), (int64_t) t.tv_nsec));
+
+    hdr_timespec_from_double(&t, -0.4);
+    mu_assert("negative sub-second seconds wrong", compare_int64(INT64_C(-1), (int64_t) t.tv_sec));
+    mu_assert("negative sub-second nanoseconds wrong", compare_int64(INT64_C(600000000), (int64_t) t.tv_nsec));
+
     /* Exceeds int but fits a 64-bit long; reachable from a log header StartTime. */
     hdr_timespec_from_double(&t, 1403476110183.0);
     if (sizeof(long) >= 8)
