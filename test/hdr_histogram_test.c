@@ -159,6 +159,61 @@ static char* test_invalid_init(void)
     return 0;
 }
 
+static char* test_reset_internal_counters_honours_offset(void)
+{
+    /* Regression: hdr_reset_internal_counters read counts[] by raw storage index but
+       fed the winning index to hdr_value_at_index, which expects a logical index. A
+       decoded log with a non-zero normalizing_index_offset (V1/V2 set it immediately
+       before calling this) therefore got a wrong min_value/max_value. Rotating the
+       storage must not change what the histogram reports. */
+    struct hdr_histogram* h = NULL;
+    int64_t* rotated = NULL;
+    int64_t expected_min, expected_max, expected_total;
+    int32_t i, offset;
+
+    mu_assert("Should allocate", 0 == hdr_init(1, INT64_C(3600000000), 3, &h));
+    hdr_record_value(h, 1000);
+    hdr_record_value(h, 1000);
+    hdr_record_value(h, 100000);
+
+    expected_min = hdr_min(h);
+    expected_max = hdr_max(h);
+    expected_total = h->total_count;
+
+    offset = h->counts_len / 3;
+    rotated = (int64_t*) calloc((size_t) h->counts_len, sizeof(int64_t));
+    mu_assert("Should allocate rotated counts", rotated != NULL);
+    for (i = 0; i < h->counts_len; i++)
+    {
+        int32_t slot = i - offset;
+        if (slot < 0)
+        {
+            slot += h->counts_len;
+        }
+        rotated[slot] = h->counts[i];
+    }
+    memcpy(h->counts, rotated, (size_t) h->counts_len * sizeof(int64_t));
+    free(rotated);
+    h->normalizing_index_offset = offset;
+
+    hdr_reset_internal_counters(h);
+
+    {   /* close before asserting: a failing assert would otherwise leak h and let
+           LeakSanitizer _exit() before the assertion message is flushed */
+        int64_t actual_min = hdr_min(h);
+        int64_t actual_max = hdr_max(h);
+        int64_t actual_total = h->total_count;
+
+        hdr_close(h);
+
+        mu_assert("total_count wrong after rotation", compare_int64(expected_total, actual_total));
+        mu_assert("min_value wrong after rotation", compare_int64(expected_min, actual_min));
+        mu_assert("max_value wrong after rotation", compare_int64(expected_max, actual_max));
+    }
+
+    return 0;
+}
+
 static char* test_bucket_config_shift_overflow(void)
 {
     struct hdr_histogram* h = NULL;
@@ -731,6 +786,7 @@ static struct mu_result all_tests(void)
 {
     mu_run_test(test_create);
     mu_run_test(test_invalid_init);
+    mu_run_test(test_reset_internal_counters_honours_offset);
     mu_run_test(test_bucket_config_shift_overflow);
     mu_run_test(test_bucket_config_reject_defines_cfg);
     mu_run_test(test_create_with_large_values);
