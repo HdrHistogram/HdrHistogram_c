@@ -68,10 +68,10 @@ struct hdr_histogram* hdr_interval_recorder_sample_and_recycle(
     hdr_phaser_reader_lock(&r->phaser);
 
     /* volatile read */
-    old_active = hdr_atomic_load_pointer(&r->active);
+    old_active = hdr_atomic_load_pointer((void**) &r->active);
 
     /* volatile write */
-    hdr_atomic_store_pointer(&r->active, histogram_to_recycle);
+    hdr_atomic_store_pointer((void**) &r->active, histogram_to_recycle);
 
     hdr_phaser_flip_phase(&r->phaser, 0);
 
@@ -93,7 +93,7 @@ static void hdr_interval_recorder_update(
 {
     int64_t val = hdr_phaser_writer_enter(&r->phaser);
 
-    void* active = hdr_atomic_load_pointer(&r->active);
+    void* active = hdr_atomic_load_pointer((void**) &r->active);
 
     update_action(active, arg);
 
