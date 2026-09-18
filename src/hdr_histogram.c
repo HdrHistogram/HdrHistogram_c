@@ -297,12 +297,26 @@ static int64_t lowest_equivalent_value_given_bucket_indices(
 
 int64_t hdr_next_non_equivalent_value(const struct hdr_histogram *h, int64_t value)
 {
-    return lowest_equivalent_value(h, value) + hdr_size_of_equivalent_value_range(h, value);
+    int64_t low  = lowest_equivalent_value(h, value);
+    int64_t size = hdr_size_of_equivalent_value_range(h, value);
+    /* saturate: top-bucket low+size overflows int64 (UB) */
+    if (low > INT64_MAX - size)
+    {
+        return INT64_MAX;
+    }
+    return low + size;
 }
 
 static int64_t highest_equivalent_value(const struct hdr_histogram* h, int64_t value)
 {
-    return hdr_next_non_equivalent_value(h, value) - 1;
+    int64_t low  = lowest_equivalent_value(h, value);
+    int64_t size = hdr_size_of_equivalent_value_range(h, value);
+    /* clamp: top-bucket low+size-1 overflows int64; keep value <= highest_equivalent_value */
+    if (low > INT64_MAX - size)
+    {
+        return INT64_MAX;
+    }
+    return low + size - 1;
 }
 
 int64_t hdr_median_equivalent_value(const struct hdr_histogram *h, int64_t value)
@@ -832,7 +846,8 @@ int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percen
 double hdr_mean(const struct hdr_histogram* h)
 {
     struct hdr_iter iter;
-    int64_t total = 0, count = 0;
+    double total = 0;
+    int64_t count = 0;
     int64_t total_count = h->total_count;
 
     hdr_iter_init(&iter, h);
@@ -842,11 +857,12 @@ double hdr_mean(const struct hdr_histogram* h)
         if (0 != iter.count)
         {
             count += iter.count;
-            total += iter.count * hdr_median_equivalent_value(h, iter.value);
+            /* sum in double: count*median can overflow int64 (UB) for large values */
+            total += (double) iter.count * (double) hdr_median_equivalent_value(h, iter.value);
         }
     }
 
-    return (total * 1.0) / total_count;
+    return total / total_count;
 }
 
 double hdr_stddev(const struct hdr_histogram* h)
@@ -881,11 +897,26 @@ int64_t hdr_lowest_equivalent_value(const struct hdr_histogram* h, int64_t value
 
 int64_t hdr_count_at_value(const struct hdr_histogram* h, int64_t value)
 {
-    return counts_get_normalised(h, counts_index_for(h, value));
+    int32_t counts_index;
+
+    if (value < 0) { return 0; }
+    /* value past the array's top half-bucket maps outside counts[] (OOB); count 0 */
+    counts_index = counts_index_for(h, value);
+    if ((uint32_t)counts_index >= (uint32_t)h->counts_len)
+    {
+        return 0;
+    }
+
+    return counts_get_normalised(h, counts_index);
 }
 
 int64_t hdr_count_at_index(const struct hdr_histogram* h, int32_t index)
 {
+    /* reject index outside counts[] (OOB read); unsigned compare also catches negatives */
+    if ((uint32_t)index >= (uint32_t)h->counts_len)
+    {
+        return 0;
+    }
     return counts_get_normalised(h, index);
 }
 
@@ -928,7 +959,11 @@ static bool move_next(struct hdr_iter* iter)
         iter->h, bucket_index, sub_bucket_index);
     iter->lowest_equivalent_value = leq;
     iter->value = value;
-    iter->highest_equivalent_value = leq + size_of_equivalent_value_range - 1;
+    /* saturate: top-bucket leq+size overflows int64 (UB) */
+    iter->highest_equivalent_value =
+        (leq > INT64_MAX - size_of_equivalent_value_range)
+            ? INT64_MAX
+            : leq + size_of_equivalent_value_range - 1;
     iter->median_equivalent_value = leq + (size_of_equivalent_value_range >> 1);
 
     return true;
