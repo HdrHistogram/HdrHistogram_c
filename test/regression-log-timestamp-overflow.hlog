@@ -1,0 +1,6 @@
+#[Logged with jHiccup version 2.0.7-SNAPSHOT]
+#[Histogram log format version 1.2]
+#[StartTime: 1441812279.474 (seconds since epoch), Wed Sep 09 08:24:39 PDT 2015]
+"StartTimestamp","Interval_Length","Interval_Max","Interval_Compressed_Histogram"
+99999999999999999999,5.000,0.115,HISTFAAAAEJ42pNpmSzMwMCgwAABTBDKD8hndjPYsYDB/gNEhEtMQEBBTk5MQERCRkBEQEWlh9FJbg9jE+MS5ig1LhYmADkkCcE=
+1.13400000000000000000,0.999,0.442,HISTFAAAAEJ42pNpmSzMwMAgxwABTBDKT4GBgdnNYMcCBvsPEBEWLj45FTExAT4pBSEBKa6UkAgBi1uM7xjfMMlwMDABAC0CCjM=
