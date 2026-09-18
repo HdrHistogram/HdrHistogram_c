@@ -12,8 +12,10 @@
 #include <math.h>
 
 #include <stdio.h>
+#include <math.h>
 #include <hdr/hdr_histogram.h>
 #include <hdr/hdr_interval_recorder.h>
+#include <hdr/hdr_time.h>
 
 #include "minunit.h"
 #include "hdr_test_util.h"
@@ -155,6 +157,51 @@ static char* test_invalid_init(void)
 
     mu_assert("Should not allow 0 as lowest trackable value", EINVAL == hdr_init(0, 64*1024, 2, &h));
     mu_assert("Should have lowest < 2 * highest", EINVAL == hdr_init(80, 110, 5, &h));
+
+    return 0;
+}
+
+static char* test_timespec_from_double(void)
+{
+    hdr_timespec t;
+
+    hdr_timespec_from_double(&t, 1403476110.183);
+    mu_assert("seconds wrong", compare_int64(INT64_C(1403476110), (int64_t) t.tv_sec));
+    mu_assert("nanoseconds wrong", compare_int64(INT64_C(183000000), (int64_t) t.tv_nsec));
+
+    hdr_timespec_from_double(&t, -2.0);
+    mu_assert("negative seconds wrong", compare_int64(INT64_C(-2), (int64_t) t.tv_sec));
+    mu_assert("negative nanoseconds wrong", compare_int64(INT64_C(0), (int64_t) t.tv_nsec));
+
+    /* Exceeds int but fits a 64-bit long; reachable from a log header StartTime. */
+    hdr_timespec_from_double(&t, 1403476110183.0);
+    if (sizeof(long) >= 8)
+    {
+        mu_assert("wide seconds wrong", compare_int64(INT64_C(1403476110183), (int64_t) t.tv_sec));
+    }
+    else
+    {
+        mu_assert("unrepresentable seconds should be zeroed", compare_int64(INT64_C(0), (int64_t) t.tv_sec));
+    }
+    mu_assert("wide nanoseconds wrong", compare_int64(INT64_C(0), (int64_t) t.tv_nsec));
+
+    /* Values tv_sec cannot hold, and non-finite values, must not be converted. */
+    hdr_timespec_from_double(&t, 1e300);
+    mu_assert("huge seconds should be zeroed", compare_int64(INT64_C(0), (int64_t) t.tv_sec));
+    mu_assert("huge nanoseconds should be zeroed", compare_int64(INT64_C(0), (int64_t) t.tv_nsec));
+
+    hdr_timespec_from_double(&t, -1e300);
+    mu_assert("huge negative seconds should be zeroed", compare_int64(INT64_C(0), (int64_t) t.tv_sec));
+
+    hdr_timespec_from_double(&t, INFINITY);
+    mu_assert("inf seconds should be zeroed", compare_int64(INT64_C(0), (int64_t) t.tv_sec));
+
+    hdr_timespec_from_double(&t, -INFINITY);
+    mu_assert("-inf seconds should be zeroed", compare_int64(INT64_C(0), (int64_t) t.tv_sec));
+
+    hdr_timespec_from_double(&t, NAN);
+    mu_assert("nan seconds should be zeroed", compare_int64(INT64_C(0), (int64_t) t.tv_sec));
+    mu_assert("nan nanoseconds should be zeroed", compare_int64(INT64_C(0), (int64_t) t.tv_nsec));
 
     return 0;
 }
@@ -767,6 +814,7 @@ static struct mu_result all_tests(void)
 {
     mu_run_test(test_create);
     mu_run_test(test_invalid_init);
+    mu_run_test(test_timespec_from_double);
     mu_run_test(test_bucket_config_shift_overflow);
     mu_run_test(test_bucket_config_reject_defines_cfg);
     mu_run_test(test_create_with_large_values);
