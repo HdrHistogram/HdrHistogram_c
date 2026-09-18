@@ -1004,8 +1004,8 @@ static char* handle_invalid_log_lines(void)
     return 0;
 }
 
-/* sec is a long, which is 32-bit on MSVC: 2^31 parses where long is 64-bit and is
-   rejected where it is not. Pins that boundary rather than leaving it to the platform. */
+/* 2^31 parses wherever tv_sec can hold it (time_t on POSIX, long on Windows) and is
+   rejected where it cannot. Pins that boundary rather than leaving it to the platform. */
 static char* handle_timestamp_at_long_boundary(void)
 {
     struct hdr_histogram* h = NULL;
@@ -1019,7 +1019,7 @@ static char* handle_timestamp_at_long_boundary(void)
     rc = hdr_log_read(NULL, f, &h, &timestamp, &interval);
     fclose(f);
 
-    if (sizeof(long) >= 8)
+    if (sizeof(timestamp.tv_sec) >= 8)
     {
         mu_assert("Failed to read entry", compare_int(0, rc));
         mu_assert("Seconds wrong", compare_int64(INT64_C(2147483648), (int64_t) timestamp.tv_sec));
@@ -1027,7 +1027,7 @@ static char* handle_timestamp_at_long_boundary(void)
     }
     else
     {
-        mu_assert("Should not fit a 32-bit long", -EINVAL == rc);
+        mu_assert("Should not fit a 32-bit tv_sec", -EINVAL == rc);
     }
 
     return 0;
