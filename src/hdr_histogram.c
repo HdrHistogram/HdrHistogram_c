@@ -339,7 +339,8 @@ void hdr_reset_internal_counters(struct hdr_histogram* h)
     {
         int64_t count_at_index;
 
-        if ((count_at_index = counts_get_direct(h, i)) > 0)
+        /* logical index: pair the count with hdr_value_at_index below (offset-aware) */
+        if ((count_at_index = counts_get_normalised(h, i)) > 0)
         {
             observed_total_count += count_at_index;
             max_index = i;
