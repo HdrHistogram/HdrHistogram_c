@@ -1061,9 +1061,11 @@ static int read_ahead_timestamp(FILE* f, hdr_timespec* timestamp, char expected_
 {
     int c;
     int is_seconds = 1;
-    long sec = 0;
     long nsec = 0;
     long nsec_multipler = 1000000000;
+    /* tv_sec is time_t on POSIX and long on Windows; bound by what it can really hold */
+    const int64_t sec_max = (int64_t) (~(uint64_t) 0 >> (65 - sizeof(timestamp->tv_sec) * CHAR_BIT));
+    int64_t sec = 0;
 
     while (EOF != (c = fgetc(f)))
     {
@@ -1079,11 +1081,11 @@ static int read_ahead_timestamp(FILE* f, hdr_timespec* timestamp, char expected_
         }
         else if ('0' <= c && c <= '9')
         {
-            const long digit = c - '0';
+            const int64_t digit = c - '0';
             if (is_seconds)
             {
                 /* reject rather than overflow the accumulator on a crafted digit run */
-                if (sec > (LONG_MAX - digit) / 10)
+                if (sec > (sec_max - digit) / 10)
                 {
                     return 0;
                 }
