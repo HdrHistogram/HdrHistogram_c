@@ -993,6 +993,30 @@ static int parse_line_from_file(const char* filename)
     return result;
 }
 
+/* A StartTime beyond int range must not be an out-of-range cast (UBSan). */
+static char* handle_wide_start_time(void)
+{
+    struct hdr_log_reader reader;
+    int rc;
+
+    FILE* f = fopen("regression-log-start-time-overflow.hlog", "r");
+    mu_assert("Can not open wide start time log", f != NULL);
+
+    hdr_log_reader_init(&reader);
+    rc = hdr_log_read_header(&reader, f);
+    fclose(f);
+
+    mu_assert("Failed to read header", compare_int(0, rc));
+    if (sizeof(reader.start_timestamp.tv_sec) >= 8)
+    {
+        mu_assert(
+            "Start time wrong",
+            compare_int64(INT64_C(1403476110183), (int64_t) reader.start_timestamp.tv_sec));
+    }
+
+    return 0;
+}
+
 static char* handle_invalid_log_lines(void)
 {
     mu_assert("Should have invalid histogram", -EINVAL == parse_line_from_file("test_tagged_invalid_histogram.txt"));
@@ -1159,6 +1183,7 @@ static struct mu_result all_tests(void)
     mu_run_test(decode_v1_log);
     mu_run_test(decode_v0_log);
     mu_run_test(handle_invalid_log_lines);
+    mu_run_test(handle_wide_start_time);
     mu_run_test(handle_sub_nanosecond_timestamp);
     mu_run_test(handle_timestamp_at_long_boundary);
 
