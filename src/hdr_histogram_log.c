@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <limits.h>
 #include <stdbool.h>
 #include <inttypes.h>
 #include <stdio.h>
@@ -1078,13 +1079,20 @@ static int read_ahead_timestamp(FILE* f, hdr_timespec* timestamp, char expected_
         }
         else if ('0' <= c && c <= '9')
         {
+            const long digit = c - '0';
             if (is_seconds)
             {
-                sec = (sec * 10) + (c - '0');
+                /* reject rather than overflow the accumulator on a crafted digit run */
+                if (sec > (LONG_MAX - digit) / 10)
+                {
+                    return 0;
+                }
+                sec = (sec * 10) + digit;
             }
-            else
+            /* digits past nanosecond resolution are truncated; taking them would zero the multiplier */
+            else if (nsec_multipler > 1)
             {
-                nsec = (nsec * 10) + (c - '0');
+                nsec = (nsec * 10) + digit;
                 nsec_multipler /= 10;
             }
         }
