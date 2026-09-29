@@ -12,6 +12,7 @@
 #include <math.h>
 
 #include <stdio.h>
+#include <math.h>
 #include <hdr/hdr_histogram.h>
 #include <hdr/hdr_interval_recorder.h>
 
@@ -742,6 +743,197 @@ static char* test_top_bucket_value_range_no_overflow(void)
     return 0;
 }
 
+static char* test_iterator_reporting_level_no_overflow(void)
+{
+    /* Regression (UBSan, found via fuzzing): the linear and logarithmic
+       iterators advanced their reporting level with `+= value_units_per_bucket`
+       / `*= log_base`, which overflowed int64 for a near-INT64_MAX range. The
+       level now saturates at INT64_MAX and the iterators still terminate. */
+    struct hdr_histogram* h = NULL;
+    struct hdr_iter iter;
+    long steps;
+    int64_t last;
+
+    mu_assert("Should allocate", 0 == hdr_init(1, INT64_MAX, 3, &h));
+    hdr_record_value(h, INT64_MAX);
+    hdr_record_value(h, 5);
+
+    /* A huge linear bucket makes the reporting level cross INT64_MAX quickly. */
+    hdr_iter_linear_init(&iter, h, INT64_C(1) << 62);
+    steps = 0;
+    last = -1;
+    while (hdr_iter_next(&iter))
+    {
+        last = iter.value_iterated_to;
+        mu_assert("linear iterator must terminate", ++steps < 1000000);
+    }
+    mu_assert("linear emits the final saturated level", last == INT64_MAX);
+    mu_assert("linear emits exactly two levels", steps == 2);
+
+    /* Base-2 log iteration reaches INT64_MAX in ~64 steps. */
+    hdr_iter_log_init(&iter, h, 1, 2.0);
+    steps = 0;
+    last = -1;
+    while (hdr_iter_next(&iter))
+    {
+        last = iter.value_iterated_to;
+        mu_assert("log iterator must terminate", ++steps < 1000000);
+    }
+    mu_assert("log emits the final saturated level", last == INT64_MAX);
+    mu_assert("log emits exactly 64 levels", steps == 64);
+
+    hdr_close(h);
+
+    /* Peek-past-end variant: at the last bucket the iterator peeked
+       hdr_value_at_index(h, counts_len), a signed-shift overflow for a
+       near-INT64_MAX range. A single top-bucket value with sig=1 exercises it. */
+    h = NULL;
+    mu_assert("Should allocate", 0 == hdr_init(1, INT64_C(1) << 62, 1, &h));
+    hdr_record_value(h, INT64_C(1) << 62);
+    hdr_iter_linear_init(&iter, h, INT64_MAX - 1);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("linear iterator (peek) must terminate", ++steps < 1000000);
+    }
+    hdr_iter_log_init(&iter, h, 1000, 2.0);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("log iterator (peek) must terminate", ++steps < 1000000);
+    }
+    hdr_close(h);
+
+    /* Degenerate iterator parameters must terminate rather than loop forever:
+       value_units_per_bucket == 0 and log_base <= 1. */
+    h = NULL;
+    mu_assert("Should allocate", 0 == hdr_init(1, 1000000, 3, &h));
+    hdr_record_value(h, 1234);
+    hdr_iter_linear_init(&iter, h, 0);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("linear iterator (vpb=0) must terminate", ++steps < 1000000);
+    }
+    hdr_iter_log_init(&iter, h, 1000, 1.0);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("log iterator (base<=1) must terminate", ++steps < 1000000);
+    }
+    /* Non-positive log level must terminate (0 *= base loops forever otherwise). */
+    hdr_iter_log_init(&iter, h, 0, 2.0);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("log iterator (level<=0) must terminate", ++steps < 1000000);
+    }
+    /* Negative init params reach negative left-shift UB in lowest_equivalent_value
+       at init time (before any advance-path guard). Must not trip UBSan and must
+       terminate. */
+    hdr_iter_linear_init(&iter, h, -1);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("linear iterator (vpb=-1) must terminate", ++steps < 1000000);
+    }
+    hdr_iter_log_init(&iter, h, -100, 2.0);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("log iterator (first bucket=-100) must terminate", ++steps < 1000000);
+    }
+    /* Non-finite / out-of-int64-range log_base must not trip float-cast-overflow
+       UBSan at the (int64_t) log_base cast in log_iter_next, and must terminate.
+       The init guard pins the terminating state so the cast is never reached. */
+    hdr_iter_log_init(&iter, h, 1, 1e300);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("log iterator (base=1e300) must terminate", ++steps < 1000000);
+    }
+    hdr_iter_log_init(&iter, h, 1, INFINITY);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("log iterator (base=INF) must terminate", ++steps < 1000000);
+    }
+    hdr_iter_log_init(&iter, h, 1, NAN);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("log iterator (base=NaN) must terminate", ++steps < 1000000);
+    }
+    hdr_close(h);
+
+    /* Value-pinning regression: an over-eager peek guard truncated the tail of
+       ordinary linear iteration. init(1,1000,1) + record 999, linear step 1
+       must emit one step per equivalent-value range up to the top of the last
+       bucket (value_iterated_to == 1023). A tail-truncation regresses loudly. */
+    h = NULL;
+    mu_assert("Should allocate", 0 == hdr_init(1, 1000, 1, &h));
+    hdr_record_value(h, 999);
+    hdr_iter_linear_init(&iter, h, 1);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        steps++;
+    }
+    mu_assert("linear step=1 must emit 1023 steps", 1023 == steps);
+    mu_assert("linear step=1 must reach top of last bucket (1023)",
+              1023 == iter.value_iterated_to);
+    hdr_close(h);
+    return 0;
+}
+
+static char* test_log_iterator_integer_base_contract(void)
+{
+    /* Contract: log_base is applied as an integer step (level *= (int64_t) log_base),
+       so a fractional base truncates toward zero (2.5 behaves as 2.0) and any
+       1 < base < 2 truncates to 1 and terminates after the first level. */
+    struct hdr_histogram* h = NULL;
+    struct hdr_iter it2, it25, it15;
+    int64_t v;
+    long steps;
+    int a, b;
+
+    mu_assert("Should allocate", 0 == hdr_init(1, 1000000, 3, &h));
+    for (v = 1; v <= 100000; v += 7)
+    {
+        hdr_record_value(h, v);
+    }
+
+    /* 2.5 truncates to 2: identical reporting boundaries to base 2.0. */
+    hdr_iter_log_init(&it2, h, 1, 2.0);
+    hdr_iter_log_init(&it25, h, 1, 2.5);
+    steps = 0;
+    for (;;)
+    {
+        a = hdr_iter_next(&it2);
+        b = hdr_iter_next(&it25);
+        mu_assert("base 2.5 must iterate in lock-step with base 2.0", a == b);
+        if (!a)
+        {
+            break;
+        }
+        mu_assert("base 2.5 must emit the same boundary as base 2.0",
+                  it2.value_iterated_to == it25.value_iterated_to);
+        mu_assert("base-contract iterator must terminate", ++steps < 1000000);
+    }
+
+    /* 1 < base < 2 truncates to 1: must terminate rather than loop. */
+    hdr_iter_log_init(&it15, h, 1, 1.5);
+    steps = 0;
+    while (hdr_iter_next(&it15))
+    {
+        mu_assert("log iterator (base=1.5) must terminate", ++steps < 1000000);
+    }
+    mu_assert("base 1.5 truncates to 1 and terminates quickly", steps < 100);
+
+    hdr_close(h);
+    return 0;
+}
+
 static char* test_mean_does_not_overflow(void)
 {
     /* Regression (UBSan, found via fuzzing): hdr_mean summed count*value in an
@@ -831,6 +1023,8 @@ static struct mu_result all_tests(void)
     mu_run_test(test_get_min_value);
     mu_run_test(test_get_max_value);
     mu_run_test(test_top_bucket_value_range_no_overflow);
+    mu_run_test(test_iterator_reporting_level_no_overflow);
+    mu_run_test(test_log_iterator_integer_base_contract);
     mu_run_test(test_percentiles);
     mu_run_test(test_percentiles_by_value_at_percentiles);
     mu_run_test(test_percentile_singular_equals_plural_with_offset);
