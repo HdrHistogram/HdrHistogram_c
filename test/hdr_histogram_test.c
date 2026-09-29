@@ -831,6 +831,54 @@ static char* test_iterator_reporting_level_no_overflow(void)
     return 0;
 }
 
+static char* test_log_iterator_integer_base_contract(void)
+{
+    /* Contract: log_base is applied as an integer step (level *= (int64_t) log_base),
+       so a fractional base truncates toward zero (2.5 behaves as 2.0) and any
+       1 < base < 2 truncates to 1 and terminates after the first level. */
+    struct hdr_histogram* h = NULL;
+    struct hdr_iter it2, it25, it15;
+    int64_t v;
+    long steps;
+    int a, b;
+
+    mu_assert("Should allocate", 0 == hdr_init(1, 1000000, 3, &h));
+    for (v = 1; v <= 100000; v += 7)
+    {
+        hdr_record_value(h, v);
+    }
+
+    /* 2.5 truncates to 2: identical reporting boundaries to base 2.0. */
+    hdr_iter_log_init(&it2, h, 1, 2.0);
+    hdr_iter_log_init(&it25, h, 1, 2.5);
+    steps = 0;
+    for (;;)
+    {
+        a = hdr_iter_next(&it2);
+        b = hdr_iter_next(&it25);
+        mu_assert("base 2.5 must iterate in lock-step with base 2.0", a == b);
+        if (!a)
+        {
+            break;
+        }
+        mu_assert("base 2.5 must emit the same boundary as base 2.0",
+                  it2.value_iterated_to == it25.value_iterated_to);
+        mu_assert("base-contract iterator must terminate", ++steps < 1000000);
+    }
+
+    /* 1 < base < 2 truncates to 1: must terminate rather than loop. */
+    hdr_iter_log_init(&it15, h, 1, 1.5);
+    steps = 0;
+    while (hdr_iter_next(&it15))
+    {
+        mu_assert("log iterator (base=1.5) must terminate", ++steps < 1000000);
+    }
+    mu_assert("base 1.5 truncates to 1 and terminates quickly", steps < 100);
+
+    hdr_close(h);
+    return 0;
+}
+
 static char* test_mean_does_not_overflow(void)
 {
     /* Regression (UBSan, found via fuzzing): hdr_mean summed count*value in an
@@ -920,6 +968,7 @@ static struct mu_result all_tests(void)
     mu_run_test(test_get_max_value);
     mu_run_test(test_top_bucket_value_range_no_overflow);
     mu_run_test(test_iterator_reporting_level_no_overflow);
+    mu_run_test(test_log_iterator_integer_base_contract);
     mu_run_test(test_percentiles);
     mu_run_test(test_percentiles_by_value_at_percentiles);
     mu_run_test(test_percentile_singular_equals_plural_with_offset);
