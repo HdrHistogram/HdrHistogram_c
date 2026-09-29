@@ -1077,15 +1077,17 @@ static int read_ahead_timestamp(FILE* f, hdr_timespec* timestamp, char expected_
 {
     int c;
     int is_seconds = 1;
-    long sec = 0;
+    hdr_timespec parsed = {0, 0};
     long nsec = 0;
     long nsec_multipler = 1000000000;
+    /* Use the destination width without modifying the caller on failure. */
+    const int64_t sec_max = (int64_t) (~(uint64_t) 0 >> (65 - sizeof(timestamp->tv_sec) * CHAR_BIT));
 
     while (EOF != (c = fgetc(f)))
     {
         if (expected_terminator == c)
         {
-            timestamp->tv_sec = sec;
+            timestamp->tv_sec = parsed.tv_sec;
             timestamp->tv_nsec = (nsec * nsec_multipler);
             return 1;
         }
@@ -1095,15 +1097,15 @@ static int read_ahead_timestamp(FILE* f, hdr_timespec* timestamp, char expected_
         }
         else if ('0' <= c && c <= '9')
         {
-            const long digit = c - '0';
+            const int digit = c - '0';
             if (is_seconds)
             {
                 /* reject rather than overflow the accumulator on a crafted digit run */
-                if (sec > (LONG_MAX - digit) / 10)
+                if (parsed.tv_sec > (sec_max - digit) / 10)
                 {
                     return 0;
                 }
-                sec = (sec * 10) + digit;
+                parsed.tv_sec = parsed.tv_sec * 10 + digit;
             }
             /* digits past nanosecond resolution are truncated; taking them would zero the multiplier */
             else if (nsec_multipler > 1)

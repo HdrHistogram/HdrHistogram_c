@@ -234,6 +234,61 @@ static char* test_timespec_from_double(void)
     return 0;
 }
 
+static char* test_reset_internal_counters_honours_offset(void)
+{
+    /* Regression: hdr_reset_internal_counters read counts[] by raw storage index but
+       fed the winning index to hdr_value_at_index, which expects a logical index. A
+       decoded log with a non-zero normalizing_index_offset (V1/V2 set it immediately
+       before calling this) therefore got a wrong min_value/max_value. Rotating the
+       storage must not change what the histogram reports. */
+    struct hdr_histogram* h = NULL;
+    int64_t* rotated = NULL;
+    int64_t expected_min, expected_max, expected_total;
+    int32_t i, offset;
+
+    mu_assert("Should allocate", 0 == hdr_init(1, INT64_C(3600000000), 3, &h));
+    hdr_record_value(h, 1000);
+    hdr_record_value(h, 1000);
+    hdr_record_value(h, 100000);
+
+    expected_min = hdr_min(h);
+    expected_max = hdr_max(h);
+    expected_total = h->total_count;
+
+    offset = h->counts_len / 3;
+    rotated = (int64_t*) calloc((size_t) h->counts_len, sizeof(int64_t));
+    mu_assert("Should allocate rotated counts", rotated != NULL);
+    for (i = 0; i < h->counts_len; i++)
+    {
+        int32_t slot = i - offset;
+        if (slot < 0)
+        {
+            slot += h->counts_len;
+        }
+        rotated[slot] = h->counts[i];
+    }
+    memcpy(h->counts, rotated, (size_t) h->counts_len * sizeof(int64_t));
+    free(rotated);
+    h->normalizing_index_offset = offset;
+
+    hdr_reset_internal_counters(h);
+
+    {   /* close before asserting: a failing assert would otherwise leak h and let
+           LeakSanitizer _exit() before the assertion message is flushed */
+        int64_t actual_min = hdr_min(h);
+        int64_t actual_max = hdr_max(h);
+        int64_t actual_total = h->total_count;
+
+        hdr_close(h);
+
+        mu_assert("total_count wrong after rotation", compare_int64(expected_total, actual_total));
+        mu_assert("min_value wrong after rotation", compare_int64(expected_min, actual_min));
+        mu_assert("max_value wrong after rotation", compare_int64(expected_max, actual_max));
+    }
+
+    return 0;
+}
+
 static char* test_bucket_config_shift_overflow(void)
 {
     struct hdr_histogram* h = NULL;
@@ -721,6 +776,52 @@ static char* reset_histogram_on_sample_and_recycle(void)
     return 0;
 }
 
+static char* test_percentile_scan_matches_naive_reference(void)
+{
+    /* pin dispatched scan to a naive reference across a spread of percentiles */
+    struct hdr_histogram* h = NULL;
+    mu_assert("Failed to allocate hdr_histogram",
+        hdr_init(1, INT64_C(3600) * 1000 * 1000, 3, &h) == 0);
+
+    /* densely populate a wide spread of values across many 16-count scan blocks */
+    for (int64_t v = 1; v <= 1000000; v += 3)
+    {
+        hdr_record_values(h, v, (v % 5) + 1);
+    }
+
+    const double percentiles[] = {0.0, 25.0, 50.0, 90.0, 99.0, 99.9, 99.99, 100.0};
+    const size_t n = sizeof(percentiles) / sizeof(percentiles[0]);
+    const int64_t total = h->total_count;
+
+    for (size_t p = 0; p < n; p++)
+    {
+        int64_t count_at_percentile =
+            (int64_t)(((percentiles[p] / 100.0) * total) + 0.5);
+        /* mirror get_value_from_idx_up_to_count's clamp */
+        int64_t target = count_at_percentile > 0 ? count_at_percentile : 1;
+        int64_t cum = 0;
+        int64_t reference = 0;
+        for (int32_t i = 0; i < h->counts_len; i++)
+        {
+            cum += hdr_count_at_index(h, i);
+            if (cum >= target)
+            {
+                int64_t v = hdr_value_at_index(h, i);
+                reference = (percentiles[p] == 0.0)
+                    ? hdr_lowest_equivalent_value(h, v)
+                    : hdr_next_non_equivalent_value(h, v) - 1;
+                break;
+            }
+        }
+        mu_assert(
+            "percentile scan disagrees with naive reference",
+            reference == hdr_value_at_percentile(h, percentiles[p]));
+    }
+
+    hdr_close(h);
+    return 0;
+}
+
 static char* test_top_bucket_value_range_no_overflow(void)
 {
     /* Regression (UBSan, found via fuzzing): for a histogram whose
@@ -757,6 +858,197 @@ static char* test_top_bucket_value_range_no_overflow(void)
         mu_assert("iter highest_equivalent_value stays representable",
                   iter.highest_equivalent_value >= 0);
     }
+
+    hdr_close(h);
+    return 0;
+}
+
+static char* test_iterator_reporting_level_no_overflow(void)
+{
+    /* Regression (UBSan, found via fuzzing): the linear and logarithmic
+       iterators advanced their reporting level with `+= value_units_per_bucket`
+       / `*= log_base`, which overflowed int64 for a near-INT64_MAX range. The
+       level now saturates at INT64_MAX and the iterators still terminate. */
+    struct hdr_histogram* h = NULL;
+    struct hdr_iter iter;
+    long steps;
+    int64_t last;
+
+    mu_assert("Should allocate", 0 == hdr_init(1, INT64_MAX, 3, &h));
+    hdr_record_value(h, INT64_MAX);
+    hdr_record_value(h, 5);
+
+    /* A huge linear bucket makes the reporting level cross INT64_MAX quickly. */
+    hdr_iter_linear_init(&iter, h, INT64_C(1) << 62);
+    steps = 0;
+    last = -1;
+    while (hdr_iter_next(&iter))
+    {
+        last = iter.value_iterated_to;
+        mu_assert("linear iterator must terminate", ++steps < 1000000);
+    }
+    mu_assert("linear emits the final saturated level", last == INT64_MAX);
+    mu_assert("linear emits exactly two levels", steps == 2);
+
+    /* Base-2 log iteration reaches INT64_MAX in ~64 steps. */
+    hdr_iter_log_init(&iter, h, 1, 2.0);
+    steps = 0;
+    last = -1;
+    while (hdr_iter_next(&iter))
+    {
+        last = iter.value_iterated_to;
+        mu_assert("log iterator must terminate", ++steps < 1000000);
+    }
+    mu_assert("log emits the final saturated level", last == INT64_MAX);
+    mu_assert("log emits exactly 64 levels", steps == 64);
+
+    hdr_close(h);
+
+    /* Peek-past-end variant: at the last bucket the iterator peeked
+       hdr_value_at_index(h, counts_len), a signed-shift overflow for a
+       near-INT64_MAX range. A single top-bucket value with sig=1 exercises it. */
+    h = NULL;
+    mu_assert("Should allocate", 0 == hdr_init(1, INT64_C(1) << 62, 1, &h));
+    hdr_record_value(h, INT64_C(1) << 62);
+    hdr_iter_linear_init(&iter, h, INT64_MAX - 1);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("linear iterator (peek) must terminate", ++steps < 1000000);
+    }
+    hdr_iter_log_init(&iter, h, 1000, 2.0);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("log iterator (peek) must terminate", ++steps < 1000000);
+    }
+    hdr_close(h);
+
+    /* Degenerate iterator parameters must terminate rather than loop forever:
+       value_units_per_bucket == 0 and log_base <= 1. */
+    h = NULL;
+    mu_assert("Should allocate", 0 == hdr_init(1, 1000000, 3, &h));
+    hdr_record_value(h, 1234);
+    hdr_iter_linear_init(&iter, h, 0);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("linear iterator (vpb=0) must terminate", ++steps < 1000000);
+    }
+    hdr_iter_log_init(&iter, h, 1000, 1.0);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("log iterator (base<=1) must terminate", ++steps < 1000000);
+    }
+    /* Non-positive log level must terminate (0 *= base loops forever otherwise). */
+    hdr_iter_log_init(&iter, h, 0, 2.0);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("log iterator (level<=0) must terminate", ++steps < 1000000);
+    }
+    /* Negative init params reach negative left-shift UB in lowest_equivalent_value
+       at init time (before any advance-path guard). Must not trip UBSan and must
+       terminate. */
+    hdr_iter_linear_init(&iter, h, -1);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("linear iterator (vpb=-1) must terminate", ++steps < 1000000);
+    }
+    hdr_iter_log_init(&iter, h, -100, 2.0);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("log iterator (first bucket=-100) must terminate", ++steps < 1000000);
+    }
+    /* Non-finite / out-of-int64-range log_base must not trip float-cast-overflow
+       UBSan at the (int64_t) log_base cast in log_iter_next, and must terminate.
+       The init guard pins the terminating state so the cast is never reached. */
+    hdr_iter_log_init(&iter, h, 1, 1e300);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("log iterator (base=1e300) must terminate", ++steps < 1000000);
+    }
+    hdr_iter_log_init(&iter, h, 1, INFINITY);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("log iterator (base=INF) must terminate", ++steps < 1000000);
+    }
+    hdr_iter_log_init(&iter, h, 1, NAN);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        mu_assert("log iterator (base=NaN) must terminate", ++steps < 1000000);
+    }
+    hdr_close(h);
+
+    /* Value-pinning regression: an over-eager peek guard truncated the tail of
+       ordinary linear iteration. init(1,1000,1) + record 999, linear step 1
+       must emit one step per equivalent-value range up to the top of the last
+       bucket (value_iterated_to == 1023). A tail-truncation regresses loudly. */
+    h = NULL;
+    mu_assert("Should allocate", 0 == hdr_init(1, 1000, 1, &h));
+    hdr_record_value(h, 999);
+    hdr_iter_linear_init(&iter, h, 1);
+    steps = 0;
+    while (hdr_iter_next(&iter))
+    {
+        steps++;
+    }
+    mu_assert("linear step=1 must emit 1023 steps", 1023 == steps);
+    mu_assert("linear step=1 must reach top of last bucket (1023)",
+              1023 == iter.value_iterated_to);
+    hdr_close(h);
+    return 0;
+}
+
+static char* test_log_iterator_integer_base_contract(void)
+{
+    /* Contract: log_base is applied as an integer step (level *= (int64_t) log_base),
+       so a fractional base truncates toward zero (2.5 behaves as 2.0) and any
+       1 < base < 2 truncates to 1 and terminates after the first level. */
+    struct hdr_histogram* h = NULL;
+    struct hdr_iter it2, it25, it15;
+    int64_t v;
+    long steps;
+    int a, b;
+
+    mu_assert("Should allocate", 0 == hdr_init(1, 1000000, 3, &h));
+    for (v = 1; v <= 100000; v += 7)
+    {
+        hdr_record_value(h, v);
+    }
+
+    /* 2.5 truncates to 2: identical reporting boundaries to base 2.0. */
+    hdr_iter_log_init(&it2, h, 1, 2.0);
+    hdr_iter_log_init(&it25, h, 1, 2.5);
+    steps = 0;
+    for (;;)
+    {
+        a = hdr_iter_next(&it2);
+        b = hdr_iter_next(&it25);
+        mu_assert("base 2.5 must iterate in lock-step with base 2.0", a == b);
+        if (!a)
+        {
+            break;
+        }
+        mu_assert("base 2.5 must emit the same boundary as base 2.0",
+                  it2.value_iterated_to == it25.value_iterated_to);
+        mu_assert("base-contract iterator must terminate", ++steps < 1000000);
+    }
+
+    /* 1 < base < 2 truncates to 1: must terminate rather than loop. */
+    hdr_iter_log_init(&it15, h, 1, 1.5);
+    steps = 0;
+    while (hdr_iter_next(&it15))
+    {
+        mu_assert("log iterator (base=1.5) must terminate", ++steps < 1000000);
+    }
+    mu_assert("base 1.5 truncates to 1 and terminates quickly", steps < 100);
 
     hdr_close(h);
     return 0;
@@ -838,11 +1130,34 @@ static char* test_count_at_index_out_of_range(void)
     return 0;
 }
 
+static char* test_percentile_signed_counts(void)
+{
+    struct hdr_histogram* h = NULL;
+    const double percentile = 50.0;
+    int64_t value = 0;
+    mu_assert("allocate", hdr_init(1, 1000, 3, &h) == 0);
+    mu_assert("positive count", hdr_record_values(h, 16, 2));
+    mu_assert("negative count", hdr_record_values(h, 20, -2));
+    mu_assert("positive tail", hdr_record_values(h, 48, 2));
+    value = hdr_value_at_percentile(h, percentile);
+    mu_assert("retain first prefix crossing", value == 16);
+    hdr_reset(h);
+    mu_assert("negative prefix", hdr_record_values(h, 16, -2));
+    mu_assert("recover prefix", hdr_record_values(h, 20, 4));
+    mu_assert("positive tail", hdr_record_values(h, 48, 2));
+    value = hdr_value_at_percentile(h, percentile);
+    mu_assert("negative prefix is below target", value == 20);
+    hdr_close(h);
+    return 0;
+}
+
 static struct mu_result all_tests(void)
 {
+    mu_run_test(test_percentile_signed_counts);
     mu_run_test(test_create);
     mu_run_test(test_invalid_init);
     mu_run_test(test_timespec_from_double);
+    mu_run_test(test_reset_internal_counters_honours_offset);
     mu_run_test(test_bucket_config_shift_overflow);
     mu_run_test(test_bucket_config_reject_defines_cfg);
     mu_run_test(test_create_with_large_values);
@@ -851,7 +1166,10 @@ static struct mu_result all_tests(void)
     mu_run_test(test_get_min_value);
     mu_run_test(test_get_max_value);
     mu_run_test(test_top_bucket_value_range_no_overflow);
+    mu_run_test(test_iterator_reporting_level_no_overflow);
+    mu_run_test(test_log_iterator_integer_base_contract);
     mu_run_test(test_percentiles);
+    mu_run_test(test_percentile_scan_matches_naive_reference);
     mu_run_test(test_percentiles_by_value_at_percentiles);
     mu_run_test(test_percentile_singular_equals_plural_with_offset);
     mu_run_test(test_recorded_values);
