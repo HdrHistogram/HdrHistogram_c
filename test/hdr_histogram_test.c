@@ -857,7 +857,7 @@ static char* test_count_at_index_out_of_range(void)
     return 0;
 }
 
-static char* test_percentile_signed_counts(void)
+static char* test_batch_percentile_signed_counts(void)
 {
     struct hdr_histogram* h = NULL;
     const double percentile = 50.0;
@@ -887,7 +887,7 @@ static char* test_percentile_signed_counts(void)
 
 static struct mu_result all_tests(void)
 {
-    mu_run_test(test_percentile_signed_counts);
+    mu_run_test(test_batch_percentile_signed_counts);
     mu_run_test(test_create);
     mu_run_test(test_invalid_init);
     mu_run_test(test_bucket_config_shift_overflow);
