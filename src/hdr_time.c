@@ -90,8 +90,8 @@ double hdr_timespec_as_double(const hdr_timespec* t)
 
 void hdr_timespec_from_double(hdr_timespec* t, double value)
 {
-    /* tv_sec is a long on Windows; 2^(bits-1) is exact as a double and one past its max */
-    const double limit = ldexp(1.0, (int) (sizeof(long) * CHAR_BIT) - 1);
+    /* Bound by the destination: time_t on POSIX, long on Windows/Cygwin. */
+    const double limit = ldexp(1.0, (int) (sizeof(t->tv_sec) * CHAR_BIT) - 1);
     double seconds;
     long milliseconds;
 
@@ -102,14 +102,19 @@ void hdr_timespec_from_double(hdr_timespec* t, double value)
         return;
     }
 
-    /* floor, not trunc: tv_nsec must be in [0, 1e9), so the remainder cannot be negative */
-    seconds = floor(value);
+    /* Round the original signed fraction before normalizing it. */
+    seconds = trunc(value);
     milliseconds = (long) round((value - seconds) * 1000);
     if (milliseconds == 1000)
     {
         /* rounded up to a whole second; carry rather than emit tv_nsec == 1e9 */
         seconds += 1.0;
         milliseconds = 0;
+    }
+    else if (milliseconds < 0)
+    {
+        seconds -= 1.0;
+        milliseconds += 1000;
     }
 
     /* converting an out-of-range double to an integer is UB */
@@ -120,6 +125,10 @@ void hdr_timespec_from_double(hdr_timespec* t, double value)
         return;
     }
 
+#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
     t->tv_sec = (long) seconds;
+#else
+    t->tv_sec = (time_t) seconds;
+#endif
     t->tv_nsec = milliseconds * 1000000;
 }

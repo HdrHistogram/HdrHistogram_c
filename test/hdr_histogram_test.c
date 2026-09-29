@@ -191,9 +191,19 @@ static char* test_timespec_from_double(void)
     mu_assert("negative sub-second seconds wrong", compare_int64(INT64_C(-1), (int64_t) t.tv_sec));
     mu_assert("negative sub-second nanoseconds wrong", compare_int64(INT64_C(600000000), (int64_t) t.tv_nsec));
 
-    /* Exceeds int but fits a 64-bit long; reachable from a log header StartTime. */
+    /* Preserve rounding away from zero at negative half milliseconds. */
+    hdr_timespec_from_double(&t, -0.0005);
+    mu_assert("negative half millisecond seconds", t.tv_sec == -1);
+    mu_assert("negative half millisecond nanos", t.tv_nsec == 999000000);
+    hdr_timespec_from_double(&t, -0.0015);
+    mu_assert("negative one-and-half milliseconds seconds", t.tv_sec == -1);
+    mu_assert("negative one-and-half milliseconds nanos", t.tv_nsec == 998000000);
+    hdr_timespec_from_double(&t, -0.9996);
+    mu_assert("negative rounded second", t.tv_sec == -1 && t.tv_nsec == 0);
+
+    /* Exceeds int but fits a 64-bit destination; reachable from a log header. */
     hdr_timespec_from_double(&t, 1403476110183.0);
-    if (sizeof(long) >= 8)
+    if (sizeof(t.tv_sec) >= 8)
     {
         mu_assert("wide seconds wrong", compare_int64(INT64_C(1403476110183), (int64_t) t.tv_sec));
     }
