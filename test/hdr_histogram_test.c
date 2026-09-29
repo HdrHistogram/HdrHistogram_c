@@ -697,6 +697,7 @@ static char* test_iterator_reporting_level_no_overflow(void)
     struct hdr_histogram* h = NULL;
     struct hdr_iter iter;
     long steps;
+    int64_t last;
 
     mu_assert("Should allocate", 0 == hdr_init(1, INT64_MAX, 3, &h));
     hdr_record_value(h, INT64_MAX);
@@ -705,18 +706,26 @@ static char* test_iterator_reporting_level_no_overflow(void)
     /* A huge linear bucket makes the reporting level cross INT64_MAX quickly. */
     hdr_iter_linear_init(&iter, h, INT64_C(1) << 62);
     steps = 0;
+    last = -1;
     while (hdr_iter_next(&iter))
     {
+        last = iter.value_iterated_to;
         mu_assert("linear iterator must terminate", ++steps < 1000000);
     }
+    mu_assert("linear emits the final saturated level", last == INT64_MAX);
+    mu_assert("linear emits exactly two levels", steps == 2);
 
     /* Base-2 log iteration reaches INT64_MAX in ~64 steps. */
     hdr_iter_log_init(&iter, h, 1, 2.0);
     steps = 0;
+    last = -1;
     while (hdr_iter_next(&iter))
     {
+        last = iter.value_iterated_to;
         mu_assert("log iterator must terminate", ++steps < 1000000);
     }
+    mu_assert("log emits the final saturated level", last == INT64_MAX);
+    mu_assert("log emits exactly 64 levels", steps == 64);
 
     hdr_close(h);
 

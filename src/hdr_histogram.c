@@ -1013,7 +1013,7 @@ static bool move_next(struct hdr_iter* iter)
 static int64_t peek_next_value_from_index(struct hdr_iter* iter)
 {
     const int32_t index = iter->counts_index + 1;
-    int32_t bucket_index = (index >> iter->h->sub_bucket_half_count_magnitude) - 1;
+    int32_t bucket_index = (int32_t) ((uint32_t) index >> iter->h->sub_bucket_half_count_magnitude) - 1;
     int32_t sub_bucket_index = (index & (iter->h->sub_bucket_half_count - 1)) + iter->h->sub_bucket_half_count;
     int32_t shift;
     if (bucket_index < 0)
@@ -1023,7 +1023,7 @@ static int64_t peek_next_value_from_index(struct hdr_iter* iter)
     }
     shift = bucket_index + iter->h->unit_magnitude;
     /* one past the top bucket shifts into the sign bit for a near-INT64_MAX range; saturate */
-    if (shift >= 63 || (int64_t) sub_bucket_index > (INT64_MAX >> shift))
+    if (shift >= 63 || (uint64_t) sub_bucket_index > ((uint64_t) INT64_MAX >> shift))
     {
         return INT64_MAX;
     }
@@ -1246,13 +1246,18 @@ static bool iter_linear_next(struct hdr_iter* iter)
             {
                 update_iterated_values(iter, linear->next_value_reporting_level);
 
-                /* advance the reporting level; on overflow pin to INT64_MAX so the emit test cannot re-fire and the iterator terminates */
-                if (linear->value_units_per_bucket <= 0 ||
+                /* Emit the saturated final level once before entering the terminal state. */
+                if (linear->next_value_reporting_level == INT64_MAX)
+                {
+                    linear->next_value_reporting_level_lowest_equivalent = INT64_MAX;
+                }
+                else if (linear->value_units_per_bucket <= 0 ||
                     linear->next_value_reporting_level > INT64_MAX - linear->value_units_per_bucket)
                 {
                     /* step <= 0 first: never-advances (infinite loop) and guards the subtraction; second clause is the overflow guard */
                     linear->next_value_reporting_level = INT64_MAX;
-                    linear->next_value_reporting_level_lowest_equivalent = INT64_MAX;
+                    linear->next_value_reporting_level_lowest_equivalent =
+                        lowest_equivalent_value(iter->h, INT64_MAX);
                 }
                 else
                 {
@@ -1325,14 +1330,19 @@ static bool log_iter_next(struct hdr_iter *iter)
             {
                 update_iterated_values(iter, logarithmic->next_value_reporting_level);
 
-                /* advance the reporting level; on *= log_base overflow pin to INT64_MAX so the emit test cannot re-fire and it terminates */
+                /* Emit the saturated final level once before entering the terminal state. */
                 {
                     int64_t base = (int64_t) logarithmic->log_base;
-                    if (base <= 1 || logarithmic->next_value_reporting_level <= 0 || logarithmic->next_value_reporting_level > INT64_MAX / base)
+                    if (logarithmic->next_value_reporting_level == INT64_MAX)
+                    {
+                        logarithmic->next_value_reporting_level_lowest_equivalent = INT64_MAX;
+                    }
+                    else if (base <= 1 || logarithmic->next_value_reporting_level <= 0 || logarithmic->next_value_reporting_level > INT64_MAX / base)
                     {
                         /* base <= 1 first: never-advances (infinite loop) and short-circuits /base so base==0 can't divide-by-zero; level <= 0 never advances (0*=base loops) and *=base on a negative is overflow UB; last clause is the positive-overflow guard */
                         logarithmic->next_value_reporting_level = INT64_MAX;
-                        logarithmic->next_value_reporting_level_lowest_equivalent = INT64_MAX;
+                        logarithmic->next_value_reporting_level_lowest_equivalent =
+                            lowest_equivalent_value(iter->h, INT64_MAX);
                     }
                     else
                     {
