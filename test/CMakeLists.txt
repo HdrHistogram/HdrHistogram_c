@@ -66,6 +66,7 @@ function(hdr_histogram_add_test NAME)
 endfunction()
 
 hdr_histogram_add_test(hdr_histogram_test)
+hdr_histogram_add_test(hdr_packed_core_test)
 hdr_histogram_add_test(hdr_histogram_atomic_test)
 if (HDR_LOG_ENABLED)
     hdr_histogram_add_test(hdr_histogram_log_test)

@@ -20,6 +20,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <inttypes.h>
+#include <zlib.h>
 #include <hdr/hdr_histogram.h>
 #include <hdr/hdr_packed_histogram.h>
 #include "minunit.h"
@@ -708,8 +709,31 @@ static char* test_p100_near_int64_max(void)
     return 0;
 }
 
+static char* test_decode_rejects_short_inflated_payload(void)
+{
+    uint8_t raw[41] = {0}, compressed[256] = {0};
+    uLongf length = sizeof(compressed) - 8;
+    struct hdr_packed_histogram* h = NULL;
+    int result;
+    raw[0] = 0x1c; raw[1] = 0x84; raw[2] = 0x93; raw[3] = 0x13;
+    raw[7] = 2; /* Declares two payload bytes, but supplies only one. */
+    raw[15] = 3; raw[23] = 1; raw[30] = 3; raw[31] = 0xe8;
+    raw[32] = 0x3f; raw[33] = 0xf0; raw[40] = 2;
+    mu_assert("compress short payload", compress(compressed + 8, &length, raw, sizeof(raw)) == Z_OK);
+    compressed[0] = 0x1c; compressed[1] = 0x84; compressed[2] = 0x93; compressed[3] = 0x14;
+    compressed[4] = (uint8_t)((uint32_t)length >> 24U);
+    compressed[5] = (uint8_t)((uint32_t)length >> 16U);
+    compressed[6] = (uint8_t)((uint32_t)length >> 8U);
+    compressed[7] = (uint8_t)length;
+    result = hdr_packed_decode_compressed(compressed, (size_t)length + 8, &h);
+    hdr_packed_close(h);
+    mu_assert("short inflated payload rejected", result != 0);
+    return 0;
+}
+
 static struct mu_result all_tests(void)
 {
+    mu_run_test(test_decode_rejects_short_inflated_payload);
     mu_run_test(test_construction_argument_ranges);
     mu_run_test(test_empty_histogram);
     mu_run_test(test_record_value);

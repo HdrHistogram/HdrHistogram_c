@@ -1,5 +1,5 @@
 /*
- * hdr_packed_histogram.c -- Phase-2 sparse/packed HdrHistogram variant.
+ * hdr_packed_histogram.c -- Sparse/packed HdrHistogram variant.
  * Released to the public domain, as explained at
  * http://creativecommons.org/publicdomain/zero/1.0/
  *
@@ -29,7 +29,9 @@
 #include <string.h>
 #include <errno.h>
 #include <math.h>
+#ifdef HDR_PACKED_LOG_ENABLED
 #include <zlib.h>
+#endif
 
 #include "hdr/hdr_histogram.h"
 #include "hdr/hdr_time.h"            /* hdr_timespec, needed by the log header */
@@ -185,7 +187,7 @@ static bool ensure_cap(struct hdr_packed_histogram* h)
     {
         return true;
     }
-    if (h->cap > (INT32_MAX >> 1))   /* doubling would overflow int32 */
+    if (h->cap > (INT32_MAX / 2))   /* doubling would overflow int32 */
     {
         return false; /* GCOV_EXCL_DEFENSIVE: needs >2^30 distinct buckets;
                          guards int32 overflow, not reachable in practice. */
@@ -601,7 +603,7 @@ int64_t hdr_packed_value_at_percentile(const struct hdr_packed_histogram* h, dou
    stays order-agnostic by sorting the targets internally (percentile arrays are
    tiny), then walking the sparse buckets ONCE while a cursor emits each target
    as the running count crosses it. Result is bit-for-bit the per-percentile
-   singular for every percentile and any input order (divergence doc item 8),
+   singular for every percentile and any input order,
    at ~1 scan instead of `length` scans. */
 int hdr_packed_value_at_percentiles(const struct hdr_packed_histogram* h,
     const double* percentiles, int64_t* values, size_t length)
@@ -747,6 +749,7 @@ int hdr_packed_count_width(const struct hdr_packed_histogram* h)
     return h->width;
 }
 
+#ifdef HDR_PACKED_LOG_ENABLED
 /* ##  V2 serialization  ####################################################### */
 
 static const uint32_t PK_V2_ENCODING_COOKIE    = 0x1c849303;
@@ -940,7 +943,8 @@ int hdr_packed_decode_compressed(
     if (!counts_array) { ret = ENOMEM; goto done; }
     strm.next_out = counts_array;
     strm.avail_out = (uInt) counts_limit;
-    if (inflate(&strm, Z_FINISH) != Z_STREAM_END) { ret = HDR_INFLATE_FAIL; goto done; }
+    if (inflate(&strm, Z_FINISH) != Z_STREAM_END || strm.avail_out != 0)
+    { ret = HDR_INFLATE_FAIL; goto done; }
 
     /* apply zig-zag payload into the sparse structure */
     {
@@ -978,3 +982,5 @@ done:
     if (h) hdr_packed_close(h);
     return ret;
 }
+
+#endif /* HDR_PACKED_LOG_ENABLED */
