@@ -702,6 +702,52 @@ static char* reset_histogram_on_sample_and_recycle(void)
     return 0;
 }
 
+static char* test_percentile_scan_matches_naive_reference(void)
+{
+    /* pin dispatched scan to a naive reference across a spread of percentiles */
+    struct hdr_histogram* h = NULL;
+    mu_assert("Failed to allocate hdr_histogram",
+        hdr_init(1, INT64_C(3600) * 1000 * 1000, 3, &h) == 0);
+
+    /* densely populate a wide spread of values across many 16-count scan blocks */
+    for (int64_t v = 1; v <= 1000000; v += 3)
+    {
+        hdr_record_values(h, v, (v % 5) + 1);
+    }
+
+    const double percentiles[] = {0.0, 25.0, 50.0, 90.0, 99.0, 99.9, 99.99, 100.0};
+    const size_t n = sizeof(percentiles) / sizeof(percentiles[0]);
+    const int64_t total = h->total_count;
+
+    for (size_t p = 0; p < n; p++)
+    {
+        int64_t count_at_percentile =
+            (int64_t)(((percentiles[p] / 100.0) * total) + 0.5);
+        /* mirror get_value_from_idx_up_to_count's clamp */
+        int64_t target = count_at_percentile > 0 ? count_at_percentile : 1;
+        int64_t cum = 0;
+        int64_t reference = 0;
+        for (int32_t i = 0; i < h->counts_len; i++)
+        {
+            cum += hdr_count_at_index(h, i);
+            if (cum >= target)
+            {
+                int64_t v = hdr_value_at_index(h, i);
+                reference = (percentiles[p] == 0.0)
+                    ? hdr_lowest_equivalent_value(h, v)
+                    : hdr_next_non_equivalent_value(h, v) - 1;
+                break;
+            }
+        }
+        mu_assert(
+            "percentile scan disagrees with naive reference",
+            reference == hdr_value_at_percentile(h, percentiles[p]));
+    }
+
+    hdr_close(h);
+    return 0;
+}
+
 static char* test_top_bucket_value_range_no_overflow(void)
 {
     /* Regression (UBSan, found via fuzzing): for a histogram whose
@@ -1010,8 +1056,30 @@ static char* test_count_at_index_out_of_range(void)
     return 0;
 }
 
+static char* test_percentile_signed_counts(void)
+{
+    struct hdr_histogram* h = NULL;
+    const double percentile = 50.0;
+    int64_t value = 0;
+    mu_assert("allocate", hdr_init(1, 1000, 3, &h) == 0);
+    mu_assert("positive count", hdr_record_values(h, 16, 2));
+    mu_assert("negative count", hdr_record_values(h, 20, -2));
+    mu_assert("positive tail", hdr_record_values(h, 48, 2));
+    value = hdr_value_at_percentile(h, percentile);
+    mu_assert("retain first prefix crossing", value == 16);
+    hdr_reset(h);
+    mu_assert("negative prefix", hdr_record_values(h, 16, -2));
+    mu_assert("recover prefix", hdr_record_values(h, 20, 4));
+    mu_assert("positive tail", hdr_record_values(h, 48, 2));
+    value = hdr_value_at_percentile(h, percentile);
+    mu_assert("negative prefix is below target", value == 20);
+    hdr_close(h);
+    return 0;
+}
+
 static struct mu_result all_tests(void)
 {
+    mu_run_test(test_percentile_signed_counts);
     mu_run_test(test_create);
     mu_run_test(test_invalid_init);
     mu_run_test(test_reset_internal_counters_honours_offset);
@@ -1026,6 +1094,7 @@ static struct mu_result all_tests(void)
     mu_run_test(test_iterator_reporting_level_no_overflow);
     mu_run_test(test_log_iterator_integer_base_contract);
     mu_run_test(test_percentiles);
+    mu_run_test(test_percentile_scan_matches_naive_reference);
     mu_run_test(test_percentiles_by_value_at_percentiles);
     mu_run_test(test_percentile_singular_equals_plural_with_offset);
     mu_run_test(test_recorded_values);

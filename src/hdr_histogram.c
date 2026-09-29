@@ -795,30 +795,40 @@ static int64_t get_value_from_idx_up_to_count_avx2(
 {
     int64_t running = 0;
     int32_t idx = 0;
-    const int32_t limit = h->counts_len & ~3;
+    /* 16 int64 (4x256-bit) per iteration: amortize the horizontal reduction +
+       extract + target-cross branch over 16 elements instead of 4. */
+    const int32_t limit = h->counts_len & ~15;
 
-    for (; idx < limit; idx += 4) {
-        __m256i v = _mm256_loadu_si256((const __m256i*)&h->counts[idx]);
-        __m128i lo = _mm256_castsi256_si128(v);
-        __m128i hi = _mm256_extracti128_si256(v, 1);
+    for (; idx < limit; idx += 16) {
+        __m256i a = _mm256_loadu_si256((const __m256i*)&h->counts[idx]);
+        __m256i b = _mm256_loadu_si256((const __m256i*)&h->counts[idx + 4]);
+        __m256i c = _mm256_loadu_si256((const __m256i*)&h->counts[idx + 8]);
+        __m256i d = _mm256_loadu_si256((const __m256i*)&h->counts[idx + 12]);
+        __m256i vsum = _mm256_add_epi64(_mm256_add_epi64(a, b), _mm256_add_epi64(c, d));
+        __m128i lo = _mm256_castsi256_si128(vsum);
+        __m128i hi = _mm256_extracti128_si256(vsum, 1);
         __m128i s = _mm_add_epi64(lo, hi);
-        /* Lanes are non-negative counts whose total fits in int64_t (total_count
-           invariant), so the chunk sum cannot overflow under valid state. Use
-           unsigned add to avoid signed-overflow UB if invariants are violated. */
+        /* Reduce with unsigned arithmetic to avoid signed-overflow UB. */
         int64_t chunk = (int64_t)((uint64_t)_mm_extract_epi64(s, 0)
                                 + (uint64_t)_mm_extract_epi64(s, 1));
 
-        if (__builtin_expect(running + chunk >= count_at_percentile, 0)) {
-            for (int32_t j = idx; j < idx + 4; j++) {
-                running += h->counts[j];
+        /* Signed counts can cross the target before the block's end. */
+        __m256i signs = _mm256_or_si256(_mm256_or_si256(a, b), _mm256_or_si256(c, d));
+        int negative = _mm256_movemask_pd(_mm256_castsi256_pd(signs));
+        int64_t next = (int64_t)((uint64_t)running + (uint64_t)chunk);
+        if (HDR_UNLIKELY(negative || next >= count_at_percentile)) {
+            for (int32_t j = idx; j < idx + 16; j++) {
+                running = (int64_t)((uint64_t)running + (uint64_t)h->counts[j]);
                 if (running >= count_at_percentile)
                     return hdr_value_at_index(h, j);
             }
         }
-        running += chunk;
+        else {
+            running = next;
+        }
     }
     for (; idx < h->counts_len; idx++) {
-        running += h->counts[idx];
+        running = (int64_t)((uint64_t)running + (uint64_t)h->counts[idx]);
         if (running >= count_at_percentile)
             return hdr_value_at_index(h, idx);
     }
