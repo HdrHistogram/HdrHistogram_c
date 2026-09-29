@@ -1028,8 +1028,8 @@ static char* handle_invalid_log_lines(void)
     return 0;
 }
 
-/* sec is a long, which is 32-bit on MSVC: 2^31 parses where long is 64-bit and is
-   rejected where it is not. Pins that boundary rather than leaving it to the platform. */
+/* 2^31 parses wherever tv_sec can hold it (time_t on POSIX, long on Windows) and is
+   rejected where it cannot. Pins that boundary rather than leaving it to the platform. */
 static char* handle_timestamp_at_long_boundary(void)
 {
     struct hdr_histogram* h = NULL;
@@ -1043,7 +1043,7 @@ static char* handle_timestamp_at_long_boundary(void)
     rc = hdr_log_read(NULL, f, &h, &timestamp, &interval);
     fclose(f);
 
-    if (sizeof(long) >= 8)
+    if (sizeof(timestamp.tv_sec) >= 8)
     {
         mu_assert("Failed to read entry", compare_int(0, rc));
         mu_assert("Seconds wrong", compare_int64(INT64_C(2147483648), (int64_t) timestamp.tv_sec));
@@ -1051,7 +1051,7 @@ static char* handle_timestamp_at_long_boundary(void)
     }
     else
     {
-        mu_assert("Should not fit a 32-bit long", -EINVAL == rc);
+        mu_assert("Should not fit a 32-bit tv_sec", -EINVAL == rc);
     }
 
     return 0;
@@ -1148,8 +1148,32 @@ static char* test_zig_zag_codec(void)
     return 0;
 }
 
+static char* timestamp_rejection_preserves_output(void)
+{
+    struct hdr_log_reader reader;
+    struct hdr_log_entry entry;
+    struct hdr_histogram* h = NULL;
+    FILE* file = tmpfile();
+    int result;
+    mu_assert("temporary input", file != NULL);
+    memset(&entry, 0, sizeof(entry));
+    entry.start_timestamp.tv_sec = 123;
+    entry.start_timestamp.tv_nsec = 456;
+    hdr_log_reader_init(&reader);
+    fputs("999999999999999999999999999999999999999999,", file);
+    rewind(file);
+    result = hdr_log_read_entry(&reader, file, &entry, &h);
+    fclose(file);
+    hdr_close(h);
+    mu_assert("overflow timestamp rejected", result != 0);
+    mu_assert("seconds preserved on rejection", entry.start_timestamp.tv_sec == 123);
+    mu_assert("nanoseconds preserved on rejection", entry.start_timestamp.tv_nsec == 456);
+    return 0;
+}
+
 static struct mu_result all_tests(void)
 {
+    mu_run_test(timestamp_rejection_preserves_output);
     tests_run = 0;
 
     mu_run_test(test_encode_decode_empty);

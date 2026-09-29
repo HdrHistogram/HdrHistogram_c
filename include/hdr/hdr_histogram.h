@@ -433,7 +433,12 @@ void hdr_iter_linear_init(
     int64_t value_units_per_bucket);
 
 /**
- * Initialise the iterator for use with logarithmic values
+ * Initialise the iterator for use with logarithmic values.
+ *
+ * log_base is applied as an integer step (level *= (int64_t) log_base): a
+ * fractional base truncates toward zero (2.5 behaves as 2), and any base <= 1 --
+ * including 1 < base < 2, which truncates to 1 -- terminates after the first
+ * level. Fractional bases are not supported (the Java reference iterates in double).
  */
 void hdr_iter_log_init(
     struct hdr_iter* iter,
