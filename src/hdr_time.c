@@ -90,8 +90,8 @@ double hdr_timespec_as_double(const hdr_timespec* t)
 
 void hdr_timespec_from_double(hdr_timespec* t, double value)
 {
-    /* tv_sec is a long on Windows; 2^(bits-1) is exact as a double and one past its max */
-    const double limit = ldexp(1.0, (int) (sizeof(long) * CHAR_BIT) - 1);
+    /* Bound by the destination: time_t on POSIX, long on Windows/Cygwin. */
+    const double limit = ldexp(1.0, (int) (sizeof(t->tv_sec) * CHAR_BIT) - 1);
     double seconds = trunc(value);
     int milliseconds;
 
@@ -105,6 +105,10 @@ void hdr_timespec_from_double(hdr_timespec* t, double value)
 
     milliseconds = (int) round((value - seconds) * 1000);
 
+#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
     t->tv_sec = (long) seconds;
+#else
+    t->tv_sec = (time_t) seconds;
+#endif
     t->tv_nsec = milliseconds * 1000000;
 }
