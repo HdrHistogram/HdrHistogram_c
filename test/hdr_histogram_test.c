@@ -857,8 +857,37 @@ static char* test_count_at_index_out_of_range(void)
     return 0;
 }
 
+static char* test_percentile_signed_counts(void)
+{
+    struct hdr_histogram* h = NULL;
+    const double percentile = 50.0;
+    int64_t value = 0;
+    mu_assert("allocate", hdr_init(1, 1000, 3, &h) == 0);
+    mu_assert("positive count", hdr_record_values(h, 16, 2));
+    mu_assert("negative count", hdr_record_values(h, 20, -2));
+    mu_assert("positive tail", hdr_record_values(h, 48, 2));
+    mu_assert("query", hdr_value_at_percentiles(h, &percentile, &value, 1) == 0);
+    mu_assert("retain first prefix crossing", value == 16);
+    hdr_reset(h);
+    mu_assert("negative prefix", hdr_record_values(h, 16, -2));
+    mu_assert("recover prefix", hdr_record_values(h, 20, 4));
+    mu_assert("positive tail", hdr_record_values(h, 48, 2));
+    mu_assert("query", hdr_value_at_percentiles(h, &percentile, &value, 1) == 0);
+    mu_assert("negative prefix is below target", value == 20);
+    hdr_reset(h);
+    h->normalizing_index_offset = 37;
+    mu_assert("rotated negative prefix", hdr_record_values(h, 16, -2));
+    mu_assert("rotated recovery", hdr_record_values(h, 20, 4));
+    mu_assert("rotated tail", hdr_record_values(h, 48, 2));
+    mu_assert("rotated query", hdr_value_at_percentiles(h, &percentile, &value, 1) == 0);
+    mu_assert("rotated prefix remains signed", value == 20);
+    hdr_close(h);
+    return 0;
+}
+
 static struct mu_result all_tests(void)
 {
+    mu_run_test(test_percentile_signed_counts);
     mu_run_test(test_create);
     mu_run_test(test_invalid_init);
     mu_run_test(test_bucket_config_shift_overflow);

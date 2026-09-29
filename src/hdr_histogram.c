@@ -874,11 +874,7 @@ int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percen
 
     if (HDR_LIKELY(h->normalizing_index_offset == 0))
     {
-        /* fast path: single prefix-sum scan resolves all ascending percentiles.
-           Sum a block (autovectorizes) and skip it whole while its subtotal can't
-           reach values[at_pos]; only the crossing block is walked element-wise.
-           Safe because counts are non-negative: if a block can't reach the target,
-           no element inside it can. index->value only at crossings. */
+        /* Skip nonnegative blocks that cannot reach the next target. */
         enum { BATCH_SCAN_BLOCK = 8 };
         const int64_t* counts = h->counts;
         const int32_t len = h->counts_len;
@@ -891,13 +887,16 @@ int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percen
                 (uint64_t)counts[idx + 2] + (uint64_t)counts[idx + 3] +
                 (uint64_t)counts[idx + 4] + (uint64_t)counts[idx + 5] +
                 (uint64_t)counts[idx + 6] + (uint64_t)counts[idx + 7];
-            if (total + s >= (uint64_t)values[at_pos])
+            const int64_t signs =
+                counts[idx]     | counts[idx + 1] | counts[idx + 2] | counts[idx + 3] |
+                counts[idx + 4] | counts[idx + 5] | counts[idx + 6] | counts[idx + 7];
+            if (signs < 0 || (int64_t)(total + s) >= values[at_pos])
             {
                 int32_t j;
                 for (j = idx; j < idx + BATCH_SCAN_BLOCK; j++)
                 {
                     total += (uint64_t)counts[j];
-                    while (at_pos < length && total >= (uint64_t)values[at_pos])
+                    while (at_pos < length && (int64_t)total >= values[at_pos])
                     {
                         values[at_pos] = highest_equivalent_value(h, hdr_value_at_index(h, j));
                         at_pos++;
@@ -913,7 +912,7 @@ int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percen
         for (; idx < len && at_pos < length; idx++)
         {
             total += (uint64_t)counts[idx];
-            while (at_pos < length && total >= (uint64_t)values[at_pos])
+            while (at_pos < length && (int64_t)total >= values[at_pos])
             {
                 values[at_pos] = highest_equivalent_value(h, hdr_value_at_index(h, idx));
                 at_pos++;
@@ -928,7 +927,7 @@ int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percen
         while (hdr_iter_next(&iter) && at_pos < length)
         {
             total += (uint64_t)iter.count;
-            while (at_pos < length && total >= (uint64_t)values[at_pos])
+            while (at_pos < length && (int64_t)total >= values[at_pos])
             {
                 values[at_pos] = highest_equivalent_value(h, iter.value);
                 at_pos++;
