@@ -179,15 +179,24 @@ jobs:
         run: cmake -E chdir _build ctest --output-on-failure
 
   sanitizers-macos:
-    name: sanitizers (macos, arm64, ASan+UBSan)
-    runs-on: macos-15
+    name: sanitizers (macos, ${{ matrix.arch }}, ASan+UBSan)
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - arch: x64
+            runner: macos-15-intel
+            uname: x86_64
+          - arch: arm64
+            runner: macos-15
+            uname: arm64
     steps:
       - name: Checkout
         uses: actions/checkout@v1
         with:
           submodules: recursive
       - name: Verify architecture
-        run: test "$(uname -m)" = arm64
+        run: test "$(uname -m)" = '${{ matrix.uname }}'
       - name: Configure
         run: cmake -E make_directory _build && cmake -E chdir _build cmake .. -DCMAKE_BUILD_TYPE=Debug -DHDR_LOG_REQUIRED=ON -DCMAKE_C_FLAGS="-fsanitize=address,undefined -fno-sanitize-recover=all -g"
       - name: Build
