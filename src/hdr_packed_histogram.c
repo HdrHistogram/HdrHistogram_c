@@ -37,7 +37,7 @@
 #include "hdr/hdr_time.h"            /* hdr_timespec, needed by the log header */
 #include "hdr/hdr_histogram_log.h"  /* canonical HDR_ error codes (single source) */
 #include "hdr_endian.h"             /* portable byte-order helpers (all platforms) */
-#include "hdr_tests.h"              /* counts_index_for */
+#include "hdr_histogram_internal.h" /* counts_index_for (shared internal, not test-only) */
 #include "hdr_encoding.h"           /* zig_zag_encode_i64/decode_i64, MAX_BYTES_LEB128 */
 #include "hdr/hdr_packed_histogram.h"
 
@@ -83,16 +83,17 @@ struct hdr_packed_config
 
 struct hdr_packed_histogram
 {
-    /* ordered largest-alignment-first to pack into 64 B on LP64 (no padding
-       holes): 6 x 8-byte, then 2 x 4-byte, then 2 x 1-byte. */
+    /* ordered largest-alignment-first: 6 x 8-byte, then 3 x 4-byte, then 2 x 1-byte. */
     const struct hdr_packed_config* cfg;
     int32_t* idx;                /* sorted ascending, length = size */
-    uint8_t* cnt;                /* cap * width bytes */
+    uint8_t* cnt;                /* cnt_cap * width bytes */
     int64_t  total_count;
     int64_t  min_value;          /* raw min recorded value (INT64_MAX if none) */
     int64_t  max_value;          /* raw max recorded value (0 if none) */
     int32_t  size;               /* populated buckets */
-    int32_t  cap;                /* allocated slots */
+    int32_t  idx_cap;            /* allocated idx[] slots */
+    int32_t  cnt_cap;            /* allocated cnt[] slots (tracked separately so a
+                                    partial-realloc failure keeps memory accounting exact) */
     uint8_t  width;              /* count byte width: 1,2,4,8 */
     bool     owns_cfg;
 };
@@ -156,7 +157,7 @@ static bool widen_to_fit(struct hdr_packed_histogram* h, int64_t need)
     {
         return true;
     }
-    uint8_t* nb = (uint8_t*) PK_REALLOC(h->cnt, (size_t) h->cap * nw);
+    uint8_t* nb = (uint8_t*) PK_REALLOC(h->cnt, (size_t) h->cnt_cap * nw);
     if (!nb)
     {
         return false;
@@ -189,23 +190,37 @@ static int32_t lower_bound(const struct hdr_packed_histogram* h, int32_t key)
 
 static bool ensure_cap(struct hdr_packed_histogram* h)
 {
-    if (h->size < h->cap)
+    int32_t cur, new_cap;
+    if (h->size < h->idx_cap && h->size < h->cnt_cap)
     {
         return true;
     }
-    if (h->cap > (INT32_MAX / 2))   /* doubling would overflow int32 */
+    /* effective usable slots = the smaller of the two (equal on the happy path;
+       they differ only after a partial-realloc failure below) */
+    cur = h->idx_cap < h->cnt_cap ? h->idx_cap : h->cnt_cap;
+    if (cur > (INT32_MAX / 2))   /* doubling would overflow int32 */
     {
         return false; /* GCOV_EXCL_DEFENSIVE: needs >2^30 distinct buckets;
                          guards int32 overflow, not reachable in practice. */
     }
-    int32_t new_cap = h->cap ? h->cap * 2 : HDR_PACKED_INITIAL_CAP;
-    int32_t* ni = (int32_t*) PK_REALLOC(h->idx, (size_t) new_cap * sizeof(int32_t));
-    if (!ni) return false;
-    h->idx = ni;
-    uint8_t* nc = (uint8_t*) PK_REALLOC(h->cnt, (size_t) new_cap * h->width);
-    if (!nc) return false;
-    h->cnt = nc;
-    h->cap = new_cap;
+    new_cap = cur ? cur * 2 : HDR_PACKED_INITIAL_CAP;
+    /* grow each array and record its own capacity immediately, so if the second
+       realloc fails the first array's size is still reflected (accurate memory
+       accounting; the next call retries only the array that lagged). */
+    if (h->idx_cap < new_cap)
+    {
+        int32_t* ni = (int32_t*) PK_REALLOC(h->idx, (size_t) new_cap * sizeof(int32_t));
+        if (!ni) return false;
+        h->idx = ni;
+        h->idx_cap = new_cap;
+    }
+    if (h->cnt_cap < new_cap)
+    {
+        uint8_t* nc = (uint8_t*) PK_REALLOC(h->cnt, (size_t) new_cap * h->width);
+        if (!nc) return false;
+        h->cnt = nc;
+        h->cnt_cap = new_cap;
+    }
     return true;
 }
 
@@ -306,7 +321,8 @@ static int packed_init_with(const struct hdr_packed_config* cfg, bool owns,
     h->idx = NULL;
     h->cnt = NULL;
     h->size = 0;
-    h->cap = 0;
+    h->idx_cap = 0;
+    h->cnt_cap = 0;
     h->width = 1;
     h->total_count = 0;
     h->min_value = INT64_MAX;
@@ -744,7 +760,8 @@ int hdr_packed_value_at_percentiles(const struct hdr_packed_histogram* h,
 size_t hdr_packed_get_memory_size(const struct hdr_packed_histogram* h)
 {
     size_t sz = sizeof(struct hdr_packed_histogram)
-              + (size_t) h->cap * (sizeof(int32_t) + h->width);
+              + (size_t) h->idx_cap * sizeof(int32_t)
+              + (size_t) h->cnt_cap * h->width;
     if (h->owns_cfg)
     {
         sz += hdr_packed_config_memory_size(h->cfg);

@@ -38,9 +38,7 @@ typedef SSIZE_T ssize_t;
 #endif
 
 #include HDR_MALLOC_INCLUDE
-
-/* Private prototypes useful for the logger */
-int32_t counts_index_for(const struct hdr_histogram* h, int64_t value);
+#include "hdr_histogram_internal.h" /* counts_index_for */
 
 
 #define FAIL_AND_CLEANUP(label, error_name, error) \
