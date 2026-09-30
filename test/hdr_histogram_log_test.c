@@ -51,8 +51,10 @@ static bool compare_timespec(hdr_timespec* a, hdr_timespec* b)
     long a_tv_msec = ns_to_ms(a->tv_nsec);
     long b_tv_msec = ns_to_ms(b->tv_nsec);
 
-    /* Allow off by 1 millisecond due to parsing and rounding. */
-    if (a->tv_sec == b->tv_sec && labs(a_tv_msec - b_tv_msec) <= 1000000)
+    /* Compare elapsed milliseconds across a seconds boundary too. */
+    double delta_ms = ((double) a->tv_sec - (double) b->tv_sec) * 1000.0
+        + (double) (a_tv_msec - b_tv_msec) / 1000000.0;
+    if (delta_ms >= -1.0 && delta_ms <= 1.0)
     {
         return true;
     }
@@ -581,7 +583,8 @@ static char* writes_and_reads_log(void)
     struct hdr_log_entry write_entry;
     struct hdr_log_entry read_entry;
 
-    hdr_gettime(&write_entry.start_timestamp);
+    write_entry.start_timestamp.tv_sec = 56;
+    write_entry.start_timestamp.tv_nsec = 999999999;
 
     write_entry.interval.tv_sec = 5;
     write_entry.interval.tv_nsec = 2000000;
