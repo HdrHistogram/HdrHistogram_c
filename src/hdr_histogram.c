@@ -562,7 +562,9 @@ bool hdr_record_values(struct hdr_histogram* h, int64_t value, int64_t count)
 {
     int32_t counts_index;
 
-    if (value < 0 || h->highest_trackable_value < value)
+    /* counts must be non-negative: the percentile scan assumes a monotonic prefix.
+       (count is a literal 1 from hdr_record_value, so this folds away there.) */
+    if (value < 0 || count < 0 || h->highest_trackable_value < value)
     {
         return false;
     }
@@ -583,7 +585,8 @@ bool hdr_record_values_atomic(struct hdr_histogram* h, int64_t value, int64_t co
 {
     int32_t counts_index;
 
-    if (value < 0 || h->highest_trackable_value < value)
+    /* counts must be non-negative (see hdr_record_values) */
+    if (value < 0 || count < 0 || h->highest_trackable_value < value)
     {
         return false;
     }
@@ -817,8 +820,9 @@ static int64_t get_value_from_idx_up_to_count_avx2(
         int64_t chunk = (int64_t)((uint64_t)_mm_extract_epi64(s, 0)
                                 + (uint64_t)_mm_extract_epi64(s, 1));
 
-        /* counts[] are non-negative (no subtract API), so the prefix sum is
-           monotonic: block-skip is exact and only the crossing block is walked. */
+        /* counts[] are non-negative (the record path rejects count < 0), so the
+           prefix sum is monotonic: block-skip is exact and only the crossing block
+           is walked. */
         int64_t next = (int64_t)((uint64_t)running + (uint64_t)chunk);
         if (HDR_UNLIKELY(next >= count_at_percentile)) {
             for (int32_t j = idx; j < idx + 16; j++) {

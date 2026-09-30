@@ -1131,9 +1131,23 @@ static char* test_percentile_widened_scan(void)
     return 0;
 }
 
+static char* test_record_rejects_negative_count(void)
+{
+    /* Non-negative counts are the contract the percentile scan relies on; the
+       record path must reject a negative count rather than corrupt the prefix sum. */
+    struct hdr_histogram* h = NULL;
+    mu_assert("allocate", hdr_init(1, 1000, 3, &h) == 0);
+    mu_assert("positive count accepted", hdr_record_values(h, 100, 5));
+    mu_assert("negative count rejected", !hdr_record_values(h, 100, -1));
+    mu_assert("negative count leaves total unchanged", h->total_count == 5);
+    hdr_close(h);
+    return 0;
+}
+
 static struct mu_result all_tests(void)
 {
     mu_run_test(test_percentile_widened_scan);
+    mu_run_test(test_record_rejects_negative_count);
     mu_run_test(test_create);
     mu_run_test(test_invalid_init);
     mu_run_test(test_timespec_from_double);
