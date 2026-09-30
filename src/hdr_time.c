@@ -5,6 +5,7 @@
 */
 
 #include <math.h>
+#include <limits.h>
 
 #include <hdr/hdr_time.h>
 
@@ -89,9 +90,25 @@ double hdr_timespec_as_double(const hdr_timespec* t)
 
 void hdr_timespec_from_double(hdr_timespec* t, double value)
 {
-    int seconds = (int) value;
-    int milliseconds = (int) round((value - seconds) * 1000);
+    /* Bound by the destination: time_t on POSIX, long on Windows/Cygwin. */
+    const double limit = ldexp(1.0, (int) (sizeof(t->tv_sec) * CHAR_BIT) - 1);
+    double seconds = trunc(value);
+    int milliseconds;
 
-    t->tv_sec = seconds;
+    /* converting a non-finite or out-of-range double to an integer is UB */
+    if (!isfinite(value) || seconds >= limit || seconds < -limit)
+    {
+        t->tv_sec = 0;
+        t->tv_nsec = 0;
+        return;
+    }
+
+    milliseconds = (int) round((value - seconds) * 1000);
+
+#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+    t->tv_sec = (long) seconds;
+#else
+    t->tv_sec = (time_t) seconds;
+#endif
     t->tv_nsec = milliseconds * 1000000;
 }
