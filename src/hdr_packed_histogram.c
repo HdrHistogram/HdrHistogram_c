@@ -464,7 +464,14 @@ double hdr_packed_stddev(const struct hdr_packed_histogram* h)
 int64_t hdr_packed_count_at_value(const struct hdr_packed_histogram* h, int64_t value)
 {
     const struct hdr_histogram* g = &h->cfg->geom;
-    int32_t counts_index = counts_index_for(g, value);
+    int32_t counts_index;
+    /* counts_index_for assumes a non-negative value; a negative one can bit-map to a
+       valid-but-wrong index, so reject it here as the dense query path does. */
+    if (value < 0)
+    {
+        return 0;
+    }
+    counts_index = counts_index_for(g, value);
     if ((uint32_t) counts_index >= (uint32_t) g->counts_len)
     {
         return 0;

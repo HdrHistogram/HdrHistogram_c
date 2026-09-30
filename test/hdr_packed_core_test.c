@@ -12,6 +12,7 @@ int main(void)
         !hdr_packed_record_values(h, 4321, 65536) ||
         hdr_packed_total_count(h) != 65537 ||
         hdr_packed_count_at_value(h, 4321) != 65536 ||
+        hdr_packed_count_at_value(h, -1) != 0 ||   /* negative value must return 0, not a mis-mapped bucket */
         hdr_packed_value_at_percentile(h, 100) != hdr_packed_max(h))
     {
         hdr_packed_close(h);
