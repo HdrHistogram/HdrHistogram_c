@@ -21,6 +21,16 @@ int main(void)
     h->counts[2] = (int64_t)(UINT64_C(1) << 62);
     h->counts[3] = (int64_t)(UINT64_C(1) << 62);
     if (hdr_reset_internal_counters_checked(h) || h->total_count != INT64_MAX) return 5;
+    hdr_reset(h);
+    h->normalizing_index_offset = 37;
+    for (int logical = 1; logical <= 3; logical++)
+    {
+        int32_t physical = (logical - 37 + h->counts_len) % h->counts_len;
+        h->counts[physical] = (int64_t)(UINT64_C(1) << 62);
+    }
+    if (hdr_reset_internal_counters_checked(h) || h->total_count != INT64_MAX ||
+        hdr_min(h) != hdr_value_at_index(h, 1) ||
+        hdr_max(h) != hdr_value_at_index(h, 3)) return 6;
     hdr_close(h);
     puts("counter rebuild saturates without signed overflow");
     return 0;
