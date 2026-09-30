@@ -5,10 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <zlib.h>
-
-/* Internal codec entry points; the decoder is not in the public header. */
-int zig_zag_encode_i64(uint8_t*, int64_t);
-int hdr_decode_compressed(uint8_t*, size_t, struct hdr_histogram**);
+#include "../src/hdr_encoding.h"
+#include "../src/hdr_tests.h"
 
 static void put32(uint8_t* dst, uint32_t v)
 {
