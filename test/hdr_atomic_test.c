@@ -34,10 +34,10 @@ static char* test_store_load_pointer(void)
     int64_t* q = 0;
     int64_t* s;
 
-    hdr_atomic_store_pointer((void**) &q, &r);
+    hdr_atomic_store_pointer(&q, &r);
     mu_assert("Failed hdr_atomic_store_pointer", compare_int64(*q, r));
 
-    s = hdr_atomic_load_pointer((void**) &q);
+    s = hdr_atomic_load_pointer(&q);
     mu_assert("Failed hdr_atomic_load_pointer", compare_int64(*s, r));
 
     return 0;

@@ -92,18 +92,18 @@ void hdr_timespec_from_double(hdr_timespec* t, double value)
 {
     /* Bound by the destination: time_t on POSIX, long on Windows/Cygwin. */
     const double limit = ldexp(1.0, (int) (sizeof(t->tv_sec) * CHAR_BIT) - 1);
-    double seconds;
+    double seconds = trunc(value);
     long milliseconds;
 
-    if (!isfinite(value))
+    /* converting a non-finite or out-of-range double to an integer is UB */
+    if (!isfinite(value) || seconds >= limit || seconds < -limit)
     {
         t->tv_sec = 0;
         t->tv_nsec = 0;
         return;
     }
 
-    /* Round the original signed fraction before normalizing it. */
-    seconds = trunc(value);
+    /* Round the original signed fraction, then normalize so tv_nsec stays in [0,1e9). */
     milliseconds = (long) round((value - seconds) * 1000);
     if (milliseconds == 1000)
     {
@@ -117,7 +117,7 @@ void hdr_timespec_from_double(hdr_timespec* t, double value)
         milliseconds += 1000;
     }
 
-    /* converting an out-of-range double to an integer is UB */
+    /* the carry/borrow above can push seconds past the destination bound */
     if (seconds >= limit || seconds < -limit)
     {
         t->tv_sec = 0;
