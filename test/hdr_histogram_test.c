@@ -234,6 +234,28 @@ static char* test_timespec_from_double(void)
     return 0;
 }
 
+static char* test_timespec_from_double_checked(void)
+{
+    hdr_timespec t;
+
+    /* success returns 0 and matches the void variant */
+    mu_assert("valid returns 0", hdr_timespec_from_double_checked(&t, 1403476110.183) == 0);
+    mu_assert("valid seconds", compare_int64(INT64_C(1403476110), (int64_t) t.tv_sec));
+    mu_assert("valid nanoseconds", compare_int64(INT64_C(183000000), (int64_t) t.tv_nsec));
+
+    /* non-finite -> -EINVAL, output zeroed */
+    mu_assert("nan is EINVAL", hdr_timespec_from_double_checked(&t, NAN) == -EINVAL);
+    mu_assert("nan zeroes tv_sec", t.tv_sec == 0 && t.tv_nsec == 0);
+    mu_assert("inf is EINVAL", hdr_timespec_from_double_checked(&t, INFINITY) == -EINVAL);
+
+    /* out of destination range -> -ERANGE, output zeroed */
+    mu_assert("huge is ERANGE", hdr_timespec_from_double_checked(&t, 1e300) == -ERANGE);
+    mu_assert("huge zeroes tv_sec", t.tv_sec == 0 && t.tv_nsec == 0);
+    mu_assert("huge negative is ERANGE", hdr_timespec_from_double_checked(&t, -1e300) == -ERANGE);
+
+    return 0;
+}
+
 static char* test_reset_internal_counters_honours_offset(void)
 {
     /* Regression: hdr_reset_internal_counters read counts[] by raw storage index but
@@ -1157,6 +1179,7 @@ static struct mu_result all_tests(void)
     mu_run_test(test_create);
     mu_run_test(test_invalid_init);
     mu_run_test(test_timespec_from_double);
+    mu_run_test(test_timespec_from_double_checked);
     mu_run_test(test_reset_internal_counters_honours_offset);
     mu_run_test(test_bucket_config_shift_overflow);
     mu_run_test(test_bucket_config_reject_defines_cfg);

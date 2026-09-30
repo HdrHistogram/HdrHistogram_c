@@ -6,6 +6,7 @@
 
 #include <math.h>
 #include <limits.h>
+#include <errno.h>
 
 #include <hdr/hdr_time.h>
 
@@ -88,7 +89,7 @@ double hdr_timespec_as_double(const hdr_timespec* t)
     return d + (t->tv_nsec / 1000000000.0);
 }
 
-void hdr_timespec_from_double(hdr_timespec* t, double value)
+int hdr_timespec_from_double_checked(hdr_timespec* t, double value)
 {
     /* Bound by the destination: time_t on POSIX, long on Windows/Cygwin. */
     const double limit = ldexp(1.0, (int) (sizeof(t->tv_sec) * CHAR_BIT) - 1);
@@ -96,11 +97,17 @@ void hdr_timespec_from_double(hdr_timespec* t, double value)
     long milliseconds;
 
     /* converting a non-finite or out-of-range double to an integer is UB */
-    if (!isfinite(value) || seconds >= limit || seconds < -limit)
+    if (!isfinite(value))
     {
         t->tv_sec = 0;
         t->tv_nsec = 0;
-        return;
+        return -EINVAL;
+    }
+    if (seconds >= limit || seconds < -limit)
+    {
+        t->tv_sec = 0;
+        t->tv_nsec = 0;
+        return -ERANGE;
     }
 
     /* Round the original signed fraction, then normalize so tv_nsec stays in [0,1e9). */
@@ -122,7 +129,7 @@ void hdr_timespec_from_double(hdr_timespec* t, double value)
     {
         t->tv_sec = 0;
         t->tv_nsec = 0;
-        return;
+        return -ERANGE;
     }
 
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
@@ -131,4 +138,11 @@ void hdr_timespec_from_double(hdr_timespec* t, double value)
     t->tv_sec = (time_t) seconds;
 #endif
     t->tv_nsec = milliseconds * 1000000;
+    return 0;
+}
+
+void hdr_timespec_from_double(hdr_timespec* t, double value)
+{
+    /* thin wrapper over the checked variant; failure zeroes *t (unchanged behavior) */
+    (void) hdr_timespec_from_double_checked(t, value);
 }

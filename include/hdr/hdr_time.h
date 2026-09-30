@@ -38,6 +38,13 @@ void hdr_getnow(hdr_timespec* t);
 double hdr_timespec_as_double(const hdr_timespec* t);
 
 /* Assumes only millisecond accuracy. */
+/* Convert value (seconds, with fractional part) into *t, reporting invalid input.
+ * Returns 0 on success, -EINVAL if value is not finite, or -ERANGE if value (or
+ * its rounded result) does not fit the destination tv_sec. On failure *t is zeroed. */
+int hdr_timespec_from_double_checked(hdr_timespec* t, double value);
+
+/* As hdr_timespec_from_double_checked but with no error return; retained for
+ * compatibility. Prefer the checked variant when you need to detect bad input. */
 void hdr_timespec_from_double(hdr_timespec* t, double value);
 
 #ifdef __cplusplus
