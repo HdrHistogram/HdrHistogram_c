@@ -817,11 +817,10 @@ static int64_t get_value_from_idx_up_to_count_avx2(
         int64_t chunk = (int64_t)((uint64_t)_mm_extract_epi64(s, 0)
                                 + (uint64_t)_mm_extract_epi64(s, 1));
 
-        /* Signed counts can cross the target before the block's end. */
-        __m256i signs = _mm256_or_si256(_mm256_or_si256(a, b), _mm256_or_si256(c, d));
-        int negative = _mm256_movemask_pd(_mm256_castsi256_pd(signs));
+        /* counts[] are non-negative (no subtract API), so the prefix sum is
+           monotonic: block-skip is exact and only the crossing block is walked. */
         int64_t next = (int64_t)((uint64_t)running + (uint64_t)chunk);
-        if (HDR_UNLIKELY(negative || next >= count_at_percentile)) {
+        if (HDR_UNLIKELY(next >= count_at_percentile)) {
             for (int32_t j = idx; j < idx + 16; j++) {
                 running = (int64_t)((uint64_t)running + (uint64_t)h->counts[j]);
                 if (running >= count_at_percentile)

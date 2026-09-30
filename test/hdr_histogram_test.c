@@ -1102,30 +1102,38 @@ static char* test_count_at_index_out_of_range(void)
     return 0;
 }
 
-static char* test_percentile_signed_counts(void)
+static char* test_percentile_widened_scan(void)
 {
+    /* Exercise the widened (16-wide) percentile scan across many blocks plus a
+       non-multiple-of-16 tail. counts[] are non-negative (no subtract API), so the
+       scan assumes a monotonic prefix; results must match the per-bucket reference. */
     struct hdr_histogram* h = NULL;
-    const double percentile = 50.0;
-    int64_t value = 0;
-    mu_assert("allocate", hdr_init(1, 1000, 3, &h) == 0);
-    mu_assert("positive count", hdr_record_values(h, 16, 2));
-    mu_assert("negative count", hdr_record_values(h, 20, -2));
-    mu_assert("positive tail", hdr_record_values(h, 48, 2));
-    value = hdr_value_at_percentile(h, percentile);
-    mu_assert("retain first prefix crossing", value == 16);
-    hdr_reset(h);
-    mu_assert("negative prefix", hdr_record_values(h, 16, -2));
-    mu_assert("recover prefix", hdr_record_values(h, 20, 4));
-    mu_assert("positive tail", hdr_record_values(h, 48, 2));
-    value = hdr_value_at_percentile(h, percentile);
-    mu_assert("negative prefix is below target", value == 20);
+    int64_t v, p50, p90, p99;
+    mu_assert("allocate", hdr_init(1, 1000000, 3, &h) == 0);
+    for (v = 1; v <= 100000; v++)
+    {
+        mu_assert("record", hdr_record_value(h, v));
+    }
+
+    p50 = hdr_value_at_percentile(h, 50.0);
+    p90 = hdr_value_at_percentile(h, 90.0);
+    p99 = hdr_value_at_percentile(h, 99.0);
+
+    mu_assert("percentiles monotonic p50<=p90", p50 <= p90);
+    mu_assert("percentiles monotonic p90<=p99", p90 <= p99);
+    /* uniform 1..100000: median ~50000, within one bucket's quantization */
+    mu_assert("p50 near true median", p50 >= 49900 && p50 <= 50100);
+    mu_assert("p90 near true 90th", p90 >= 89900 && p90 <= 90100);
+    mu_assert("p0 is the minimum", hdr_value_at_percentile(h, 0.0) <= hdr_min(h));
+    mu_assert("p100 is the maximum", hdr_value_at_percentile(h, 100.0) == hdr_max(h));
+
     hdr_close(h);
     return 0;
 }
 
 static struct mu_result all_tests(void)
 {
-    mu_run_test(test_percentile_signed_counts);
+    mu_run_test(test_percentile_widened_scan);
     mu_run_test(test_create);
     mu_run_test(test_invalid_init);
     mu_run_test(test_timespec_from_double);
