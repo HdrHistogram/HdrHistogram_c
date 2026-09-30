@@ -41,6 +41,11 @@
 #include "hdr_encoding.h"           /* zig_zag_encode_i64/decode_i64, MAX_BYTES_LEB128 */
 #include "hdr/hdr_packed_histogram.h"
 
+#ifndef HDR_MALLOC_INCLUDE
+#define HDR_MALLOC_INCLUDE "hdr_malloc.h"  /* honor the app-overridable allocator, like the dense lib */
+#endif
+#include HDR_MALLOC_INCLUDE
+
 #if defined(_MSC_VER)
 /* On MSVC, hdr_endian.h maps the byte-order helpers to winsock htonll/ntohll,
    which live in ws2_32; mirror the dense hdr_histogram_log.c linkage directive. */
@@ -54,16 +59,17 @@
 #ifdef PACKED_FAULT_HOOKS
 int pk_fail_calloc = 0, pk_fail_realloc = 0, pk_fail_malloc = 0, pk_fail_compress = 0;
 static int pk_take(int* f) { if (*f == 1) { *f = 0; return 1; } if (*f > 1) (*f)--; return 0; }
-#define PK_CALLOC(n, s)     (pk_take(&pk_fail_calloc)  ? NULL : calloc((n), (s)))
-#define PK_REALLOC(p, s)    (pk_take(&pk_fail_realloc) ? NULL : realloc((p), (s)))
-#define PK_MALLOC(s)        (pk_take(&pk_fail_malloc)  ? NULL : malloc((s)))
+#define PK_CALLOC(n, s)     (pk_take(&pk_fail_calloc)  ? NULL : hdr_calloc((n), (s)))
+#define PK_REALLOC(p, s)    (pk_take(&pk_fail_realloc) ? NULL : hdr_realloc((p), (s)))
+#define PK_MALLOC(s)        (pk_take(&pk_fail_malloc)  ? NULL : hdr_malloc((s)))
 #define PK_COMPRESS(d,dl,s,sl) (pk_take(&pk_fail_compress) ? Z_BUF_ERROR : compress((d),(dl),(s),(sl)))
 #else
-#define PK_CALLOC   calloc
-#define PK_REALLOC  realloc
-#define PK_MALLOC   malloc
+#define PK_CALLOC   hdr_calloc
+#define PK_REALLOC  hdr_realloc
+#define PK_MALLOC   hdr_malloc
 #define PK_COMPRESS compress
 #endif
+#define PK_FREE     hdr_free
 
 #define HDR_PACKED_INITIAL_CAP 4
 
@@ -276,7 +282,7 @@ int hdr_packed_config_create(
 
 void hdr_packed_config_destroy(struct hdr_packed_config* cfg)
 {
-    free(cfg);
+    PK_FREE(cfg);
 }
 
 size_t hdr_packed_config_memory_size(const struct hdr_packed_config* cfg)
@@ -344,9 +350,9 @@ void hdr_packed_close(struct hdr_packed_histogram* h)
         {
             hdr_packed_config_destroy((struct hdr_packed_config*) h->cfg);
         }
-        free(h->idx);
-        free(h->cnt);
-        free(h);
+        PK_FREE(h->idx);
+        PK_FREE(h->cnt);
+        PK_FREE(h);
     }
 }
 
@@ -643,7 +649,7 @@ int hdr_packed_value_at_percentiles(const struct hdr_packed_histogram* h,
         ord = (size_t*)  PK_MALLOC(length * sizeof(size_t));
         if (NULL == tgt || NULL == vfi || NULL == ord)
         {
-            free(tgt); free(vfi); free(ord);
+            PK_FREE(tgt); PK_FREE(vfi); PK_FREE(ord);
             return ENOMEM;
         }
     }
@@ -731,7 +737,7 @@ int hdr_packed_value_at_percentiles(const struct hdr_packed_histogram* h,
                   : packed_highest_equivalent(g, vfi[i]);
     }
 
-    if (length > PK_SMALL) { free(tgt); free(vfi); free(ord); }
+    if (length > PK_SMALL) { PK_FREE(tgt); PK_FREE(vfi); PK_FREE(ord); }
     return 0;
 }
 
@@ -886,8 +892,8 @@ int hdr_packed_encode_compressed(
     cmp = NULL;
 
 done:
-    free(enc);
-    free(cmp);
+    PK_FREE(enc);
+    PK_FREE(cmp);
     return result;
 }
 
@@ -985,7 +991,7 @@ int hdr_packed_decode_compressed(
 
 done:
     (void) inflateEnd(&strm);
-    free(counts_array);
+    PK_FREE(counts_array);
     if (h) hdr_packed_close(h);
     return ret;
 }
