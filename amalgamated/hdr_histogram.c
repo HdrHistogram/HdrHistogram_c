@@ -32,6 +32,9 @@
 extern "C" {
 #endif
 
+/* Returns false when imported positive counts exceed INT64_MAX. */
+bool hdr_reset_internal_counters_checked(struct hdr_histogram* h);
+
 int32_t counts_index_for(const struct hdr_histogram* h, int64_t value);
 int hdr_encode_compressed(struct hdr_histogram* h, uint8_t** compressed_histogram, size_t* compressed_len);
 int hdr_decode_compressed(uint8_t* buffer, size_t length, struct hdr_histogram** histogram);
@@ -495,8 +498,9 @@ static int64_t non_zero_min(const struct hdr_histogram* h)
     return lowest_equivalent_value(h, h->min_value);
 }
 
-void hdr_reset_internal_counters(struct hdr_histogram* h)
+bool hdr_reset_internal_counters_checked(struct hdr_histogram* h)
 {
+    bool overflow = false;
     int min_non_zero_index = -1;
     int max_index = -1;
     int64_t observed_total_count = 0;
@@ -509,7 +513,15 @@ void hdr_reset_internal_counters(struct hdr_histogram* h)
         /* logical index: pair the count with hdr_value_at_index below (offset-aware) */
         if ((count_at_index = counts_get_normalised(h, i)) > 0)
         {
-            observed_total_count += count_at_index;
+            if (count_at_index > INT64_MAX - observed_total_count)
+            {
+                observed_total_count = INT64_MAX;
+                overflow = true;
+            }
+            else
+            {
+                observed_total_count += count_at_index;
+            }
             max_index = i;
             if (min_non_zero_index == -1 && i != 0)
             {
@@ -538,6 +550,12 @@ void hdr_reset_internal_counters(struct hdr_histogram* h)
     }
 
     h->total_count = observed_total_count;
+    return !overflow;
+}
+
+void hdr_reset_internal_counters(struct hdr_histogram* h)
+{
+    (void) hdr_reset_internal_counters_checked(h);
 }
 
 static int32_t buckets_needed_to_cover_value(int64_t value, int32_t sub_bucket_count, int32_t unit_magnitude)

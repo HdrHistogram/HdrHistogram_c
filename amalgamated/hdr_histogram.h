@@ -510,7 +510,8 @@ int64_t hdr_median_equivalent_value(const struct hdr_histogram* h, int64_t value
 
 /**
  * Used to reset counters after importing data manually into the histogram, used by the logging code
- * and other custom serialisation tools.
+ * and other custom serialisation tools. The positive-count total saturates at
+ * INT64_MAX if it cannot be represented; the stored counts are unchanged.
  */
 void hdr_reset_internal_counters(struct hdr_histogram* h);
 
