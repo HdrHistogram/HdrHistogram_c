@@ -117,9 +117,14 @@ bool hdr_record_value(struct hdr_histogram* h, int64_t value);
  *
  * @param h "This" pointer
  * @param value Value to add to the histogram
- * @return false if the value can't be recorded, true otherwise.
+ * @return true for any value on a valid histogram.
  */
 bool hdr_record_value_capped(struct hdr_histogram* h, int64_t value);
+
+/**
+ * Atomic version of hdr_record_value_capped, safe to call from several threads at once.
+ */
+bool hdr_record_value_capped_atomic(struct hdr_histogram* h, int64_t value);
 
 /**
  * Records a value in the histogram, will round this value of to a precision at or better
@@ -276,7 +281,8 @@ int64_t hdr_min(const struct hdr_histogram* h);
 int64_t hdr_max(const struct hdr_histogram* h);
 
 /**
- * Get the total number of recorded values. Returns 0 if h is NULL.
+ * Get the total number of recorded values. Returns 0 if h is NULL. Uses an atomic
+ * load, so it can be called while other threads use the *_atomic record functions.
  *
  * @param h "This" pointer
  */

@@ -811,6 +811,40 @@ static char* test_record_value_capped(void)
     return 0;
 }
 
+static char* test_record_value_capped_atomic(void)
+{
+    struct hdr_histogram *plain, *atomic;
+    const int64_t values[] = { 0, 3, 500, 1000, 5000, -7, INT64_MAX, INT64_MIN };
+    size_t i;
+    bool all_recorded = true;
+    bool same = true;
+
+    hdr_init(10, 1000, 3, &plain);
+    hdr_init(10, 1000, 3, &atomic);
+
+    for (i = 0; i < sizeof(values) / sizeof(values[0]); i++)
+    {
+        all_recorded = all_recorded && hdr_record_value_capped(plain, values[i]);
+        all_recorded = all_recorded && hdr_record_value_capped_atomic(atomic, values[i]);
+    }
+    for (i = 0; i < (size_t) plain->counts_len; i++)
+    {
+        same = same && plain->counts[i] == atomic->counts[i];
+    }
+
+    mu_assert("Every value records", all_recorded);
+    mu_assert("Same counts as the non-atomic variant", same);
+    mu_assert("Same total", compare_int64(hdr_total_count(plain), hdr_total_count(atomic)));
+    mu_assert("Same min", compare_int64(hdr_min(plain), hdr_min(atomic)));
+    mu_assert("Same max", compare_int64(hdr_max(plain), hdr_max(atomic)));
+    mu_assert("Total count", compare_int64(8, hdr_total_count(atomic)));
+
+    hdr_close(plain);
+    hdr_close(atomic);
+
+    return 0;
+}
+
 static char* test_hdr_total_count(void)
 {
     struct hdr_histogram *h;
@@ -1368,6 +1402,7 @@ static struct mu_result all_tests(void)
     mu_run_test(test_scaling_equivalence);
     mu_run_test(test_out_of_range_values);
     mu_run_test(test_record_value_capped);
+    mu_run_test(test_record_value_capped_atomic);
     mu_run_test(test_hdr_total_count);
     mu_run_test(test_linear_iter_buckets_correctly);
     mu_run_test(test_interval_recording);
