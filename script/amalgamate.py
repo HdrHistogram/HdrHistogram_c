@@ -47,7 +47,8 @@ COPY_FILES = {
 MALLOC_DEFAULT = '#define HDR_MALLOC_INCLUDE "hdr_malloc.h"'
 HEADER_NAME_RE = re.compile(r'^[A-Za-z0-9_][A-Za-z0-9_./+-]*$')
 
-INCLUDE_RE = re.compile(r'^\s*#\s*include\s*(?:"([^"]+)"|<([^>]+)>)\s*$')
+# a trailing /* ... */ comment is allowed (it is dropped when the header is inlined)
+INCLUDE_RE = re.compile(r'^\s*#\s*include\s*(?:"([^"]+)"|<([^>]+)>)\s*(?:/\*.*\*/\s*)?$')
 
 
 def version():
