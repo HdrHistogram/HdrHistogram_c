@@ -1381,8 +1381,11 @@ void hdr_iter_linear_init(struct hdr_iter* iter, const struct hdr_histogram* h, 
 
 void hdr_iter_linear_set_value_units_per_bucket(struct hdr_iter* iter, int64_t value_units_per_bucket)
 {
-    /* next step picks up the new width; iter_linear_next guards step <= 0 / overflow */
-    iter->specifics.linear.value_units_per_bucket = value_units_per_bucket;
+    /* specifics is a union: writing it on any other iterator would corrupt it */
+    if (iter->_next_fp == iter_linear_next)
+    {
+        iter->specifics.linear.value_units_per_bucket = value_units_per_bucket;
+    }
 }
 
 /* ##        #######   ######      ###    ########  #### ######## ##     ## ##     ## ####  ######  */
