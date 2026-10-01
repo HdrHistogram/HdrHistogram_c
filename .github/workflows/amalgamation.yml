@@ -1,0 +1,35 @@
+name: amalgamation
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+
+jobs:
+  amalgamation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Committed amalgamation is up to date
+        run: python3 script/amalgamate.py --check amalgamated
+
+      - name: Amalgamated core builds standalone (default allocator)
+        run: |
+          cat > amal_smoke.c <<'EOF'
+          #include "hdr_histogram.h"
+          int main(void) {
+              struct hdr_histogram* h = NULL;
+              if (hdr_init(1, 1000000, 3, &h)) return 1;
+              hdr_record_value(h, 42);
+              volatile long long p = hdr_value_at_percentile(h, 99.0);
+              (void) p;
+              hdr_close(h);
+              return 0;
+          }
+          EOF
+          cc -std=c99 -Wall -Wextra -Os -Iamalgamated amalgamated/hdr_histogram.c amal_smoke.c -lm -o amal_smoke
+          ./amal_smoke
