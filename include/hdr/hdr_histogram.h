@@ -132,9 +132,9 @@ bool hdr_record_value_atomic(struct hdr_histogram* h, int64_t value);
  *
  * @param h "This" pointer
  * @param value Value to add to the histogram
- * @param count Number of 'value's to add to the histogram
- * @return false if any value is larger than the highest_trackable_value and can't be recorded,
- * true otherwise.
+ * @param count Number of 'value's to add to the histogram; must be non-negative
+ * @return false if count is negative or any value is larger than the highest_trackable_value
+ * and can't be recorded, true otherwise.
  */
 bool hdr_record_values(struct hdr_histogram* h, int64_t value, int64_t count);
 
@@ -149,9 +149,9 @@ bool hdr_record_values(struct hdr_histogram* h, int64_t value, int64_t count);
  *
  * @param h "This" pointer
  * @param value Value to add to the histogram
- * @param count Number of 'value's to add to the histogram
- * @return false if any value is larger than the highest_trackable_value and can't be recorded,
- * true otherwise.
+ * @param count Number of 'value's to add to the histogram; must be non-negative
+ * @return false if count is negative or any value is larger than the highest_trackable_value
+ * and can't be recorded, true otherwise.
  */
 bool hdr_record_values_atomic(struct hdr_histogram* h, int64_t value, int64_t count);
 
@@ -510,7 +510,8 @@ int64_t hdr_median_equivalent_value(const struct hdr_histogram* h, int64_t value
 
 /**
  * Used to reset counters after importing data manually into the histogram, used by the logging code
- * and other custom serialisation tools.
+ * and other custom serialisation tools. The positive-count total saturates at
+ * INT64_MAX if it cannot be represented; the stored counts are unchanged.
  */
 void hdr_reset_internal_counters(struct hdr_histogram* h);
 
