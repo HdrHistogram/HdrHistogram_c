@@ -548,23 +548,13 @@ size_t hdr_get_memory_size(struct hdr_histogram *h)
 /*  #######  ##        ########  ##     ##    ##    ########  ######  */
 
 
-bool hdr_record_value(struct hdr_histogram* h, int64_t value)
-{
-    return hdr_record_values(h, value, 1);
-}
-
-bool hdr_record_value_atomic(struct hdr_histogram* h, int64_t value)
-{
-    return hdr_record_values_atomic(h, value, 1);
-}
-
-bool hdr_record_values(struct hdr_histogram* h, int64_t value, int64_t count)
+/* Shared record body. The count-sign check lives in hdr_record_values()/_atomic()
+   below, keeping the single-value hot path (count == 1, never negative) free of it. */
+static bool record_value_counted(struct hdr_histogram* h, int64_t value, int64_t count)
 {
     int32_t counts_index;
 
-    /* counts must be non-negative: the percentile scan assumes a monotonic prefix.
-       (count is a literal 1 from hdr_record_value, so this folds away there.) */
-    if (value < 0 || count < 0 || h->highest_trackable_value < value)
+    if (value < 0 || h->highest_trackable_value < value)
     {
         return false;
     }
@@ -581,18 +571,16 @@ bool hdr_record_values(struct hdr_histogram* h, int64_t value, int64_t count)
     return true;
 }
 
-bool hdr_record_values_atomic(struct hdr_histogram* h, int64_t value, int64_t count)
+static bool record_value_counted_atomic(struct hdr_histogram* h, int64_t value, int64_t count)
 {
     int32_t counts_index;
 
-    /* counts must be non-negative (see hdr_record_values) */
-    if (value < 0 || count < 0 || h->highest_trackable_value < value)
+    if (value < 0 || h->highest_trackable_value < value)
     {
         return false;
     }
 
     counts_index = counts_index_for(h, value);
-
     if ((uint32_t)counts_index >= (uint32_t)h->counts_len)
     {
         return false;
@@ -602,6 +590,34 @@ bool hdr_record_values_atomic(struct hdr_histogram* h, int64_t value, int64_t co
     update_min_max_atomic(h, value);
 
     return true;
+}
+
+bool hdr_record_value(struct hdr_histogram* h, int64_t value)
+{
+    return record_value_counted(h, value, 1);
+}
+
+bool hdr_record_value_atomic(struct hdr_histogram* h, int64_t value)
+{
+    return record_value_counted_atomic(h, value, 1);
+}
+
+bool hdr_record_values(struct hdr_histogram* h, int64_t value, int64_t count)
+{
+    if (count < 0)  /* non-negative counts; scan assumes a monotonic prefix */
+    {
+        return false;
+    }
+    return record_value_counted(h, value, count);
+}
+
+bool hdr_record_values_atomic(struct hdr_histogram* h, int64_t value, int64_t count)
+{
+    if (count < 0)  /* see hdr_record_values */
+    {
+        return false;
+    }
+    return record_value_counted_atomic(h, value, count);
 }
 
 bool hdr_record_corrected_value(struct hdr_histogram* h, int64_t value, int64_t expected_interval)
