@@ -162,3 +162,37 @@ jobs:
         run: cmake --build _build
       - name: Test
         run: cmake -E chdir _build ctest --output-on-failure
+
+  # Opt-in minimal static core (HDR_HISTOGRAM_CORE_ONLY) with the scalar scan forced
+  # (HDR_HISTOGRAM_DISABLE_AVX2). Builds only the archive: libc/libm, no zlib or threads.
+  build-core-only:
+    name: build (${{ matrix.os }}, core-only, no-avx2)
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - os: linux
+            runner: ubuntu-latest
+          - os: macos
+            runner: macos-latest
+          - os: windows
+            runner: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+        with:
+          submodules: recursive
+      - name: Configure
+        run: cmake -S . -B _build -DCMAKE_BUILD_TYPE=Release -DHDR_HISTOGRAM_CORE_ONLY=ON -DHDR_HISTOGRAM_DISABLE_AVX2=ON
+      - name: Build
+        run: cmake --build _build --config Release
+      - name: Assert no AVX2 dispatch and no log/zlib symbols in the core archive
+        if: matrix.os == 'linux'
+        run: |
+          cc -E -dM -DHDR_DISABLE_AVX2 -Iinclude src/hdr_histogram.c > macros.txt
+          if grep -q "define HDR_HAS_AVX2_DISPATCH" macros.txt; then
+            echo "ERROR: AVX2 dispatch still enabled"; exit 1
+          fi
+          if nm _build/src/libhdr_histogram_core_static.a | grep -Eq " U (inflate|deflate|hdr_log_)"; then
+            echo "ERROR: core archive references zlib/log symbols"; exit 1
+          fi
