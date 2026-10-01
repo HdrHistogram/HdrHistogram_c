@@ -6,15 +6,19 @@ check_library_exists(rt clock_gettime "" HAVE_LIBRT)
 if (HDR_LOG_ENABLED)
     set(HDR_LOG_IMPLEMENTATION hdr_histogram_log.c)
     set(HDR_ZLIB ZLIB::ZLIB)
+    set(HDR_PACKED_CODEC_STUB "")
 else()
     set(HDR_LOG_IMPLEMENTATION hdr_histogram_log_no_op.c)
     set(HDR_ZLIB "")
+    set(HDR_PACKED_CODEC_STUB hdr_packed_histogram_no_op.c)
 endif()
 
 set(HDR_HISTOGRAM_SOURCES
     hdr_encoding.c
     hdr_histogram.c
     ${HDR_LOG_IMPLEMENTATION}
+    hdr_packed_histogram.c
+    ${HDR_PACKED_CODEC_STUB}
     hdr_interval_recorder.c
     hdr_thread.c
     hdr_time.c
@@ -32,6 +36,9 @@ function(hdr_histogram_add_library NAME LIBRARY_TYPE DO_INSTALL)
         ${HDR_HISTOGRAM_SOURCES}
         ${HDR_HISTOGRAM_PRIVATE_HEADERS}
         ${HDR_HISTOGRAM_PUBLIC_HEADERS})
+
+    target_compile_definitions(${NAME} PRIVATE
+        $<$<BOOL:${HDR_LOG_ENABLED}>:HDR_PACKED_LOG_ENABLED>)
 
     target_link_libraries(${NAME}
         PRIVATE
