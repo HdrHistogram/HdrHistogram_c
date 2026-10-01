@@ -111,10 +111,9 @@ size_t hdr_get_memory_size(struct hdr_histogram* h);
 bool hdr_record_value(struct hdr_histogram* h, int64_t value);
 
 /**
- * Like hdr_record_value, but clamps the value into
- * [lowest_discernible_value, highest_trackable_value] instead of rejecting
- * out-of-range input. Note that this also raises 0 (and negatives) to
- * lowest_discernible_value.
+ * Like hdr_record_value, but clamps the value into [0, highest_trackable_value]
+ * instead of rejecting out-of-range input. 0 and values below
+ * lowest_discernible_value are recorded as they are.
  *
  * @param h "This" pointer
  * @param value Value to add to the histogram

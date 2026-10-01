@@ -763,19 +763,21 @@ static char* test_record_value_capped(void)
     struct hdr_histogram *h;
     hdr_init(10, 1000, 3, &h);
 
+    mu_assert("Zero records as zero", hdr_record_value_capped(h, 0));
+    mu_assert("Below lowest discernible value is kept", hdr_record_value_capped(h, 3));
     mu_assert("In-range value records", hdr_record_value_capped(h, 500));
     mu_assert("Above-range value is capped, not rejected", hdr_record_value_capped(h, 5000));
-    mu_assert("Below-range value is raised, not rejected", hdr_record_value_capped(h, 3));
-    mu_assert("Negative value is raised, not rejected", hdr_record_value_capped(h, -7));
+    mu_assert("Negative value is clamped to zero, not rejected", hdr_record_value_capped(h, -7));
 
-    mu_assert("Total count", compare_int64(4, hdr_total_count(h)));
+    mu_assert("Total count", compare_int64(5, hdr_total_count(h)));
+    mu_assert("Minimum stays zero", compare_int64(0, hdr_min(h)));
+    mu_assert("Zero, 3 and the clamped negative share the first bucket",
+        compare_int64(3, hdr_count_at_value(h, 0)));
     mu_assert("Capped value lands at the highest trackable value",
         compare_int64(1, hdr_count_at_value(h, 1000)));
-    mu_assert("Raised values land at the lowest discernible value",
-        compare_int64(2, hdr_count_at_value(h, 10)));
     mu_assert("In-range value unchanged", compare_int64(1, hdr_count_at_value(h, 500)));
     mu_assert("Plain record still rejects out-of-range", !hdr_record_value(h, 5000));
-    mu_assert("Rejection did not change the total", compare_int64(4, hdr_total_count(h)));
+    mu_assert("Rejection did not change the total", compare_int64(5, hdr_total_count(h)));
 
     hdr_close(h);
 
