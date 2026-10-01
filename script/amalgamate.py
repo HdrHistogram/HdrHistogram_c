@@ -14,10 +14,14 @@ the whole source tree:
 
 Override the allocator exactly as for the normal build, by compiling with
   -DHDR_MALLOC_INCLUDE='"my_alloc.h"'
+or bake it in with --malloc-include, which makes my_alloc.h the default instead
+of hdr_malloc.h (the file is then yours to provide, so hdr_malloc.h is not
+written). A -DHDR_MALLOC_INCLUDE on the compiler command line still wins.
 
 Usage:
   script/amalgamate.py --output amalgamated      # (re)generate
   script/amalgamate.py --check  amalgamated      # verify the tree is up to date
+  script/amalgamate.py --output deps/hdr --malloc-include hdr_redis_malloc.h
 """
 import argparse
 import os
@@ -38,6 +42,9 @@ COPY_FILES = {
 }
 
 # Matches  #include "foo.h"  or  #include <hdr/foo.h>  (not #include SOME_MACRO).
+MALLOC_DEFAULT = '#define HDR_MALLOC_INCLUDE "hdr_malloc.h"'
+HEADER_NAME_RE = re.compile(r'^[A-Za-z0-9_][A-Za-z0-9_./+-]*$')
+
 INCLUDE_RE = re.compile(r'^\s*#\s*include\s*(?:"([^"]+)"|<([^>]+)>)\s*$')
 
 
@@ -88,7 +95,7 @@ def inline(path, seen, out):
     out.append("/* ---- end %s ---- */\n" % path)
 
 
-def generate():
+def generate(malloc_include=None):
     banner = (
         "/*\n"
         " * HdrHistogram_c core -- amalgamated single-file build.\n"
@@ -101,12 +108,20 @@ def generate():
     # Empty seen-set: the public header include in hdr_histogram.c is emitted once
     # at its natural position; later references (e.g. from hdr_tests.h) are deduped.
     inline(ROOT_TU, set(), out)
-    return "".join(out)
+    body = "".join(out)
+    if malloc_include:
+        if body.count(MALLOC_DEFAULT) != 1:
+            sys.exit("cannot find the HDR_MALLOC_INCLUDE default in %s" % ROOT_TU)
+        body = body.replace(
+            MALLOC_DEFAULT, '#define HDR_MALLOC_INCLUDE "%s"' % malloc_include)
+    return body
 
 
-def copies():
+def copies(malloc_include=None):
     result = {}
     for dst, src in COPY_FILES.items():
+        if malloc_include and dst == "hdr_malloc.h":
+            continue
         with open(os.path.join(ROOT, src)) as f:
             result[dst] = f.read()
     return result
@@ -118,10 +133,15 @@ def main():
     g = ap.add_mutually_exclusive_group(required=True)
     g.add_argument("--output", metavar="DIR", help="write the amalgamation to DIR")
     g.add_argument("--check", metavar="DIR", help="fail if DIR is not up to date")
+    ap.add_argument("--malloc-include", metavar="HEADER",
+                    help="make HEADER the default allocator header instead of hdr_malloc.h "
+                         "(you supply it; e.g. hdr_redis_malloc.h)")
     args = ap.parse_args()
+    if args.malloc_include is not None and not HEADER_NAME_RE.match(args.malloc_include):
+        ap.error("--malloc-include must be a plain header file name")
 
-    files = {"hdr_histogram.c": generate()}
-    files.update(copies())
+    files = {"hdr_histogram.c": generate(args.malloc_include)}
+    files.update(copies(args.malloc_include))
 
     out_dir = args.output or args.check
     if args.check:
@@ -138,7 +158,9 @@ def main():
         if stale:
             sys.stderr.write(
                 "amalgamation out of date: %s\n"
-                "run: script/amalgamate.py --output %s\n" % (", ".join(sorted(stale)), out_dir))
+                "run: script/amalgamate.py --output %s%s\n"
+                % (", ".join(sorted(stale)), out_dir,
+                   " --malloc-include " + args.malloc_include if args.malloc_include else ""))
             return 1
         print("amalgamation up to date (%s)" % out_dir)
         return 0

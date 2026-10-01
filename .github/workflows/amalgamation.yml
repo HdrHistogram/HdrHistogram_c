@@ -33,3 +33,17 @@ jobs:
           EOF
           cc -std=c99 -Wall -Wextra -Os -Iamalgamated amalgamated/hdr_histogram.c amal_smoke.c -lm -o amal_smoke
           ./amal_smoke
+
+      - name: Allocator header can be baked in
+        run: |
+          python3 script/amalgamate.py --output out --malloc-include my_alloc.h
+          test ! -e out/hdr_malloc.h
+          grep -q '#define HDR_MALLOC_INCLUDE "my_alloc.h"' out/hdr_histogram.c
+          cat > out/my_alloc.h <<'EOF'
+          #include <stdlib.h>
+          #define hdr_malloc malloc
+          #define hdr_calloc calloc
+          #define hdr_realloc realloc
+          #define hdr_free free
+          EOF
+          cc -std=c99 -Wall -Wextra -Os -Iout -c out/hdr_histogram.c -o out/hdr_histogram.o

@@ -26,13 +26,23 @@ sources:
 cc -c -Ipath/to/amalgamated path/to/amalgamated/hdr_histogram.c
 ```
 
-To route allocations through your own allocator, drop the default `hdr_malloc.h`
-and compile with a header that defines `hdr_malloc` / `hdr_calloc` /
-`hdr_realloc` / `hdr_free`:
+To route allocations through your own allocator, provide a header that defines
+`hdr_malloc` / `hdr_calloc` / `hdr_realloc` / `hdr_free`. Either compile with it:
 
 ```sh
 cc -c -DHDR_MALLOC_INCLUDE='"my_alloc.h"' hdr_histogram.c
 ```
+
+or generate the amalgamation with it already baked in, so no compiler flag is
+needed:
+
+```sh
+script/amalgamate.py --output deps/hdr_histogram --malloc-include my_alloc.h
+```
+
+This changes one line, the default of `HDR_MALLOC_INCLUDE`, and does not write
+`hdr_malloc.h` since you supply the header. A `-DHDR_MALLOC_INCLUDE` on the compiler
+command line still takes precedence.
 
 The amalgamated `hdr_histogram.c` preprocesses to the exact same translation unit
 as the normal multi-file build, so it behaves identically. A CI job
