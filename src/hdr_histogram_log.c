@@ -104,6 +104,8 @@ const char* hdr_strerror(int errnum)
             return "The encoded input exceeds the size of the histogram";
         case HDR_INVALID_WORD_SIZE:
             return "Invalid word size";
+        case HDR_NEGATIVE_COUNT_INVALID:
+            return "Negative bucket count in decoded histogram";
         default:
             return strerror(errnum);
     }
@@ -268,31 +270,50 @@ int hdr_encode_compressed(
 /* ##     ## ##       ##    ## ##     ## ##     ##  ##  ##   ### ##    ##  */
 /* ########  ########  ######   #######  ########  #### ##    ##  ######   */
 
-static void apply_to_counts_16(struct hdr_histogram* h, const int16_t* counts_data, const int32_t counts_limit)
+static int apply_to_counts_16(struct hdr_histogram* h, const int16_t* counts_data, const int32_t counts_limit)
 {
     int i;
     for (i = 0; i < counts_limit; i++)
     {
-        h->counts[i] = be16toh(counts_data[i]);
+        /* counts are occurrence totals; a negative decoded word is corrupt input */
+        int16_t count = be16toh(counts_data[i]);
+        if (count < 0)
+        {
+            return HDR_NEGATIVE_COUNT_INVALID;
+        }
+        h->counts[i] = count;
     }
+    return 0;
 }
 
-static void apply_to_counts_32(struct hdr_histogram* h, const int32_t* counts_data, const int32_t counts_limit)
+static int apply_to_counts_32(struct hdr_histogram* h, const int32_t* counts_data, const int32_t counts_limit)
 {
     int i;
     for (i = 0; i < counts_limit; i++)
     {
-        h->counts[i] = be32toh(counts_data[i]);
+        int32_t count = be32toh(counts_data[i]);
+        if (count < 0)
+        {
+            return HDR_NEGATIVE_COUNT_INVALID;
+        }
+        h->counts[i] = count;
     }
+    return 0;
 }
 
-static void apply_to_counts_64(struct hdr_histogram* h, const int64_t* counts_data, const int32_t counts_limit)
+static int apply_to_counts_64(struct hdr_histogram* h, const int64_t* counts_data, const int32_t counts_limit)
 {
     int i;
     for (i = 0; i < counts_limit; i++)
     {
-        h->counts[i] = be64toh(counts_data[i]);
+        int64_t count = be64toh(counts_data[i]);
+        if (count < 0)
+        {
+            return HDR_NEGATIVE_COUNT_INVALID;
+        }
+        h->counts[i] = count;
     }
+    return 0;
 }
 
 static int apply_to_counts_zz(struct hdr_histogram* h, const uint8_t* counts_data, const int32_t data_limit)
@@ -341,16 +362,13 @@ static int apply_to_counts(
     switch (word_size)
     {
         case 2:
-            apply_to_counts_16(h, (const int16_t*) counts_data, counts_limit);
-            return 0;
+            return apply_to_counts_16(h, (const int16_t*) counts_data, counts_limit);
 
         case 4:
-            apply_to_counts_32(h, (const int32_t*) counts_data, counts_limit);
-            return 0;
+            return apply_to_counts_32(h, (const int32_t*) counts_data, counts_limit);
 
         case 8:
-            apply_to_counts_64(h, (const int64_t*) counts_data, counts_limit);
-            return 0;
+            return apply_to_counts_64(h, (const int64_t*) counts_data, counts_limit);
 
         case 1:
             return apply_to_counts_zz(h, counts_data, counts_limit);
@@ -437,7 +455,10 @@ static int hdr_decode_compressed_v0(
         FAIL_AND_CLEANUP(cleanup, result, HDR_INFLATE_FAIL);
     }
 
-    apply_to_counts(h, word_size, counts_array, h->counts_len);
+    if ((result = apply_to_counts(h, word_size, counts_array, h->counts_len)) != 0)
+    {
+        goto cleanup;
+    }
 
     hdr_reset_internal_counters(h);
     h->normalizing_index_offset = 0;
@@ -551,7 +572,10 @@ static int hdr_decode_compressed_v1(
         FAIL_AND_CLEANUP(cleanup, result, HDR_INFLATE_FAIL);
     }
 
-    apply_to_counts(h, word_size, counts_array, counts_limit);
+    if ((result = apply_to_counts(h, word_size, counts_array, counts_limit)) != 0)
+    {
+        goto cleanup;
+    }
 
     h->normalizing_index_offset = be32toh(encoding_flyweight.normalizing_index_offset);
     /* Reduce a decoded offset into (-counts_len, counts_len): normalize_index applies
