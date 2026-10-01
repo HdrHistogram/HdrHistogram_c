@@ -162,7 +162,8 @@ int hdr_log_reader_init(struct hdr_log_reader* reader);
  *
  * @param hdr_log_reader 'This' pointer
  * @param file The data stream to read from.
- * @return 0 on success.  An error number on failure.
+ * @return 0 on success.  An error number on failure, including -EINVAL or
+ * -ERANGE when the StartTime is not finite or does not fit the timestamp type.
  */
 int hdr_log_read_header(struct hdr_log_reader* reader, FILE* file);
 
