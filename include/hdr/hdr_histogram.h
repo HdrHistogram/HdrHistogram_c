@@ -433,6 +433,12 @@ void hdr_iter_linear_init(
     int64_t value_units_per_bucket);
 
 /**
+ * Change the bucket width of a linear iterator for the remaining steps, e.g. to
+ * widen buckets once past a region of interest. Takes effect on the next step.
+ */
+void hdr_iter_linear_set_value_units_per_bucket(struct hdr_iter* iter, int64_t value_units_per_bucket);
+
+/**
  * Initialise the iterator for use with logarithmic values.
  *
  * log_base is applied as an integer step (level *= (int64_t) log_base): a

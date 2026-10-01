@@ -796,6 +796,57 @@ static char* test_linear_iter_buckets_correctly(void)
     return 0;
 }
 
+static char* test_linear_iter_set_value_units_per_bucket(void)
+{
+    struct hdr_histogram* h;
+    struct hdr_iter iter;
+    int64_t total = 0;
+    int64_t prev_level = 0;
+    int64_t max_gap_before = 0;
+    int64_t max_gap_after = 0;
+    int switched = 0;
+    int64_t v;
+
+    hdr_init(1, 1000000, 3, &h);
+    for (v = 1; v <= 100000; v++)
+    {
+        hdr_record_value(h, v);
+    }
+
+    /* Start with narrow 100-wide buckets, then widen to 1000 once past 2000 -
+       the adaptive-granularity pattern this setter exists for. */
+    hdr_iter_linear_init(&iter, h, 100);
+    while (hdr_iter_next(&iter))
+    {
+        int64_t gap = iter.specifics.linear.next_value_reporting_level - prev_level;
+        total += iter.specifics.linear.count_added_in_this_iteration_step;
+        if (!switched)
+        {
+            if (gap > max_gap_before) max_gap_before = gap;
+        }
+        else if (gap > max_gap_after)
+        {
+            max_gap_after = gap;
+        }
+        prev_level = iter.specifics.linear.next_value_reporting_level;
+
+        if (!switched && iter.highest_equivalent_value > 2000)
+        {
+            hdr_iter_linear_set_value_units_per_bucket(&iter, 1000);
+            switched = 1;
+        }
+    }
+
+    mu_assert("Switch point reached", 1 == switched);
+    mu_assert("All counts iterated", compare_int64(100000, total));
+    mu_assert("Width updated on iterator", compare_int64(1000, iter.specifics.linear.value_units_per_bucket));
+    mu_assert("Buckets widened after the switch", max_gap_after > max_gap_before);
+
+    hdr_close(h);
+
+    return 0;
+}
+
 static char* test_interval_recording(void)
 {
     int value_count, i, value;
@@ -1305,6 +1356,7 @@ static struct mu_result all_tests(void)
     mu_run_test(test_scaling_equivalence);
     mu_run_test(test_out_of_range_values);
     mu_run_test(test_linear_iter_buckets_correctly);
+    mu_run_test(test_linear_iter_set_value_units_per_bucket);
     mu_run_test(test_interval_recording);
     mu_run_test(reset_histogram_on_sample_and_recycle);
     mu_run_test(test_mean_does_not_overflow);
