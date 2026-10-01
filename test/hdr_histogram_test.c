@@ -758,6 +758,46 @@ static char* test_out_of_range_values(void)
     return 0;
 }
 
+static char* test_record_value_capped(void)
+{
+    struct hdr_histogram *h;
+    hdr_init(10, 1000, 3, &h);
+
+    mu_assert("In-range value records", hdr_record_value_capped(h, 500));
+    mu_assert("Above-range value is capped, not rejected", hdr_record_value_capped(h, 5000));
+    mu_assert("Below-range value is raised, not rejected", hdr_record_value_capped(h, 3));
+    mu_assert("Negative value is raised, not rejected", hdr_record_value_capped(h, -7));
+
+    mu_assert("Total count", compare_int64(4, hdr_total_count(h)));
+    mu_assert("Capped value lands at the highest trackable value",
+        compare_int64(1, hdr_count_at_value(h, 1000)));
+    mu_assert("Raised values land at the lowest discernible value",
+        compare_int64(2, hdr_count_at_value(h, 10)));
+    mu_assert("In-range value unchanged", compare_int64(1, hdr_count_at_value(h, 500)));
+    mu_assert("Plain record still rejects out-of-range", !hdr_record_value(h, 5000));
+    mu_assert("Rejection did not change the total", compare_int64(4, hdr_total_count(h)));
+
+    hdr_close(h);
+
+    return 0;
+}
+
+static char* test_hdr_total_count(void)
+{
+    struct hdr_histogram *h;
+    hdr_init(1, 1000, 3, &h);
+
+    mu_assert("Empty histogram", compare_int64(0, hdr_total_count(h)));
+    hdr_record_values(h, 10, 5);
+    hdr_record_value(h, 20);
+    mu_assert("Counts weighted records", compare_int64(6, hdr_total_count(h)));
+    mu_assert("NULL is zero", compare_int64(0, hdr_total_count(NULL)));
+
+    hdr_close(h);
+
+    return 0;
+}
+
 static char* test_linear_iter_buckets_correctly(void)
 {
     int step_count = 0;
@@ -1304,6 +1344,8 @@ static struct mu_result all_tests(void)
     mu_run_test(test_reset);
     mu_run_test(test_scaling_equivalence);
     mu_run_test(test_out_of_range_values);
+    mu_run_test(test_record_value_capped);
+    mu_run_test(test_hdr_total_count);
     mu_run_test(test_linear_iter_buckets_correctly);
     mu_run_test(test_interval_recording);
     mu_run_test(reset_histogram_on_sample_and_recycle);
