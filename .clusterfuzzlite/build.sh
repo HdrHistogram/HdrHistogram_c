@@ -13,7 +13,7 @@ make
 
 # Build and copy all fuzzer executables to $OUT/. Each links the static
 # library and zlib (used by the encode/decode paths).
-for fuzzer in log_reader_fuzzer hdr_record_fuzzer hdr_decode_fuzzer hdr_counter_overflow_fuzzer; do
+for fuzzer in log_reader_fuzzer hdr_record_fuzzer hdr_decode_fuzzer hdr_counter_overflow_fuzzer hdr_packed_fuzzer; do
   $CC $CFLAGS $LIB_FUZZING_ENGINE \
     $SRC/hdrhistogram_c/.clusterfuzzlite/${fuzzer}.c \
     -o $OUT/${fuzzer} \
