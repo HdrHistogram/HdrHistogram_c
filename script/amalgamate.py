@@ -10,13 +10,15 @@ the whole source tree:
   <out>/hdr_histogram.c   the engine, with the private headers (hdr_atomic.h,
                           hdr_tests.h) inlined
   <out>/hdr_histogram.h   the public API (already self-contained; copied as-is)
-  <out>/hdr_malloc.h      the default libc allocator hook (copied as-is)
+  <out>/hdr_malloc.h      the default libc allocator hook (copied as-is; not written
+                          with --malloc-include)
 
 Override the allocator exactly as for the normal build, by compiling with
   -DHDR_MALLOC_INCLUDE='"my_alloc.h"'
 or bake it in with --malloc-include, which makes my_alloc.h the default instead
-of hdr_malloc.h (the file is then yours to provide, so hdr_malloc.h is not
-written). A -DHDR_MALLOC_INCLUDE on the compiler command line still wins.
+of hdr_malloc.h. Only hdr_histogram.c and hdr_histogram.h are written: hdr_malloc.h
+is not, and my_alloc.h is not created (it is yours, kept alongside the output).
+A -DHDR_MALLOC_INCLUDE on the compiler command line still wins.
 
 Usage:
   script/amalgamate.py --output amalgamated      # (re)generate

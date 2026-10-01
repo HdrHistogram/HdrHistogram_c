@@ -40,9 +40,20 @@ needed:
 script/amalgamate.py --output deps/hdr_histogram --malloc-include my_alloc.h
 ```
 
-This changes one line, the default of `HDR_MALLOC_INCLUDE`, and does not write
-`hdr_malloc.h` since you supply the header. A `-DHDR_MALLOC_INCLUDE` on the compiler
-command line still takes precedence.
+`--malloc-include` only tells the generated `hdr_histogram.c` that `my_alloc.h`
+exists and should be its default allocator header (one line changes: the default of
+`HDR_MALLOC_INCLUDE`). The script writes just two files, `hdr_histogram.c` and
+`hdr_histogram.h`. It does not write `hdr_malloc.h`, and it does not create
+`my_alloc.h`: that file is yours, kept next to the generated ones.
+
+```
+deps/hdr_histogram/
+  hdr_histogram.c   generated
+  hdr_histogram.h   generated
+  my_alloc.h        yours
+```
+
+A `-DHDR_MALLOC_INCLUDE` on the compiler command line still takes precedence.
 
 The amalgamated `hdr_histogram.c` preprocesses to the exact same translation unit
 as the normal multi-file build, so it behaves identically. A CI job
