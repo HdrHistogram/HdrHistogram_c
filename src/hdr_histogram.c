@@ -623,12 +623,6 @@ bool hdr_record_value_capped(struct hdr_histogram* h, int64_t value)
     return hdr_record_value(h, capped < 0 ? 0 : capped);
 }
 
-bool hdr_record_value_capped_atomic(struct hdr_histogram* h, int64_t value)
-{
-    int64_t capped = (value > h->highest_trackable_value) ? h->highest_trackable_value : value;
-    return hdr_record_value_atomic(h, capped < 0 ? 0 : capped);
-}
-
 bool hdr_record_values(struct hdr_histogram* h, int64_t value, int64_t count)
 {
     if (count < 0)  /* non-negative counts; scan assumes a monotonic prefix */
@@ -773,8 +767,7 @@ int64_t hdr_max(const struct hdr_histogram* h)
 
 int64_t hdr_total_count(const struct hdr_histogram* h)
 {
-    /* atomic load: safe to call while other threads use the *_atomic record functions */
-    return h != NULL ? hdr_atomic_load_64((int64_t*) &h->total_count) : 0;
+    return h != NULL ? h->total_count : 0;
 }
 
 int64_t hdr_min(const struct hdr_histogram* h)
