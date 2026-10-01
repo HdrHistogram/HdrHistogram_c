@@ -962,21 +962,24 @@ static void scan_log_format(struct hdr_log_reader* reader, const char* line)
     sscanf(line, format, &reader->major_version, &reader->minor_version);
 }
 
-static void scan_start_time(struct hdr_log_reader* reader, const char* line)
+static int scan_start_time(struct hdr_log_reader* reader, const char* line)
 {
     const char* format = "#[StartTime: %lf [^\n]";
     double timestamp = 0.0;
 
     if (sscanf(line, format, &timestamp) == 1)
     {
-        hdr_timespec_from_double(&reader->start_timestamp, timestamp);
+        /* a StartTime that does not fit tv_sec is an error, not a silent zero */
+        return hdr_timespec_from_double_checked(&reader->start_timestamp, timestamp);
     }
+
+    return 0;
 }
 
-static void scan_header_line(struct hdr_log_reader* reader, const char* line)
+static int scan_header_line(struct hdr_log_reader* reader, const char* line)
 {
     scan_log_format(reader, line);
-    scan_start_time(reader, line);
+    return scan_start_time(reader, line);
 }
 
 static bool validate_log_version(struct hdr_log_reader* reader)
@@ -991,6 +994,7 @@ static bool validate_log_version(struct hdr_log_reader* reader)
 int hdr_log_read_header(struct hdr_log_reader* reader, FILE* file)
 {
     char line[HEADER_LINE_LENGTH]; /* TODO: check for overflow. */
+    int rc;
 
     bool parsing_header = true;
 
@@ -1008,7 +1012,10 @@ int hdr_log_read_header(struct hdr_log_reader* reader, FILE* file)
                 return EIO;
             }
 
-            scan_header_line(reader, line);
+            if ((rc = scan_header_line(reader, line)) != 0)
+            {
+                return rc;
+            }
             break;
 
         case '"':

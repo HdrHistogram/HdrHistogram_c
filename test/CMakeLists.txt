@@ -86,6 +86,8 @@ foreach(V 2.0.1.logV0 2.0.6.logV1 2.0.7S.logV2 2.0.7S.logV3)
 endforeach()
 
 configure_file(regression-log-start-time-overflow.hlog regression-log-start-time-overflow.hlog COPYONLY)
+configure_file(regression-log-start-time-nonfinite.hlog regression-log-start-time-nonfinite.hlog COPYONLY)
+configure_file(regression-log-start-time-huge.hlog regression-log-start-time-huge.hlog COPYONLY)
 
 foreach(V test_tagged_invalid_histogram.txt test_tagged_invalid_tag_key.txt test_tagged_invalid_timestamp.txt test_tagged_missing_histogram.txt test_overflow_timestamp_seconds.txt test_overflow_timestamp_nanos.txt test_timestamp_seconds_2pow31.txt)
     configure_file(${V} ${V} COPYONLY)

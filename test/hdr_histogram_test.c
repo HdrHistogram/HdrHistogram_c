@@ -243,15 +243,20 @@ static char* test_timespec_from_double_checked(void)
     mu_assert("valid seconds", compare_int64(INT64_C(1403476110), (int64_t) t.tv_sec));
     mu_assert("valid nanoseconds", compare_int64(INT64_C(183000000), (int64_t) t.tv_nsec));
 
-    /* non-finite -> -EINVAL, output zeroed */
+    /* failures return an error and leave *t unchanged */
+    t.tv_sec = 7; t.tv_nsec = 9;
     mu_assert("nan is EINVAL", hdr_timespec_from_double_checked(&t, NAN) == -EINVAL);
-    mu_assert("nan zeroes tv_sec", t.tv_sec == 0 && t.tv_nsec == 0);
+    mu_assert("nan leaves t", t.tv_sec == 7 && t.tv_nsec == 9);
     mu_assert("inf is EINVAL", hdr_timespec_from_double_checked(&t, INFINITY) == -EINVAL);
-
-    /* out of destination range -> -ERANGE, output zeroed */
+    mu_assert("inf leaves t", t.tv_sec == 7 && t.tv_nsec == 9);
     mu_assert("huge is ERANGE", hdr_timespec_from_double_checked(&t, 1e300) == -ERANGE);
-    mu_assert("huge zeroes tv_sec", t.tv_sec == 0 && t.tv_nsec == 0);
+    mu_assert("huge leaves t", t.tv_sec == 7 && t.tv_nsec == 9);
     mu_assert("huge negative is ERANGE", hdr_timespec_from_double_checked(&t, -1e300) == -ERANGE);
+    mu_assert("huge negative leaves t", t.tv_sec == 7 && t.tv_nsec == 9);
+
+    /* the void form still zeroes on failure */
+    hdr_timespec_from_double(&t, NAN);
+    mu_assert("void form zeroes", t.tv_sec == 0 && t.tv_nsec == 0);
 
     return 0;
 }

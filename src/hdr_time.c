@@ -99,14 +99,10 @@ int hdr_timespec_from_double_checked(hdr_timespec* t, double value)
     /* converting a non-finite or out-of-range double to an integer is UB */
     if (!isfinite(value))
     {
-        t->tv_sec = 0;
-        t->tv_nsec = 0;
         return -EINVAL;
     }
     if (seconds >= limit || seconds < -limit)
     {
-        t->tv_sec = 0;
-        t->tv_nsec = 0;
         return -ERANGE;
     }
 
@@ -127,8 +123,6 @@ int hdr_timespec_from_double_checked(hdr_timespec* t, double value)
     /* the carry/borrow above can push seconds past the destination bound */
     if (seconds >= limit || seconds < -limit)
     {
-        t->tv_sec = 0;
-        t->tv_nsec = 0;
         return -ERANGE;
     }
 
@@ -144,5 +138,9 @@ int hdr_timespec_from_double_checked(hdr_timespec* t, double value)
 void hdr_timespec_from_double(hdr_timespec* t, double value)
 {
     /* thin wrapper over the checked variant; failure zeroes *t (unchanged behavior) */
-    (void) hdr_timespec_from_double_checked(t, value);
+    if (hdr_timespec_from_double_checked(t, value) != 0)
+    {
+        t->tv_sec = 0;
+        t->tv_nsec = 0;
+    }
 }
