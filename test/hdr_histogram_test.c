@@ -917,6 +917,49 @@ static char* test_percentile_scan_matches_naive_reference(void)
     return 0;
 }
 
+static char* test_percentile_crossing_at_each_count(void)
+{
+    struct hdr_histogram* h = NULL;
+    int32_t offset;
+    int32_t idx;
+    int digits;
+
+    for (digits = 1; digits <= 3; digits++)
+    {
+        mu_assert("Failed to allocate hdr_histogram",
+            hdr_init(1, 2047, digits, &h) == 0);
+        for (offset = 0; offset <= 1; offset++)
+        {
+            hdr_reset(h);
+            h->normalizing_index_offset = offset;
+            mu_assert("Empty percentile should be zero", hdr_value_at_percentile(h, 50.0) == 0);
+            for (idx = 0; idx < h->counts_len; idx++)
+            {
+                mu_assert("Failed to record count",
+                    hdr_record_value(h, hdr_value_at_index(h, idx)));
+            }
+            for (idx = 0; idx < h->counts_len; idx++)
+            {
+                double percentile = 100.0 * (idx + 1) / h->total_count;
+                int64_t expected = (hdr_next_non_equivalent_value(h, hdr_value_at_index(h, idx)) - 1);
+                mu_assert("Percentile should cross at this count",
+                    hdr_value_at_percentile(h, percentile) == expected);
+            }
+            for (idx = 0; idx < h->counts_len; idx++)
+            {
+                int64_t value = hdr_value_at_index(h, idx);
+                hdr_reset(h);
+                h->normalizing_index_offset = offset;
+                mu_assert("Failed to record isolated count", hdr_record_value(h, value));
+                mu_assert("Percentile should skip empty counts",
+                    hdr_value_at_percentile(h, 50.0) == (hdr_next_non_equivalent_value(h, value) - 1));
+            }
+        }
+        hdr_close(h);
+    }
+    return 0;
+}
+
 static char* test_top_bucket_value_range_no_overflow(void)
 {
     /* Regression (UBSan, found via fuzzing): for a histogram whose
@@ -1294,6 +1337,7 @@ static struct mu_result all_tests(void)
     mu_run_test(test_log_iterator_integer_base_contract);
     mu_run_test(test_percentiles);
     mu_run_test(test_percentile_scan_matches_naive_reference);
+    mu_run_test(test_percentile_crossing_at_each_count);
     mu_run_test(test_percentiles_by_value_at_percentiles);
     mu_run_test(test_value_at_percentiles_with_offset);
     mu_run_test(test_value_at_percentiles_blocked_parity);
