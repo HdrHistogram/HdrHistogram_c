@@ -439,7 +439,10 @@ static int hdr_decode_compressed_v0(
 
     apply_to_counts(h, word_size, counts_array, h->counts_len);
 
-    hdr_reset_internal_counters(h);
+    if (!hdr_reset_internal_counters_checked(h))
+    {
+        FAIL_AND_CLEANUP(cleanup, result, EOVERFLOW);
+    }
     h->normalizing_index_offset = 0;
     h->conversion_ratio = 1.0;
 
@@ -563,7 +566,10 @@ static int hdr_decode_compressed_v1(
         h->normalizing_index_offset %= h->counts_len;
     }
     h->conversion_ratio = int64_bits_to_double(be64toh(encoding_flyweight.conversion_ratio_bits));
-    hdr_reset_internal_counters(h);
+    if (!hdr_reset_internal_counters_checked(h))
+    {
+        FAIL_AND_CLEANUP(cleanup, result, EOVERFLOW);
+    }
 
 cleanup:
     (void)inflateEnd(&strm);
@@ -687,7 +693,10 @@ static int hdr_decode_compressed_v2(
         h->normalizing_index_offset %= h->counts_len;
     }
     h->conversion_ratio = int64_bits_to_double(be64toh(encoding_flyweight.conversion_ratio_bits));
-    hdr_reset_internal_counters(h);
+    if (!hdr_reset_internal_counters_checked(h))
+    {
+        FAIL_AND_CLEANUP(cleanup, result, EOVERFLOW);
+    }
 
 cleanup:
     (void)inflateEnd(&strm);

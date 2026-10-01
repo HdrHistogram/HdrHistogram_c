@@ -9,6 +9,9 @@
 extern "C" {
 #endif
 
+/* Returns false when imported positive counts exceed INT64_MAX. */
+bool hdr_reset_internal_counters_checked(struct hdr_histogram* h);
+
 int32_t counts_index_for(const struct hdr_histogram* h, int64_t value);
 int hdr_encode_compressed(struct hdr_histogram* h, uint8_t** compressed_histogram, size_t* compressed_len);
 int hdr_decode_compressed(uint8_t* buffer, size_t length, struct hdr_histogram** histogram);
