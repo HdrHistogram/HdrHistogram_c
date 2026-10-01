@@ -333,8 +333,9 @@ static int64_t non_zero_min(const struct hdr_histogram* h)
     return lowest_equivalent_value(h, h->min_value);
 }
 
-void hdr_reset_internal_counters(struct hdr_histogram* h)
+bool hdr_reset_internal_counters_checked(struct hdr_histogram* h)
 {
+    bool overflow = false;
     int min_non_zero_index = -1;
     int max_index = -1;
     int64_t observed_total_count = 0;
@@ -347,7 +348,15 @@ void hdr_reset_internal_counters(struct hdr_histogram* h)
         /* logical index: pair the count with hdr_value_at_index below (offset-aware) */
         if ((count_at_index = counts_get_normalised(h, i)) > 0)
         {
-            observed_total_count += count_at_index;
+            if (count_at_index > INT64_MAX - observed_total_count)
+            {
+                observed_total_count = INT64_MAX;
+                overflow = true;
+            }
+            else
+            {
+                observed_total_count += count_at_index;
+            }
             max_index = i;
             if (min_non_zero_index == -1 && i != 0)
             {
@@ -376,6 +385,12 @@ void hdr_reset_internal_counters(struct hdr_histogram* h)
     }
 
     h->total_count = observed_total_count;
+    return !overflow;
+}
+
+void hdr_reset_internal_counters(struct hdr_histogram* h)
+{
+    (void) hdr_reset_internal_counters_checked(h);
 }
 
 static int32_t buckets_needed_to_cover_value(int64_t value, int32_t sub_bucket_count, int32_t unit_magnitude)
@@ -548,23 +563,9 @@ size_t hdr_get_memory_size(struct hdr_histogram *h)
 /*  #######  ##        ########  ##     ##    ##    ########  ######  */
 
 
-bool hdr_record_value(struct hdr_histogram* h, int64_t value)
-{
-    return hdr_record_values(h, value, 1);
-}
-
-bool hdr_record_value_atomic(struct hdr_histogram* h, int64_t value)
-{
-    return hdr_record_values_atomic(h, value, 1);
-}
-
-bool hdr_record_value_capped(struct hdr_histogram* h, int64_t value)
-{
-    int64_t capped = (value > h->highest_trackable_value) ? h->highest_trackable_value : value;
-    return hdr_record_value(h, capped < 0 ? 0 : capped);
-}
-
-bool hdr_record_values(struct hdr_histogram* h, int64_t value, int64_t count)
+/* Shared record body. The count-sign check lives in hdr_record_values()/_atomic()
+   below, keeping the single-value hot path (count == 1, never negative) free of it. */
+static bool record_value_counted(struct hdr_histogram* h, int64_t value, int64_t count)
 {
     int32_t counts_index;
 
@@ -585,7 +586,7 @@ bool hdr_record_values(struct hdr_histogram* h, int64_t value, int64_t count)
     return true;
 }
 
-bool hdr_record_values_atomic(struct hdr_histogram* h, int64_t value, int64_t count)
+static bool record_value_counted_atomic(struct hdr_histogram* h, int64_t value, int64_t count)
 {
     int32_t counts_index;
 
@@ -595,7 +596,6 @@ bool hdr_record_values_atomic(struct hdr_histogram* h, int64_t value, int64_t co
     }
 
     counts_index = counts_index_for(h, value);
-
     if ((uint32_t)counts_index >= (uint32_t)h->counts_len)
     {
         return false;
@@ -605,6 +605,46 @@ bool hdr_record_values_atomic(struct hdr_histogram* h, int64_t value, int64_t co
     update_min_max_atomic(h, value);
 
     return true;
+}
+
+bool hdr_record_value(struct hdr_histogram* h, int64_t value)
+{
+    return record_value_counted(h, value, 1);
+}
+
+bool hdr_record_value_atomic(struct hdr_histogram* h, int64_t value)
+{
+    return record_value_counted_atomic(h, value, 1);
+}
+
+bool hdr_record_value_capped(struct hdr_histogram* h, int64_t value)
+{
+    int64_t capped = (value > h->highest_trackable_value) ? h->highest_trackable_value : value;
+    return hdr_record_value(h, capped < 0 ? 0 : capped);
+}
+
+bool hdr_record_value_capped_atomic(struct hdr_histogram* h, int64_t value)
+{
+    int64_t capped = (value > h->highest_trackable_value) ? h->highest_trackable_value : value;
+    return hdr_record_value_atomic(h, capped < 0 ? 0 : capped);
+}
+
+bool hdr_record_values(struct hdr_histogram* h, int64_t value, int64_t count)
+{
+    if (count < 0)  /* non-negative counts; scan assumes a monotonic prefix */
+    {
+        return false;
+    }
+    return record_value_counted(h, value, count);
+}
+
+bool hdr_record_values_atomic(struct hdr_histogram* h, int64_t value, int64_t count)
+{
+    if (count < 0)  /* see hdr_record_values */
+    {
+        return false;
+    }
+    return record_value_counted_atomic(h, value, count);
 }
 
 bool hdr_record_corrected_value(struct hdr_histogram* h, int64_t value, int64_t expected_interval)
@@ -733,7 +773,8 @@ int64_t hdr_max(const struct hdr_histogram* h)
 
 int64_t hdr_total_count(const struct hdr_histogram* h)
 {
-    return h != NULL ? h->total_count : 0;
+    /* atomic load: safe to call while other threads use the *_atomic record functions */
+    return h != NULL ? hdr_atomic_load_64((int64_t*) &h->total_count) : 0;
 }
 
 int64_t hdr_min(const struct hdr_histogram* h)
@@ -832,11 +873,11 @@ static int64_t get_value_from_idx_up_to_count_avx2(
         int64_t chunk = (int64_t)((uint64_t)_mm_extract_epi64(s, 0)
                                 + (uint64_t)_mm_extract_epi64(s, 1));
 
-        /* Signed counts can cross the target before the block's end. */
-        __m256i signs = _mm256_or_si256(_mm256_or_si256(a, b), _mm256_or_si256(c, d));
-        int negative = _mm256_movemask_pd(_mm256_castsi256_pd(signs));
+        /* counts[] are non-negative (the record path rejects count < 0), so the
+           prefix sum is monotonic: block-skip is exact and only the crossing block
+           is walked. */
         int64_t next = (int64_t)((uint64_t)running + (uint64_t)chunk);
-        if (HDR_UNLIKELY(negative || next >= count_at_percentile)) {
+        if (HDR_UNLIKELY(next >= count_at_percentile)) {
             for (int32_t j = idx; j < idx + 16; j++) {
                 running = (int64_t)((uint64_t)running + (uint64_t)h->counts[j]);
                 if (running >= count_at_percentile)
@@ -905,23 +946,22 @@ int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percen
 
     if (HDR_LIKELY(h->normalizing_index_offset == 0))
     {
-        /* Skip nonnegative blocks that cannot reach the next target. */
+        /* Skip whole blocks that cannot reach the next target. counts[] are
+           non-negative (the record path rejects count < 0), so the prefix sum is
+           monotonic and this block-skip is exact for any valid histogram. */
         enum { BATCH_SCAN_BLOCK = 8 };
         const int64_t* counts = h->counts;
         const int32_t len = h->counts_len;
         int32_t idx = 0;
         for (; idx + BATCH_SCAN_BLOCK <= len && at_pos < length; idx += BATCH_SCAN_BLOCK)
         {
-            /* unsigned block sum: avoid signed-overflow UB on hostile decoded counts (cf. AVX2 reducer) */
+            /* unsigned sum keeps the accumulation UB-free even at the int64 boundary */
             const uint64_t s =
                 (uint64_t)counts[idx]     + (uint64_t)counts[idx + 1] +
                 (uint64_t)counts[idx + 2] + (uint64_t)counts[idx + 3] +
                 (uint64_t)counts[idx + 4] + (uint64_t)counts[idx + 5] +
                 (uint64_t)counts[idx + 6] + (uint64_t)counts[idx + 7];
-            const int64_t signs =
-                counts[idx]     | counts[idx + 1] | counts[idx + 2] | counts[idx + 3] |
-                counts[idx + 4] | counts[idx + 5] | counts[idx + 6] | counts[idx + 7];
-            if (signs < 0 || (int64_t)(total + s) >= values[at_pos])
+            if ((int64_t)(total + s) >= values[at_pos])
             {
                 int32_t j;
                 for (j = idx; j < idx + BATCH_SCAN_BLOCK; j++)
