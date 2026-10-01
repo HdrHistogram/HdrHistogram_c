@@ -344,8 +344,9 @@ static char* test_decode_rejects_crafted_bounds_attacks(void)
 static char* test_decode_rejects_negative_counts(void)
 {
     /* Regression: a crafted V1 log (word_size 2) whose decompressed payload
-       carries a negative bucket count. The word-based decoders used to copy it
-       straight into h->counts, poisoning every read path (and the AVX2 scan now
+       carries a negative bucket count. 64-bit words used to be copied straight into
+       h->counts; 16/32-bit words with the top bit set used to decode as large positives
+       (be16toh/be32toh are unsigned) and are now rejected too. Negatives poison every read path (and the AVX2 scan now
        assumes non-negative counts). It must be rejected cleanly, leaving no
        histogram. V2 is unaffected: there a negative zig-zag value is a zero-run
        marker, not a count. */

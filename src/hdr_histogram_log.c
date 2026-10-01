@@ -275,8 +275,9 @@ static int apply_to_counts_16(struct hdr_histogram* h, const int16_t* counts_dat
     int i;
     for (i = 0; i < counts_limit; i++)
     {
-        /* counts are occurrence totals; a negative decoded word is corrupt input */
-        int16_t count = be16toh(counts_data[i]);
+        /* Counts are non-negative (matches Java's signed words). be16toh() is unsigned, so
+           a word with the top bit set used to decode as a large positive; now rejected. */
+        int16_t count = (int16_t)be16toh(counts_data[i]);
         if (count < 0)
         {
             return HDR_NEGATIVE_COUNT_INVALID;
@@ -291,7 +292,7 @@ static int apply_to_counts_32(struct hdr_histogram* h, const int32_t* counts_dat
     int i;
     for (i = 0; i < counts_limit; i++)
     {
-        int32_t count = be32toh(counts_data[i]);
+        int32_t count = (int32_t)be32toh(counts_data[i]);
         if (count < 0)
         {
             return HDR_NEGATIVE_COUNT_INVALID;
@@ -306,7 +307,7 @@ static int apply_to_counts_64(struct hdr_histogram* h, const int64_t* counts_dat
     int i;
     for (i = 0; i < counts_limit; i++)
     {
-        int64_t count = be64toh(counts_data[i]);
+        int64_t count = (int64_t)be64toh(counts_data[i]);
         if (count < 0)
         {
             return HDR_NEGATIVE_COUNT_INVALID;
