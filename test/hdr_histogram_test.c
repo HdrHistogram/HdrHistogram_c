@@ -823,6 +823,85 @@ static char* test_linear_iter_buckets_correctly(void)
     return 0;
 }
 
+static char* test_linear_iter_set_value_units_per_bucket(void)
+{
+    struct hdr_histogram* h;
+    struct hdr_iter iter;
+    int64_t total = 0;
+    int64_t levels[6];
+    int steps = 0;
+    int64_t v;
+
+    hdr_init(1, 1000000, 3, &h);
+    for (v = 1; v <= 100000; v++)
+    {
+        hdr_record_value(h, v);
+    }
+
+    /* Widen after the second step. The level after it was already scheduled with
+       the old width, so one more 100-wide bucket is returned before 1000 applies. */
+    hdr_iter_linear_init(&iter, h, 100);
+    while (hdr_iter_next(&iter))
+    {
+        total += iter.specifics.linear.count_added_in_this_iteration_step;
+        if (steps < 6)
+        {
+            levels[steps] = iter.value_iterated_to;
+        }
+        steps++;
+        if (2 == steps)
+        {
+            hdr_iter_linear_set_value_units_per_bucket(&iter, 1000);
+        }
+    }
+
+    mu_assert("Step 1", compare_int64(100, levels[0]));
+    mu_assert("Step 2", compare_int64(200, levels[1]));
+    mu_assert("Step 3 still uses the old width", compare_int64(300, levels[2]));
+    mu_assert("Step 4 uses the new width", compare_int64(1300, levels[3]));
+    mu_assert("Step 5 uses the new width", compare_int64(2300, levels[4]));
+    mu_assert("All counts iterated", compare_int64(100000, total));
+
+    hdr_close(h);
+
+    return 0;
+}
+
+static char* test_iter_set_value_units_per_bucket_ignores_non_linear(void)
+{
+    struct hdr_histogram* h;
+    struct hdr_iter iter;
+    struct hdr_iter control;
+    int steps = 0;
+    int control_steps = 0;
+    bool same = true;
+
+    hdr_init(1, 1000000, 3, &h);
+    hdr_record_values(h, 10, 3);
+    hdr_record_values(h, 5000, 4);
+    hdr_record_values(h, 900000, 5);
+
+    /* specifics is a union: the linear width aliases percentile_to_iterate_to here */
+    hdr_iter_percentile_init(&iter, h, 5);
+    hdr_iter_percentile_init(&control, h, 5);
+    hdr_iter_linear_set_value_units_per_bucket(&iter, 7);
+
+    while (hdr_iter_next(&iter))
+    {
+        steps++;
+        same = same && hdr_iter_next(&control) && iter.value == control.value;
+        control_steps++;
+    }
+
+    mu_assert("Percentile iterator unaffected by the linear setter", same);
+    mu_assert("Same number of steps", compare_int64(control_steps, steps));
+    mu_assert("Control is exhausted too", !hdr_iter_next(&control));
+
+    hdr_close(h);
+
+    return 0;
+}
+
 static char* test_interval_recording(void)
 {
     int value_count, i, value;
@@ -1370,6 +1449,8 @@ static struct mu_result all_tests(void)
     mu_run_test(test_scaling_equivalence);
     mu_run_test(test_out_of_range_values);
     mu_run_test(test_linear_iter_buckets_correctly);
+    mu_run_test(test_linear_iter_set_value_units_per_bucket);
+    mu_run_test(test_iter_set_value_units_per_bucket_ignores_non_linear);
     mu_run_test(test_interval_recording);
     mu_run_test(reset_histogram_on_sample_and_recycle);
     mu_run_test(test_mean_does_not_overflow);
