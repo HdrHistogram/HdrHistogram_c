@@ -341,6 +341,31 @@ static char* test_decode_rejects_crafted_bounds_attacks(void)
     return 0;
 }
 
+static char* test_decode_rejects_negative_counts(void)
+{
+    /* Regression: a crafted V1 log (word_size 2) whose decompressed payload
+       carries a negative bucket count. 64-bit words used to be copied straight into
+       h->counts; 16/32-bit words with the top bit set used to decode as large positives
+       (be16toh/be32toh are unsigned) and are now rejected too. Negatives poison every read path (and the AVX2 scan now
+       assumes non-negative counts). It must be rejected cleanly, leaving no
+       histogram. V2 is unaffected: there a negative zig-zag value is a zero-run
+       marker, not a count. */
+    static const uint8_t negative_v1[] = {
+        0x1c, 0x84, 0x93, 0x82, 0x00, 0x00, 0x00, 0x2d, 0x78, 0x9c, 0x93, 0x69,
+        0x99, 0xdc, 0xc8, 0xc0, 0xc0, 0xc4, 0x00, 0x05, 0xcc, 0x50, 0x9a, 0x11,
+        0xca, 0x7d, 0x61, 0xff, 0x81, 0x61, 0x30, 0x01, 0x26, 0x5c, 0x12, 0xff,
+        0x21, 0xe0, 0x1f, 0x3d, 0x1d, 0x33, 0x00, 0x00, 0xa7, 0xff, 0x69, 0x0d,
+        0x00, 0xd9, 0x3e, 0x0b, 0xd0
+    };
+    struct hdr_histogram* actual = NULL;
+    int rc = hdr_decode_compressed((uint8_t*) negative_v1, sizeof(negative_v1), &actual);
+
+    mu_assert("Negative bucket count must be rejected", compare_int64(HDR_NEGATIVE_COUNT_INVALID, rc));
+    mu_assert("No histogram should be built from a negative count", NULL == actual);
+
+    return 0;
+}
+
 static char* test_encode_and_decode_base64(void)
 {
     uint8_t* buffer = NULL;
@@ -1220,6 +1245,7 @@ static struct mu_result all_tests(void)
     mu_run_test(test_bounds_check_on_decode);
     mu_run_test(test_v1_decode_rejects_oversized_counts);
     mu_run_test(test_decode_rejects_crafted_bounds_attacks);
+    mu_run_test(test_decode_rejects_negative_counts);
 
     mu_run_test(base64_decode_block_decodes_4_chars);
     mu_run_test(base64_decode_fails_with_invalid_lengths);
