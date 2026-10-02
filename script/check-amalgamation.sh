@@ -60,6 +60,50 @@ $CC $CFLAGS -I"$WORK/log" "$WORK/roundtrip.c" "$WORK/log/hdr_histogram.c" "$WORK
 "$WORK/roundtrip"
 echo "  log codec round trip through the amalgamated files: ok"
 
+echo "== --with-log --malloc-include (the core and the codec both use the caller's allocator)"
+python3 script/amalgamate.py --output "$WORK/alloc" --with-log --malloc-include my_alloc.h
+test ! -e "$WORK/alloc/hdr_malloc.h"
+if grep -l 'hdr_malloc\.h' "$WORK"/alloc/*; then
+    echo "ERROR: hdr_malloc.h is still referenced" >&2
+    exit 1
+fi
+cat > "$WORK/alloc/my_alloc.h" <<'EOF'
+#include <stdlib.h>
+extern int my_allocs;
+static inline void *my_m(size_t n) { my_allocs++; return malloc(n); }
+static inline void *my_c(size_t a, size_t b) { my_allocs++; return calloc(a, b); }
+#define hdr_malloc my_m
+#define hdr_calloc my_c
+#define hdr_realloc realloc
+#define hdr_free free
+EOF
+cat > "$WORK/alloc/t.c" <<'EOF'
+#include "hdr_histogram.h"
+#include "hdr_histogram_log.h"
+#include <stdlib.h>
+#include <string.h>
+int my_allocs;
+int main(void)
+{
+    struct hdr_histogram *h = NULL, *d = NULL;
+    char *e = NULL;
+    int a0, a1, a2;
+    hdr_init(1, 1000000, 3, &h);
+    hdr_record_value(h, 500);
+    a0 = my_allocs;
+    hdr_log_encode(h, &e);
+    a1 = my_allocs;
+    hdr_log_decode(&d, e, strlen(e));
+    a2 = my_allocs;
+    hdr_close(h); hdr_close(d); free(e);
+    return (a0 > 0 && a1 > a0 && a2 > a1) ? 0 : 1;
+}
+EOF
+$CC $CFLAGS -I"$WORK/alloc" "$WORK/alloc/t.c" "$WORK/alloc/hdr_histogram.c" "$WORK/alloc/hdr_histogram_log.c" \
+    "$WORK/alloc/hdr_encoding.c" "$WORK/alloc/hdr_time.c" -lz -lm -o "$WORK/alloc/t"
+"$WORK/alloc/t"
+echo "  init, encode and decode all allocate through my_alloc.h"
+
 echo "== --include-prefix hdr/ (public headers kept in a hdr/ directory)"
 python3 script/amalgamate.py --output "$WORK/gen" --include-prefix hdr/
 mkdir -p "$WORK/tree/src" "$WORK/tree/include/hdr"
