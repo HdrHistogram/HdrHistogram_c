@@ -111,6 +111,22 @@ size_t hdr_get_memory_size(struct hdr_histogram* h);
 bool hdr_record_value(struct hdr_histogram* h, int64_t value);
 
 /**
+ * Like hdr_record_value, but clamps the value into [0, highest_trackable_value]
+ * instead of rejecting out-of-range input. 0 and values below
+ * lowest_discernible_value are recorded as they are.
+ *
+ * @param h "This" pointer
+ * @param value Value to add to the histogram
+ * @return true for any value on a valid histogram.
+ */
+bool hdr_record_value_capped(struct hdr_histogram* h, int64_t value);
+
+/**
+ * Atomic version of hdr_record_value_capped, safe to call from several threads at once.
+ */
+bool hdr_record_value_capped_atomic(struct hdr_histogram* h, int64_t value);
+
+/**
  * Records a value in the histogram, will round this value of to a precision at or better
  * than the significant_figure specified at construction time.
  *
@@ -263,6 +279,14 @@ int64_t hdr_min(const struct hdr_histogram* h);
  * @param h "This" pointer
  */
 int64_t hdr_max(const struct hdr_histogram* h);
+
+/**
+ * Get the total number of recorded values. Returns 0 if h is NULL. Uses an atomic
+ * load, so it can be called while other threads use the *_atomic record functions.
+ *
+ * @param h "This" pointer
+ */
+int64_t hdr_total_count(const struct hdr_histogram* h);
 
 /**
  * Get the value at a specific percentile.
