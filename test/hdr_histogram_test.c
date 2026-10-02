@@ -785,6 +785,82 @@ static char* test_out_of_range_values(void)
     return 0;
 }
 
+static char* test_record_value_capped(void)
+{
+    struct hdr_histogram *h;
+    hdr_init(10, 1000, 3, &h);
+
+    mu_assert("Zero records as zero", hdr_record_value_capped(h, 0));
+    mu_assert("Below lowest discernible value is kept", hdr_record_value_capped(h, 3));
+    mu_assert("In-range value records", hdr_record_value_capped(h, 500));
+    mu_assert("Above-range value is capped, not rejected", hdr_record_value_capped(h, 5000));
+    mu_assert("Negative value is clamped to zero, not rejected", hdr_record_value_capped(h, -7));
+
+    mu_assert("Total count", compare_int64(5, hdr_total_count(h)));
+    mu_assert("Minimum stays zero", compare_int64(0, hdr_min(h)));
+    mu_assert("Zero, 3 and the clamped negative share the first bucket",
+        compare_int64(3, hdr_count_at_value(h, 0)));
+    mu_assert("Capped value lands at the highest trackable value",
+        compare_int64(1, hdr_count_at_value(h, 1000)));
+    mu_assert("In-range value unchanged", compare_int64(1, hdr_count_at_value(h, 500)));
+    mu_assert("Plain record still rejects out-of-range", !hdr_record_value(h, 5000));
+    mu_assert("Rejection did not change the total", compare_int64(5, hdr_total_count(h)));
+
+    hdr_close(h);
+
+    return 0;
+}
+
+static char* test_record_value_capped_atomic(void)
+{
+    struct hdr_histogram *plain, *atomic;
+    const int64_t values[] = { 0, 3, 500, 1000, 5000, -7, INT64_MAX, INT64_MIN };
+    size_t i;
+    bool all_recorded = true;
+    bool same = true;
+
+    hdr_init(10, 1000, 3, &plain);
+    hdr_init(10, 1000, 3, &atomic);
+
+    for (i = 0; i < sizeof(values) / sizeof(values[0]); i++)
+    {
+        all_recorded = all_recorded && hdr_record_value_capped(plain, values[i]);
+        all_recorded = all_recorded && hdr_record_value_capped_atomic(atomic, values[i]);
+    }
+    for (i = 0; i < (size_t) plain->counts_len; i++)
+    {
+        same = same && plain->counts[i] == atomic->counts[i];
+    }
+
+    mu_assert("Every value records", all_recorded);
+    mu_assert("Same counts as the non-atomic variant", same);
+    mu_assert("Same total", compare_int64(hdr_total_count(plain), hdr_total_count(atomic)));
+    mu_assert("Same min", compare_int64(hdr_min(plain), hdr_min(atomic)));
+    mu_assert("Same max", compare_int64(hdr_max(plain), hdr_max(atomic)));
+    mu_assert("Total count", compare_int64(8, hdr_total_count(atomic)));
+
+    hdr_close(plain);
+    hdr_close(atomic);
+
+    return 0;
+}
+
+static char* test_hdr_total_count(void)
+{
+    struct hdr_histogram *h;
+    hdr_init(1, 1000, 3, &h);
+
+    mu_assert("Empty histogram", compare_int64(0, hdr_total_count(h)));
+    hdr_record_values(h, 10, 5);
+    hdr_record_value(h, 20);
+    mu_assert("Counts weighted records", compare_int64(6, hdr_total_count(h)));
+    mu_assert("NULL is zero", compare_int64(0, hdr_total_count(NULL)));
+
+    hdr_close(h);
+
+    return 0;
+}
+
 static char* test_linear_iter_buckets_correctly(void)
 {
     int step_count = 0;
@@ -1020,6 +1096,49 @@ static char* test_percentile_scan_matches_naive_reference(void)
     }
 
     hdr_close(h);
+    return 0;
+}
+
+static char* test_percentile_crossing_at_each_count(void)
+{
+    struct hdr_histogram* h = NULL;
+    int32_t offset;
+    int32_t idx;
+    int digits;
+
+    for (digits = 1; digits <= 3; digits++)
+    {
+        mu_assert("Failed to allocate hdr_histogram",
+            hdr_init(1, 2047, digits, &h) == 0);
+        for (offset = 0; offset <= 1; offset++)
+        {
+            hdr_reset(h);
+            h->normalizing_index_offset = offset;
+            mu_assert("Empty percentile should be zero", hdr_value_at_percentile(h, 50.0) == 0);
+            for (idx = 0; idx < h->counts_len; idx++)
+            {
+                mu_assert("Failed to record count",
+                    hdr_record_value(h, hdr_value_at_index(h, idx)));
+            }
+            for (idx = 0; idx < h->counts_len; idx++)
+            {
+                double percentile = 100.0 * (idx + 1) / h->total_count;
+                int64_t expected = (hdr_next_non_equivalent_value(h, hdr_value_at_index(h, idx)) - 1);
+                mu_assert("Percentile should cross at this count",
+                    hdr_value_at_percentile(h, percentile) == expected);
+            }
+            for (idx = 0; idx < h->counts_len; idx++)
+            {
+                int64_t value = hdr_value_at_index(h, idx);
+                hdr_reset(h);
+                h->normalizing_index_offset = offset;
+                mu_assert("Failed to record isolated count", hdr_record_value(h, value));
+                mu_assert("Percentile should skip empty counts",
+                    hdr_value_at_percentile(h, 50.0) == (hdr_next_non_equivalent_value(h, value) - 1));
+            }
+        }
+        hdr_close(h);
+    }
     return 0;
 }
 
@@ -1394,6 +1513,7 @@ static struct mu_result all_tests(void)
     mu_run_test(test_log_iterator_integer_base_contract);
     mu_run_test(test_percentiles);
     mu_run_test(test_percentile_scan_matches_naive_reference);
+    mu_run_test(test_percentile_crossing_at_each_count);
     mu_run_test(test_percentiles_by_value_at_percentiles);
     mu_run_test(test_value_at_percentiles_with_offset);
     mu_run_test(test_value_at_percentiles_blocked_parity);
@@ -1404,6 +1524,9 @@ static struct mu_result all_tests(void)
     mu_run_test(test_reset);
     mu_run_test(test_scaling_equivalence);
     mu_run_test(test_out_of_range_values);
+    mu_run_test(test_record_value_capped);
+    mu_run_test(test_record_value_capped_atomic);
+    mu_run_test(test_hdr_total_count);
     mu_run_test(test_linear_iter_buckets_correctly);
     mu_run_test(test_linear_iter_set_value_units_per_bucket);
     mu_run_test(test_iter_set_value_units_per_bucket_ignores_non_linear);

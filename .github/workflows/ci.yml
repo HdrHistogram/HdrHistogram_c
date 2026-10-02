@@ -133,6 +133,31 @@ jobs:
       - name: Test
         run: cmake -E chdir _build ctest --output-on-failure
 
+  # Exercise the non-Apple AArch64 Clang scalar scan and its crossing test.
+  # The general matrix excludes Linux arm64; macOS arm64 is outside this guard.
+  build-linux-arm64-clang:
+    name: build (linux, Release, arm64, clang-18)
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+        with:
+          submodules: recursive
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev
+      - name: Verify architecture and compiler
+        run: |
+          test "$(uname -m)" = aarch64
+          clang-18 --version
+          clang-18 -E -Iinclude src/hdr_histogram.c > preprocessed.c
+          grep -Fq '#pragma clang loop unroll(disable)' preprocessed.c
+      - name: Configure
+        run: cmake -S . -B _build -DCMAKE_BUILD_TYPE=Release -DHDR_LOG_REQUIRED=ON -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18
+      - name: Build
+        run: cmake --build _build --parallel
+      - name: Test
+        run: ctest --test-dir _build --output-on-failure
+
   # clang-cl on Windows (the ClangCL VS toolset): clang-cl defines __clang__
   # AND _MSC_VER, so before the guard was fixed it enabled the dispatch and
   # failed to link (__cpu_model). HDR_HAS_AVX2_DISPATCH must be compiled out

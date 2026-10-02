@@ -618,6 +618,18 @@ bool hdr_record_value_atomic(struct hdr_histogram* h, int64_t value)
     return record_value_counted_atomic(h, value, 1);
 }
 
+bool hdr_record_value_capped(struct hdr_histogram* h, int64_t value)
+{
+    int64_t capped = (value > h->highest_trackable_value) ? h->highest_trackable_value : value;
+    return hdr_record_value(h, capped < 0 ? 0 : capped);
+}
+
+bool hdr_record_value_capped_atomic(struct hdr_histogram* h, int64_t value)
+{
+    int64_t capped = (value > h->highest_trackable_value) ? h->highest_trackable_value : value;
+    return hdr_record_value_atomic(h, capped < 0 ? 0 : capped);
+}
+
 bool hdr_record_values(struct hdr_histogram* h, int64_t value, int64_t count)
 {
     if (count < 0)  /* non-negative counts; scan assumes a monotonic prefix */
@@ -760,6 +772,12 @@ int64_t hdr_max(const struct hdr_histogram* h)
     return highest_equivalent_value(h, h->max_value);
 }
 
+int64_t hdr_total_count(const struct hdr_histogram* h)
+{
+    /* atomic load: safe to call while other threads use the *_atomic record functions */
+    return h != NULL ? hdr_atomic_load_64((int64_t*) &h->total_count) : 0;
+}
+
 int64_t hdr_min(const struct hdr_histogram* h)
 {
     if (0 < hdr_count_at_index(h, 0))
@@ -804,6 +822,10 @@ static int64_t get_value_from_idx_up_to_count_scalar(
                 block_sum_u += (uint64_t)counts[idx + j];
             if (HDR_UNLIKELY((uint64_t)running + block_sum_u >= (uint64_t)count_at_percentile))
             {
+#if defined(__aarch64__) && defined(__clang__) && !defined(__APPLE__)
+                /* Keep crossing-block prefix sums out of the block-sum loop. */
+#pragma clang loop unroll(disable)
+#endif
                 for (j = 0; j < BLK; j++)
                 {
                     running += counts[idx + j];
