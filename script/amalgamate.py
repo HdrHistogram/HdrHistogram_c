@@ -14,12 +14,23 @@ each GitHub release, and can be regenerated from any checkout or release tarball
   <out>/hdr_malloc.h      the default libc allocator hook (copied as-is; not written
                           with --malloc-include)
 
+--with-log also emits the log codec, for projects that use the hdr_log_* API (it
+needs zlib and the core above). Each file has its private headers inlined, so no
+private header is ever needed:
+
+  <out>/hdr_histogram_log.c  <out>/hdr_encoding.c  <out>/hdr_time.c
+  <out>/hdr_histogram_log.h  <out>/hdr_time.h
+
 Override the allocator exactly as for the normal build, by compiling with
   -DHDR_MALLOC_INCLUDE='"my_alloc.h"'
 or bake it in with --malloc-include, which makes my_alloc.h the default instead
-of hdr_malloc.h. Only hdr_histogram.c and hdr_histogram.h are written: hdr_malloc.h
-is not, and my_alloc.h is not created (it is yours, kept alongside the output).
-A -DHDR_MALLOC_INCLUDE on the compiler command line still wins.
+of hdr_malloc.h. hdr_malloc.h is then not written, and my_alloc.h is not created
+(it is yours, kept alongside the output). A -DHDR_MALLOC_INCLUDE on the compiler
+command line still wins.
+
+--include-prefix hdr/ is for trees that keep the public headers in a hdr/
+directory (as the upstream layout does): the generated .c files then include
+"hdr/hdr_histogram.h" instead of "hdr_histogram.h". The default is no prefix.
 
 --output is relative to the current directory, so the script can be run from a
 release tarball into your own tree.
@@ -27,6 +38,7 @@ release tarball into your own tree.
 Usage:
   script/amalgamate.py --output DIR
   script/amalgamate.py --output deps/hdr_histogram --malloc-include hdr_redis_malloc.h
+  script/amalgamate.py --output deps/hdr_histogram --with-log
 """
 import argparse
 import os
@@ -36,22 +48,29 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 
-# The core translation unit and the search path for its local includes.
-ROOT_TU = "src/hdr_histogram.c"
-PUBLIC_HEADER = "hdr_histogram.h"            # shipped alongside, referenced by name
+# Translation units and the search path for their local (private) includes.
+CORE_TUS = ["src/hdr_histogram.c"]
+LOG_TUS = ["src/hdr_histogram_log.c", "src/hdr_encoding.c", "src/hdr_time.c"]
 INCLUDE_DIRS = ["src", "include/hdr"]
-# Files copied verbatim next to the amalgamated .c.
-COPY_FILES = {
-    PUBLIC_HEADER: "include/hdr/hdr_histogram.h",
-    "hdr_malloc.h": "src/hdr_malloc.h",
-}
 
-# Matches  #include "foo.h"  or  #include <hdr/foo.h>  (not #include SOME_MACRO).
+# Public headers are shipped alongside and referenced by name, never inlined.
+PUBLIC_HEADERS = {
+    "hdr_histogram.h": "include/hdr/hdr_histogram.h",
+    "hdr_histogram_log.h": "include/hdr/hdr_histogram_log.h",
+    "hdr_time.h": "include/hdr/hdr_time.h",
+}
+CORE_HEADERS = ["hdr_histogram.h"]
+LOG_HEADERS = ["hdr_histogram_log.h", "hdr_time.h"]
+MALLOC_HEADER = "hdr_malloc.h"
+
 MALLOC_DEFAULT = '#define HDR_MALLOC_INCLUDE "hdr_malloc.h"'
 HEADER_NAME_RE = re.compile(r'^[A-Za-z0-9_][A-Za-z0-9_./+-]*$')
+PREFIX_RE = re.compile(r'^([A-Za-z0-9_][A-Za-z0-9_.+-]*/)*$')
 
-# a trailing /* ... */ comment is allowed (it is dropped when the header is inlined)
+# Matches  #include "foo.h"  or  #include <hdr/foo.h>  (not #include SOME_MACRO).
+# A trailing /* ... */ comment is allowed (it is dropped when the header is inlined).
 INCLUDE_RE = re.compile(r'^\s*#\s*include\s*(?:"([^"]+)"|<([^>]+)>)\s*(?:/\*.*\*/\s*)?$')
+HDR_ANGLE_RE = re.compile(r'^(\s*#\s*include\s*)<hdr/([A-Za-z0-9_]+\.h)>(.*)$')
 
 
 def version():
@@ -82,8 +101,8 @@ def resolve(name, angle):
     return None
 
 
-def inline(path, seen, out):
-    """Append `path`'s content to `out`, recursively inlining local includes."""
+def inline(path, seen, out, prefix):
+    """Append `path`'s content to `out`, recursively inlining private includes."""
     with open(os.path.join(ROOT, path)) as f:
         lines = f.readlines()
     out.append("/* ---- begin %s ---- */\n" % path)
@@ -92,52 +111,69 @@ def inline(path, seen, out):
         if m:
             name = m.group(1) or m.group(2)
             angle = m.group(1) is None
-            if os.path.basename(name) == PUBLIC_HEADER:
-                if PUBLIC_HEADER not in seen:
-                    seen.add(PUBLIC_HEADER)
-                    out.append('#include "%s"\n' % PUBLIC_HEADER)
+            base = os.path.basename(name)
+            if base in PUBLIC_HEADERS and (not angle or name.startswith("hdr/")):
+                if base not in seen:
+                    seen.add(base)
+                    out.append('#include "%s%s"\n' % (prefix, base))
                 continue
             target = resolve(name, angle)
             if target is not None:
                 if target not in seen:
                     seen.add(target)
-                    inline(target, seen, out)
+                    inline(target, seen, out, prefix)
                 continue
         # system include, the HDR_MALLOC_INCLUDE macro hook, or plain code
         out.append(line)
     out.append("/* ---- end %s ---- */\n" % path)
 
 
-def generate(malloc_include=None):
+def generate(tu, malloc_include, prefix):
+    name = os.path.basename(tu)
+    kind = "core" if tu in CORE_TUS else "log codec"
     banner = (
         "/*\n"
-        " * HdrHistogram_c core -- amalgamated single-file build.\n"
+        " * HdrHistogram_c %s -- amalgamated (%s, private headers inlined).\n"
         " *\n"
         " * GENERATED by script/amalgamate.py from HdrHistogram_c %s. DO NOT EDIT;\n"
         " * change the sources and regenerate. Public domain (see hdr_histogram.h).\n"
-        " */\n" % version()
+        " */\n" % (kind, name, version())
     )
+    if tu in CORE_TUS:  # keep the core banner exactly as it has always been
+        banner = (
+            "/*\n"
+            " * HdrHistogram_c core -- amalgamated single-file build.\n"
+            " *\n"
+            " * GENERATED by script/amalgamate.py from HdrHistogram_c %s. DO NOT EDIT;\n"
+            " * change the sources and regenerate. Public domain (see hdr_histogram.h).\n"
+            " */\n" % version()
+        )
     out = [banner]
-    # Empty seen-set: the public header include in hdr_histogram.c is emitted once
-    # at its natural position; later references (e.g. from hdr_tests.h) are deduped.
-    inline(ROOT_TU, set(), out)
-    body = "".join(out)
-    if malloc_include:
-        if body.count(MALLOC_DEFAULT) != 1:
-            sys.exit("cannot find the HDR_MALLOC_INCLUDE default in %s" % ROOT_TU)
-        body = body.replace(
+    # Empty seen-set: each public header include is emitted once, at its natural
+    # position; later references (e.g. from hdr_tests.h) are deduped.
+    inline(tu, set(), out, prefix)
+    text = "".join(out)
+    if malloc_include and MALLOC_DEFAULT in text:
+        if text.count(MALLOC_DEFAULT) != 1:
+            sys.exit("unexpected HDR_MALLOC_INCLUDE default in %s" % tu)
+        text = text.replace(
             MALLOC_DEFAULT, '#define HDR_MALLOC_INCLUDE "%s"' % malloc_include)
-    return body
+    return text
 
 
-def copies(malloc_include=None):
-    result = {}
-    for dst, src in COPY_FILES.items():
-        if malloc_include and dst == "hdr_malloc.h":
-            continue
-        with open(os.path.join(ROOT, src)) as f:
-            result[dst] = f.read()
-    return result
+def public_header(name, prefix):
+    """Copy a public header; point its <hdr/...> includes at the chosen layout."""
+    with open(os.path.join(ROOT, PUBLIC_HEADERS[name])) as f:
+        lines = f.readlines()
+    if prefix == "hdr/":
+        return "".join(lines)  # the upstream layout: verbatim
+    out = []
+    for line in lines:
+        m = HDR_ANGLE_RE.match(line)
+        if m and m.group(2) in PUBLIC_HEADERS:
+            line = '%s"%s%s"%s\n' % (m.group(1), prefix, m.group(2), m.group(3))
+        out.append(line)
+    return "".join(out)
 
 
 def main():
@@ -148,12 +184,30 @@ def main():
     ap.add_argument("--malloc-include", metavar="HEADER",
                     help="make HEADER the default allocator header instead of hdr_malloc.h "
                          "(you supply it; e.g. hdr_redis_malloc.h)")
+    ap.add_argument("--with-log", action="store_true",
+                    help="also emit the log codec (hdr_histogram_log.c, hdr_encoding.c, "
+                         "hdr_time.c and their public headers); needs zlib")
+    ap.add_argument("--include-prefix", metavar="DIR/", default="",
+                    help='how the generated files include the public headers, e.g. "hdr/" '
+                         "for a tree that keeps them in a hdr/ directory (default: none)")
     args = ap.parse_args()
     if args.malloc_include is not None and not HEADER_NAME_RE.match(args.malloc_include):
         ap.error("--malloc-include must be a plain header file name")
+    if not PREFIX_RE.match(args.include_prefix):
+        ap.error('--include-prefix must be empty or a relative directory ending in "/"')
 
-    files = {"hdr_histogram.c": generate(args.malloc_include)}
-    files.update(copies(args.malloc_include))
+    tus = CORE_TUS + (LOG_TUS if args.with_log else [])
+    headers = CORE_HEADERS + (LOG_HEADERS if args.with_log else [])
+    files = {}
+    for tu in tus:
+        files[os.path.basename(tu)] = generate(tu, args.malloc_include, args.include_prefix)
+    if args.malloc_include and ('"%s"' % args.malloc_include) not in files["hdr_histogram.c"]:
+        sys.exit("cannot find the HDR_MALLOC_INCLUDE default in src/hdr_histogram.c")
+    for h in headers:
+        files[h] = public_header(h, args.include_prefix)
+    if not args.malloc_include:
+        with open(os.path.join(ROOT, "src", MALLOC_HEADER)) as f:
+            files[MALLOC_HEADER] = f.read()
 
     dst = os.path.abspath(args.output)
     os.makedirs(dst, exist_ok=True)

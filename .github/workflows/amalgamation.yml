@@ -50,3 +50,8 @@ jobs:
           #define hdr_free free
           EOT
           cc -std=c99 -Wall -Wextra -Os -Iout-malloc -c out-malloc/hdr_histogram.c -o out-malloc/hdr_histogram.o
+
+      - name: Optional variants (--with-log, --include-prefix)
+        run: |
+          sudo apt-get update && sudo apt-get install -y zlib1g-dev
+          sh script/check-amalgamation.sh "$RUNNER_TEMP/amalgamation-variants"
