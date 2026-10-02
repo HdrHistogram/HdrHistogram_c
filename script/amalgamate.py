@@ -5,7 +5,8 @@ The core (record path + value/percentile read path + iterators) lives in
 ``src/hdr_histogram.c`` and depends only on the C standard library and libm --
 no zlib, threads, logging codec, interval recorder or phaser. This script emits
 it as a couple of files that an embedding project can vendor instead of tracking
-the whole source tree:
+the whole source tree. The output is generated, not committed: it is attached to
+each GitHub release, and can be regenerated from any checkout or release tarball.
 
   <out>/hdr_histogram.c   the engine, with the private headers (hdr_atomic.h,
                           hdr_tests.h) inlined
@@ -20,10 +21,12 @@ of hdr_malloc.h. Only hdr_histogram.c and hdr_histogram.h are written: hdr_mallo
 is not, and my_alloc.h is not created (it is yours, kept alongside the output).
 A -DHDR_MALLOC_INCLUDE on the compiler command line still wins.
 
+--output is relative to the current directory, so the script can be run from a
+release tarball into your own tree.
+
 Usage:
-  script/amalgamate.py --output amalgamated      # (re)generate
-  script/amalgamate.py --check  amalgamated      # verify the tree is up to date
-  script/amalgamate.py --output deps/hdr --malloc-include hdr_redis_malloc.h
+  script/amalgamate.py --output DIR
+  script/amalgamate.py --output deps/hdr_histogram --malloc-include hdr_redis_malloc.h
 """
 import argparse
 import os
@@ -63,8 +66,14 @@ def version():
     return "unknown"
 
 
-def resolve(name):
-    """Return the repo-relative path of a local header, or None if not local."""
+def resolve(name, angle):
+    """Return the repo-relative path of a local header, or None if not local.
+
+    Quoted includes are project-local. Angle includes are system headers unless
+    they are <hdr/...>, so <foo.h> is never inlined just because src/ has a foo.h.
+    """
+    if angle and not name.startswith("hdr/"):
+        return None
     base = os.path.basename(name)
     for d in INCLUDE_DIRS:
         p = os.path.join(d, base)
@@ -82,12 +91,13 @@ def inline(path, seen, out):
         m = INCLUDE_RE.match(line)
         if m:
             name = m.group(1) or m.group(2)
+            angle = m.group(1) is None
             if os.path.basename(name) == PUBLIC_HEADER:
                 if PUBLIC_HEADER not in seen:
                     seen.add(PUBLIC_HEADER)
                     out.append('#include "%s"\n' % PUBLIC_HEADER)
                 continue
-            target = resolve(name)
+            target = resolve(name, angle)
             if target is not None:
                 if target not in seen:
                     seen.add(target)
@@ -133,9 +143,8 @@ def copies(malloc_include=None):
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    g = ap.add_mutually_exclusive_group(required=True)
-    g.add_argument("--output", metavar="DIR", help="write the amalgamation to DIR")
-    g.add_argument("--check", metavar="DIR", help="fail if DIR is not up to date")
+    ap.add_argument("--output", metavar="DIR", required=True,
+                    help="write the amalgamation to DIR (relative to the current directory)")
     ap.add_argument("--malloc-include", metavar="HEADER",
                     help="make HEADER the default allocator header instead of hdr_malloc.h "
                          "(you supply it; e.g. hdr_redis_malloc.h)")
@@ -146,34 +155,12 @@ def main():
     files = {"hdr_histogram.c": generate(args.malloc_include)}
     files.update(copies(args.malloc_include))
 
-    out_dir = args.output or args.check
-    if args.check:
-        stale = []
-        for name, content in files.items():
-            p = os.path.join(ROOT, out_dir, name)
-            try:
-                with open(p) as f:
-                    current = f.read()
-            except OSError:
-                current = None
-            if current != content:
-                stale.append(name)
-        if stale:
-            sys.stderr.write(
-                "amalgamation out of date: %s\n"
-                "run: script/amalgamate.py --output %s%s\n"
-                % (", ".join(sorted(stale)), out_dir,
-                   " --malloc-include " + args.malloc_include if args.malloc_include else ""))
-            return 1
-        print("amalgamation up to date (%s)" % out_dir)
-        return 0
-
-    dst = os.path.join(ROOT, out_dir)
+    dst = os.path.abspath(args.output)
     os.makedirs(dst, exist_ok=True)
     for name, content in files.items():
         with open(os.path.join(dst, name), "w") as f:
             f.write(content)
-    print("wrote %d files to %s" % (len(files), out_dir))
+    print("wrote %d files to %s" % (len(files), args.output))
     return 0
 
 
