@@ -9,6 +9,13 @@
 #include <stdio.h>
 #include <hdr_atomic.h>
 
+#if defined(_WIN32)
+#include <windows.h>
+#include <process.h>
+#else
+#include <pthread.h>
+#endif
+
 #include "minunit.h"
 
 int tests_run = 0;
@@ -70,12 +77,84 @@ static char* test_add(void)
     return 0;
 }
 
+/* A reader must only ever see a whole value. The writer alternates all-zero and
+   all-one bits, so a load that mixes halves of two stores returns neither. */
+#define TEAR_ITERATIONS 5000000
+
+static int64_t tear_field = 0;
+static int64_t tear_observed = 0;
+
+static void tear_write(void)
+{
+    int64_t i;
+    for (i = 0; i < TEAR_ITERATIONS; i++)
+    {
+        hdr_atomic_store_64(&tear_field, (i & 1) ? INT64_C(-1) : INT64_C(0));
+    }
+}
+
+static void tear_read(void)
+{
+    int64_t i;
+    for (i = 0; i < TEAR_ITERATIONS; i++)
+    {
+        int64_t v = hdr_atomic_load_64(&tear_field);
+        if (v != 0 && v != INT64_C(-1))
+        {
+            tear_observed++;
+        }
+    }
+}
+
+#if defined(_WIN32)
+static unsigned __stdcall tear_write_main(void* arg) { (void) arg; tear_write(); return 0; }
+
+static int run_tear_threads(void)
+{
+    HANDLE t = (HANDLE) _beginthreadex(NULL, 0, tear_write_main, NULL, 0, NULL);
+    if (t == NULL)
+    {
+        return -1;
+    }
+    tear_read();
+    WaitForSingleObject(t, INFINITE);
+    CloseHandle(t);
+    return 0;
+}
+#else
+static void* tear_write_main(void* arg) { (void) arg; tear_write(); return NULL; }
+
+static int run_tear_threads(void)
+{
+    pthread_t t;
+    if (pthread_create(&t, NULL, tear_write_main, NULL) != 0)
+    {
+        return -1;
+    }
+    tear_read();
+    pthread_join(t, NULL);
+    return 0;
+}
+#endif
+
+static char* test_load_64_not_torn(void)
+{
+    tear_field = 0;
+    tear_observed = 0;
+
+    mu_assert("Failed to start thread", run_tear_threads() == 0);
+    mu_assert("hdr_atomic_load_64 returned a torn value", compare_int64(tear_observed, 0));
+
+    return 0;
+}
+
 static struct mu_result all_tests(void)
 {
     mu_run_test(test_store_load_64);
     mu_run_test(test_store_load_pointer);
     mu_run_test(test_exchange);
     mu_run_test(test_add);
+    mu_run_test(test_load_64_not_torn);
 
     mu_ok;
 }

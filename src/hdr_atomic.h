@@ -18,18 +18,6 @@
 #define hdr_atomic_load_pointer(x) (_ReadBarrier(), *(x))
 #define hdr_atomic_store_pointer(f, v) (_WriteBarrier(), (void)(*(f) = (v)))
 
-static int64_t __inline hdr_atomic_load_64(int64_t* field)
-{ 
-	_ReadBarrier();
-	return *field;
-}
-
-static void __inline hdr_atomic_store_64(int64_t* field, int64_t value)
-{
-	_WriteBarrier();
-	*field = value;
-}
-
 static int64_t __inline hdr_atomic_exchange_64(volatile int64_t* field, int64_t value)
 {
 #if defined(_WIN64)
@@ -69,6 +57,27 @@ static int64_t __inline hdr_atomic_add_fetch_64(volatile int64_t* field, int64_t
 static bool __inline hdr_atomic_compare_exchange_64(volatile int64_t* field, int64_t* expected, int64_t desired)
 {
     return *expected == _InterlockedCompareExchange64(field, desired, *expected);
+}
+
+/* A plain 64-bit access is two 32-bit accesses on 32-bit Windows and can tear. */
+static int64_t __inline hdr_atomic_load_64(int64_t* field)
+{
+#if defined(_WIN64)
+    _ReadBarrier();
+    return *field;
+#else
+    return _InterlockedCompareExchange64(field, 0, 0);
+#endif
+}
+
+static void __inline hdr_atomic_store_64(int64_t* field, int64_t value)
+{
+#if defined(_WIN64)
+    _WriteBarrier();
+    *field = value;
+#else
+    (void) hdr_atomic_exchange_64(field, value);
+#endif
 }
 
 #elif defined(__ATOMIC_SEQ_CST)
