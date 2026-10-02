@@ -785,6 +785,82 @@ static char* test_out_of_range_values(void)
     return 0;
 }
 
+static char* test_record_value_capped(void)
+{
+    struct hdr_histogram *h;
+    hdr_init(10, 1000, 3, &h);
+
+    mu_assert("Zero records as zero", hdr_record_value_capped(h, 0));
+    mu_assert("Below lowest discernible value is kept", hdr_record_value_capped(h, 3));
+    mu_assert("In-range value records", hdr_record_value_capped(h, 500));
+    mu_assert("Above-range value is capped, not rejected", hdr_record_value_capped(h, 5000));
+    mu_assert("Negative value is clamped to zero, not rejected", hdr_record_value_capped(h, -7));
+
+    mu_assert("Total count", compare_int64(5, hdr_total_count(h)));
+    mu_assert("Minimum stays zero", compare_int64(0, hdr_min(h)));
+    mu_assert("Zero, 3 and the clamped negative share the first bucket",
+        compare_int64(3, hdr_count_at_value(h, 0)));
+    mu_assert("Capped value lands at the highest trackable value",
+        compare_int64(1, hdr_count_at_value(h, 1000)));
+    mu_assert("In-range value unchanged", compare_int64(1, hdr_count_at_value(h, 500)));
+    mu_assert("Plain record still rejects out-of-range", !hdr_record_value(h, 5000));
+    mu_assert("Rejection did not change the total", compare_int64(5, hdr_total_count(h)));
+
+    hdr_close(h);
+
+    return 0;
+}
+
+static char* test_record_value_capped_atomic(void)
+{
+    struct hdr_histogram *plain, *atomic;
+    const int64_t values[] = { 0, 3, 500, 1000, 5000, -7, INT64_MAX, INT64_MIN };
+    size_t i;
+    bool all_recorded = true;
+    bool same = true;
+
+    hdr_init(10, 1000, 3, &plain);
+    hdr_init(10, 1000, 3, &atomic);
+
+    for (i = 0; i < sizeof(values) / sizeof(values[0]); i++)
+    {
+        all_recorded = all_recorded && hdr_record_value_capped(plain, values[i]);
+        all_recorded = all_recorded && hdr_record_value_capped_atomic(atomic, values[i]);
+    }
+    for (i = 0; i < (size_t) plain->counts_len; i++)
+    {
+        same = same && plain->counts[i] == atomic->counts[i];
+    }
+
+    mu_assert("Every value records", all_recorded);
+    mu_assert("Same counts as the non-atomic variant", same);
+    mu_assert("Same total", compare_int64(hdr_total_count(plain), hdr_total_count(atomic)));
+    mu_assert("Same min", compare_int64(hdr_min(plain), hdr_min(atomic)));
+    mu_assert("Same max", compare_int64(hdr_max(plain), hdr_max(atomic)));
+    mu_assert("Total count", compare_int64(8, hdr_total_count(atomic)));
+
+    hdr_close(plain);
+    hdr_close(atomic);
+
+    return 0;
+}
+
+static char* test_hdr_total_count(void)
+{
+    struct hdr_histogram *h;
+    hdr_init(1, 1000, 3, &h);
+
+    mu_assert("Empty histogram", compare_int64(0, hdr_total_count(h)));
+    hdr_record_values(h, 10, 5);
+    hdr_record_value(h, 20);
+    mu_assert("Counts weighted records", compare_int64(6, hdr_total_count(h)));
+    mu_assert("NULL is zero", compare_int64(0, hdr_total_count(NULL)));
+
+    hdr_close(h);
+
+    return 0;
+}
+
 static char* test_linear_iter_buckets_correctly(void)
 {
     int step_count = 0;
@@ -1404,6 +1480,9 @@ static struct mu_result all_tests(void)
     mu_run_test(test_reset);
     mu_run_test(test_scaling_equivalence);
     mu_run_test(test_out_of_range_values);
+    mu_run_test(test_record_value_capped);
+    mu_run_test(test_record_value_capped_atomic);
+    mu_run_test(test_hdr_total_count);
     mu_run_test(test_linear_iter_buckets_correctly);
     mu_run_test(test_linear_iter_set_value_units_per_bucket);
     mu_run_test(test_iter_set_value_units_per_bucket_ignores_non_linear);
