@@ -1,0 +1,52 @@
+name: amalgamation
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+
+jobs:
+  amalgamation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate the amalgamation
+        run: python3 script/amalgamate.py --output out
+
+      - name: Amalgamated core preprocesses to the same translation unit as the sources
+        run: |
+          cc -E -P -Iinclude -Isrc src/hdr_histogram.c | grep -v '^[[:space:]]*$' > orig.txt
+          cc -E -P -Iout out/hdr_histogram.c | grep -v '^[[:space:]]*$' > amal.txt
+          cmp orig.txt amal.txt
+
+      - name: Amalgamated core builds standalone (default allocator)
+        run: |
+          cat > amal_smoke.c <<'EOT'
+          #include "hdr_histogram.h"
+          int main(void) {
+              struct hdr_histogram* h = NULL;
+              if (hdr_init(1, 1000000, 3, &h)) return 1;
+              hdr_record_value(h, 42);
+              volatile long long p = hdr_value_at_percentile(h, 99.0);
+              (void) p;
+              hdr_close(h);
+              return 0;
+          }
+          EOT
+          cc -std=c99 -Wall -Wextra -Os -Iout out/hdr_histogram.c amal_smoke.c -lm -o amal_smoke
+          ./amal_smoke
+
+      - name: Allocator header can be baked in
+        run: |
+          python3 script/amalgamate.py --output out-malloc --malloc-include my_alloc.h
+          test ! -e out-malloc/hdr_malloc.h
+          grep -q '#define HDR_MALLOC_INCLUDE "my_alloc.h"' out-malloc/hdr_histogram.c
+          cat > out-malloc/my_alloc.h <<'EOT'
+          #include <stdlib.h>
+          #define hdr_malloc malloc
+          #define hdr_calloc calloc
+          #define hdr_realloc realloc
+          #define hdr_free free
+          EOT
+          cc -std=c99 -Wall -Wextra -Os -Iout-malloc -c out-malloc/hdr_histogram.c -o out-malloc/hdr_histogram.o

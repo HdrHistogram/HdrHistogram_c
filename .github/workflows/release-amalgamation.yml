@@ -1,0 +1,66 @@
+name: release-amalgamation
+
+# Attach the amalgamated core to each GitHub release (see docs/AMALGAMATION.md).
+# "Run workflow" (workflow_dispatch) builds the same files and keeps them as a workflow
+# artifact instead, so the process can be tried without publishing a release.
+
+on:
+  release:
+    types: [ published ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  amalgamation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || github.ref }}
+
+      - name: Generate
+        run: |
+          set -euo pipefail
+          version=$(sed -n 's/^#define HDR_HISTOGRAM_VERSION "\(.*\)"/\1/p' include/hdr/hdr_histogram_version.h)
+          test -n "$version"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          tag="${{ github.event.release.tag_name }}"
+          if [ -n "$tag" ] && [ "${tag#v}" != "$version" ]; then
+            echo "::warning::release tag '$tag' does not match HDR_HISTOGRAM_VERSION '$version'"
+          fi
+          python3 script/amalgamate.py --output out
+
+      - name: Check it before publishing
+        run: |
+          set -euo pipefail
+          cc -E -P -Iinclude -Isrc src/hdr_histogram.c | grep -v '^[[:space:]]*$' > orig.txt
+          cc -E -P -Iout out/hdr_histogram.c | grep -v '^[[:space:]]*$' > amal.txt
+          cmp orig.txt amal.txt
+          cc -std=c99 -Wall -Wextra -Os -Iout -c out/hdr_histogram.c -o out/hdr_histogram.o
+          rm out/hdr_histogram.o
+
+      - name: Package
+        run: |
+          set -euo pipefail
+          name="hdr_histogram-amalgamation-${VERSION}"
+          mkdir -p "dist/$name"
+          cp out/hdr_histogram.c out/hdr_histogram.h out/hdr_malloc.h docs/AMALGAMATION.md "dist/$name/"
+          (cd dist && zip -qr "$name.zip" "$name" && rm -r "$name")
+          cp out/hdr_histogram.c out/hdr_histogram.h out/hdr_malloc.h dist/
+          (cd dist && sha256sum * > SHA256SUMS)
+          ls -l dist
+
+      - name: Attach to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" dist/* --clobber
+
+      - name: Keep as a workflow artifact (manual run)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hdr_histogram-amalgamation
+          path: dist/

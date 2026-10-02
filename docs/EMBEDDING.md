@@ -50,6 +50,9 @@ is just one file:
 cc -c -Iinclude src/hdr_histogram.c
 ```
 
+To vendor the core without the rest of the source tree, use the amalgamated build instead:
+see [AMALGAMATION.md](AMALGAMATION.md).
+
 ## Custom allocator
 
 All allocations go through the `hdr_malloc` / `hdr_calloc` / `hdr_realloc` /
