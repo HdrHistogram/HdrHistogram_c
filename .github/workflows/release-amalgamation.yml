@@ -31,6 +31,7 @@ jobs:
             echo "::warning::release tag '$tag' does not match HDR_HISTOGRAM_VERSION '$version'"
           fi
           python3 script/amalgamate.py --output out
+          python3 script/amalgamate.py --output out-log --with-log
 
       - name: Check it before publishing
         run: |
@@ -40,15 +41,19 @@ jobs:
           cmp orig.txt amal.txt
           cc -std=c99 -Wall -Wextra -Os -Iout -c out/hdr_histogram.c -o out/hdr_histogram.o
           rm out/hdr_histogram.o
+          sudo apt-get update && sudo apt-get install -y zlib1g-dev
+          sh script/check-amalgamation.sh "$RUNNER_TEMP/amalgamation-variants"
 
       - name: Package
         run: |
           set -euo pipefail
           name="hdr_histogram-amalgamation-${VERSION}"
-          mkdir -p "dist/$name"
+          logname="hdr_histogram-amalgamation-with-log-${VERSION}"
+          mkdir -p "dist/$name" "dist/$logname"
           cp out/hdr_histogram.c out/hdr_histogram.h out/hdr_malloc.h docs/AMALGAMATION.md "dist/$name/"
-          (cd dist && zip -qr "$name.zip" "$name" && rm -r "$name")
-          cp out/hdr_histogram.c out/hdr_histogram.h out/hdr_malloc.h dist/
+          cp out-log/* docs/AMALGAMATION.md "dist/$logname/"
+          (cd dist && zip -qr "$name.zip" "$name" && zip -qr "$logname.zip" "$logname" && rm -r "$name" "$logname")
+          cp out-log/* dist/
           (cd dist && sha256sum * > SHA256SUMS)
           ls -l dist
 
