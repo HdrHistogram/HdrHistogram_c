@@ -23,6 +23,9 @@ Features unlikely to be implemented
 * Atomic/Concurrent histograms
 * 16/32 bit histograms
 
+Embedding the library (minimal static core without zlib/threads, custom
+allocator, disabling the AVX2 scan): see [docs/EMBEDDING.md](docs/EMBEDDING.md).
+
 # Simple Tutorial
 
 ## Recording values

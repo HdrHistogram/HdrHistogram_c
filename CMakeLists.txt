@@ -54,6 +54,21 @@ if(UNIX)
     add_definitions(-D_GNU_SOURCE)
 endif()
 
+option(HDR_HISTOGRAM_CORE_ONLY "Build only the minimal static core (record + percentile); no logging, recorder, zlib or threads" OFF)
+option(HDR_HISTOGRAM_DISABLE_AVX2 "Disable the runtime AVX2 percentile-scan dispatch (force the scalar scan)" OFF)
+if(HDR_HISTOGRAM_DISABLE_AVX2)
+    add_compile_definitions(HDR_DISABLE_AVX2)
+endif()
+
+# A core-only build depends on nothing but libc/libm: skip zlib/thread discovery
+# and the full library, tests, examples and packaging below.
+if(HDR_HISTOGRAM_CORE_ONLY)
+    set(HDR_LOG_ENABLED "FALSE")
+    add_subdirectory(include)
+    add_subdirectory(src)
+    return()
+endif()
+
 find_package(ZLIB)
 find_package(Threads REQUIRED)
 
