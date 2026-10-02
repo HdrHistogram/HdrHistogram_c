@@ -12,6 +12,10 @@ implementation.  The current supported features are:
 * All iterator types (all values, recorded, percentiles, linear, logarithmic)
 * Histogram serialisation (encoding version 1.2, decoding 1.0-1.2)
 * Reader/writer phaser and interval recorder
+* Sparse histogram (`hdr_packed_histogram`, see `include/hdr/hdr_packed_histogram.h`): a separate,
+  opt-in type whose storage grows with the number of populated buckets, with counts kept in 1, 2, 4
+  or 8 bytes as needed. Much smaller when you hold many sparsely populated histograms, at the cost
+  of slower recording and no atomic recording; it serialises to the standard compressed format
 
 Features not supported, but planned
 
