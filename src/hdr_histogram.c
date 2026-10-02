@@ -40,7 +40,8 @@
      - _MSC_VER: __builtin_cpu_supports's __cpu_model isn't linked under MSVC;
        clang-cl also defines __x86_64__/__clang__ so this exclusion is load-bearing.
      - __INTEL_COMPILER: ICC classic. */
-#if defined(__x86_64__) \
+#if !defined(HDR_DISABLE_AVX2) \
+    && defined(__x86_64__) \
     && (defined(__GNUC__) || defined(__clang__)) && !defined(__INTEL_COMPILER) && !defined(_MSC_VER)
 #  define HDR_HAS_AVX2_DISPATCH 1
 #  include <immintrin.h>

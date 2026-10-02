@@ -65,6 +65,9 @@ deps/hdr_histogram/
 
 A `-DHDR_MALLOC_INCLUDE` on the compiler command line still takes precedence.
 
+`-DHDR_DISABLE_AVX2` also works on the amalgamated file: it drops the runtime AVX2 percentile
+scan and always uses the scalar one, exactly as in the full build.
+
 ## How it stays correct
 
 The amalgamated `hdr_histogram.c` preprocesses to the exact same translation unit as the

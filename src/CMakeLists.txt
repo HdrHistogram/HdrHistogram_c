@@ -31,6 +31,27 @@ set(HDR_HISTOGRAM_PRIVATE_HEADERS
     hdr_tests.h
     hdr_malloc.h)
 
+# Minimal static core: just the record/percentile engine (hdr_histogram.c). No
+# logging, interval recorder, phaser, zlib or threads. Allocator hooks
+# (hdr_malloc.h) and the public API are preserved.
+if(HDR_HISTOGRAM_CORE_ONLY)
+    add_library(hdr_histogram_core_static STATIC
+        hdr_histogram.c
+        ${HDR_HISTOGRAM_PRIVATE_HEADERS}
+        ${HDR_HISTOGRAM_PUBLIC_HEADERS})
+    target_link_libraries(hdr_histogram_core_static
+        PRIVATE $<$<BOOL:${HAVE_LIBM}>:m>)
+    target_include_directories(hdr_histogram_core_static
+        PUBLIC
+            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+            $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+    add_library(${PROJECT_NAME}::hdr_histogram_core_static ALIAS hdr_histogram_core_static)
+    install(
+        TARGETS hdr_histogram_core_static
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+    return()
+endif()
+
 function(hdr_histogram_add_library NAME LIBRARY_TYPE DO_INSTALL)
     add_library(${NAME} ${LIBRARY_TYPE}
         ${HDR_HISTOGRAM_SOURCES}
