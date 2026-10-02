@@ -821,6 +821,10 @@ static int64_t get_value_from_idx_up_to_count_scalar(
                 block_sum_u += (uint64_t)counts[idx + j];
             if (HDR_UNLIKELY((uint64_t)running + block_sum_u >= (uint64_t)count_at_percentile))
             {
+#if defined(__aarch64__) && defined(__clang__) && !defined(__APPLE__)
+                /* Keep crossing-block prefix sums out of the block-sum loop. */
+#pragma clang loop unroll(disable)
+#endif
                 for (j = 0; j < BLK; j++)
                 {
                     running += counts[idx + j];
