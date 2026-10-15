@@ -685,7 +685,7 @@ int hdr_packed_value_at_percentiles(const struct hdr_packed_histogram* h,
     for (size_t i = 0; i < length; i++)
     {
         tgt[i] = packed_count_at_percentile(h, percentiles[i]);
-        vfi[i] = 0;                 /* unreached (empty histogram) -> value 0, as singular */
+        vfi[i] = 0;                 /* unreached -> value 0, as singular */
         ord[i] = i;
     }
     /* insertion sort `ord` by ascending target (length is small) */

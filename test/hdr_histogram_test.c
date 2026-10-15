@@ -830,7 +830,7 @@ static char* test_reset(void)
     return 0;
 }
 
-static char* test_value_at_percentile_empty(void)
+static char* test_value_at_percentile_empty_configs(void)
 {
     const int64_t lowests[] = { 1, 2, 100, 1000, INT64_C(1) << 20 };
     const int sig_figs[] = { 1, 3, 5 };
@@ -842,7 +842,7 @@ static char* test_value_at_percentile_empty(void)
     {
         for (s = 0; s < sizeof(sig_figs) / sizeof(sig_figs[0]); s++)
         {
-            /* fresh, after reset, offset-aware scan, zero-count record */
+            /* fresh, after reset, non-zero offset, zero-count record */
             for (state = 0; state < 4; state++)
             {
                 struct hdr_histogram* h = NULL;
@@ -1673,7 +1673,7 @@ static struct mu_result all_tests(void)
     mu_run_test(test_linear_values);
     mu_run_test(test_logarithmic_values);
     mu_run_test(test_reset);
-    mu_run_test(test_value_at_percentile_empty);
+    mu_run_test(test_value_at_percentile_empty_configs);
     mu_run_test(test_value_at_percentile_recorded_zero);
     mu_run_test(test_scaling_equivalence);
     mu_run_test(test_out_of_range_values);

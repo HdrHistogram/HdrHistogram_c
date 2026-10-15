@@ -938,6 +938,14 @@ int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percen
     {
         return EINVAL;
     }
+    if (HDR_UNLIKELY(h->total_count == 0))
+    {
+        for (size_t i = 0; i < length; i++)
+        {
+            values[i] = 0;
+        }
+        return 0;
+    }
 
     struct hdr_iter iter;
     const int64_t total_count = h->total_count;
@@ -1015,11 +1023,11 @@ int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percen
             }
         }
     }
-    /* targets the scan never reached (e.g. empty) get the singular API's not-found value */
+    /* unreached targets (counts below total_count) get the singular's not-found value */
     for (; at_pos < length; at_pos++)
     {
-        values[at_pos] = total_count == 0 ? 0 : (percentiles[at_pos] == 0.0 ?
-            lowest_equivalent_value(h, 0) : highest_equivalent_value(h, 0));
+        values[at_pos] = percentiles[at_pos] == 0.0 ?
+            lowest_equivalent_value(h, 0) : highest_equivalent_value(h, 0);
     }
     return 0;
 }
