@@ -530,16 +530,12 @@ static char* test_value_at_percentiles_blocked_parity(void)
     return 0;
 }
 
-/* Singular and plural percentile APIs both scan counts via counts_get_normalised, so
-   they must locate the same crossing bucket for any normalizing_index_offset. p0 is
-   excluded: hdr_value_at_percentile special-cases it to lowest_equivalent_value while
-   the plural API returns highest_equivalent_value, a documented divergence unrelated to
-   the offset-aware scan. */
+/* Singular and plural percentile APIs must agree for any normalizing_index_offset. */
 static char* test_percentile_singular_equals_plural_with_offset(void)
 {
     struct hdr_histogram* h = NULL;
-    double percentiles[5] = { 50.0, 90.0, 99.0, 99.9, 100.0 };
-    int64_t values[5] = { 0 };
+    double percentiles[6] = { 0.0, 50.0, 90.0, 99.0, 99.9, 100.0 };
+    int64_t values[6] = { 0 };
     int i;
 
     mu_assert("Failed to allocate hdr_histogram", hdr_init(1, INT64_C(3600000000), 3, &h) == 0);
@@ -554,14 +550,103 @@ static char* test_percentile_singular_equals_plural_with_offset(void)
     h->normalizing_index_offset = h->counts_len / 2;
 
     mu_assert("value_at_percentiles return should be 0",
-        hdr_value_at_percentiles(h, percentiles, values, 5) == 0);
+        hdr_value_at_percentiles(h, percentiles, values, 6) == 0);
 
-    for (i = 0; i < 5; i++)
+    for (i = 0; i < 6; i++)
     {
         mu_assert("singular != plural under non-zero offset",
             hdr_value_at_percentile(h, percentiles[i]) == values[i]);
     }
 
+    hdr_close(h);
+    return 0;
+}
+
+/* -1 and 1e-12 deliberately keep the upper bound; only an exact 0.0 (or -0.0) is p0 */
+static const double p0_pcts[] = { -1.0, -0.0, 0.0, 0.0, 1e-12, 10.0, 50.0, 99.9, 100.0, 150.0 };
+#define P0_PCTS_LEN (sizeof(p0_pcts) / sizeof(p0_pcts[0]))
+
+static char* batch_equals_singular(const struct hdr_histogram* h, int64_t* values)
+{
+    size_t i;
+
+    mu_assert("value_at_percentiles return should be 0",
+        hdr_value_at_percentiles(h, p0_pcts, values, P0_PCTS_LEN) == 0);
+    for (i = 0; i < P0_PCTS_LEN; i++)
+    {
+        mu_assert("batch != singular", values[i] == hdr_value_at_percentile(h, p0_pcts[i]));
+    }
+    return 0;
+}
+
+static char* check_p0_bounds(const struct hdr_histogram* h, const int64_t* values)
+{
+    mu_assert("batch p0 should equal hdr_min", values[2] == hdr_min(h) && values[1] == values[2]);
+    mu_assert("non-zero percentiles should keep the upper bound",
+        values[0] == values[4] && values[4] > values[2]);
+    return 0;
+}
+
+static char* test_value_at_percentiles_p0_equals_singular(void)
+{
+    struct hdr_histogram *h, *rotated;
+    const int64_t lowest[3] = { 1, 100, 100 };
+    int64_t values[P0_PCTS_LEN];
+    const int32_t k = 101;
+    int32_t j;
+    int c;
+    char* result;
+
+    for (c = 0; c < 3; c++)
+    {
+        mu_assert("init", hdr_init(lowest[c], INT64_C(3600000000), 3, &h) == 0);
+        mu_assert("init rotated", hdr_init(lowest[c], INT64_C(3600000000), 3, &rotated) == 0);
+        if (c == 2)
+        {
+            hdr_record_value(h, 0);
+        }
+        hdr_record_values(h, 100000, 2);
+        hdr_record_value(h, 200000);
+
+        rotated->normalizing_index_offset = k;
+        rotated->total_count = h->total_count;
+        for (j = 0; j < h->counts_len; j++)
+        {
+            rotated->counts[j] = h->counts[((int64_t)j + k) % h->counts_len];
+        }
+
+        if ((result = batch_equals_singular(h, values)) || (result = check_p0_bounds(h, values)))
+        {
+            return result;
+        }
+        mu_assert("recorded 0 should give batch p0 of 0", c != 2 || values[2] == 0);
+        if ((result = batch_equals_singular(rotated, values)))
+        {
+            return result;
+        }
+
+        hdr_close(rotated);
+        hdr_close(h);
+    }
+
+    /* Tail loop: counts_len is always a multiple of the block size, so shrink it. */
+    mu_assert("init", hdr_init(1, INT64_C(3600000000), 3, &h) == 0);
+    {
+        const int32_t len = h->counts_len;
+        hdr_record_values(h, hdr_value_at_index(h, 4001), 2);
+        hdr_record_value(h, hdr_value_at_index(h, 4003));
+        h->counts_len = 4004;
+        result = batch_equals_singular(h, values);
+        if (!result)
+        {
+            result = check_p0_bounds(h, values);
+        }
+        h->counts_len = len;
+        if (result)
+        {
+            return result;
+        }
+    }
     hdr_close(h);
     return 0;
 }
@@ -1518,6 +1603,7 @@ static struct mu_result all_tests(void)
     mu_run_test(test_value_at_percentiles_with_offset);
     mu_run_test(test_value_at_percentiles_blocked_parity);
     mu_run_test(test_percentile_singular_equals_plural_with_offset);
+    mu_run_test(test_value_at_percentiles_p0_equals_singular);
     mu_run_test(test_recorded_values);
     mu_run_test(test_linear_values);
     mu_run_test(test_logarithmic_values);

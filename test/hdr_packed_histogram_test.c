@@ -505,11 +505,15 @@ static char* test_percentile_edges(void)
     for (int i = 0; i < 5; i++) mu_assert("plural parity", compare_int64(dv[i], pv[i]));
     mu_assert("plural null percentiles EINVAL", hdr_packed_value_at_percentiles(p, NULL, pv, 5) == EINVAL);
     mu_assert("plural null values EINVAL", hdr_packed_value_at_percentiles(p, pcts, NULL, 5) == EINVAL);
-    /* divergence #8: packed plural == packed singular at p0 (bucket bottom),
-       self-consistent (dense's plural returns the bucket top -- not reproduced). */
-    double zero[1] = {0.0}; int64_t zpl[1];
+    /* plural p0 is the bucket bottom, as for singular and dense plural */
+    double zero[1] = {0.0}; int64_t zpl[1], zdl[1];
     hdr_packed_value_at_percentiles(p, zero, zpl, 1);
     mu_assert("plural p0 == singular p0", zpl[0] == hdr_packed_value_at_percentile(p, 0.0));
+    hdr_packed_reset(p); hdr_reset(d);
+    hdr_packed_record_value(p, 5001); hdr_record_value(d, 5001);
+    hdr_packed_value_at_percentiles(p, zero, zpl, 1);
+    hdr_value_at_percentiles(d, zero, zdl, 1);
+    mu_assert("dense plural p0 == packed plural p0", zdl[0] == zpl[0] && zdl[0] == hdr_min(d));
     hdr_packed_close(p); hdr_close(d);
     return 0;
 }
