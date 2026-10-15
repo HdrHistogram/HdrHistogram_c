@@ -615,18 +615,26 @@ static char* test_value_at_percentiles_p0_equals_singular(void)
             rotated->counts[j] = h->counts[((int64_t)j + k) % h->counts_len];
         }
 
-        if ((result = batch_equals_singular(h, values)) || (result = check_p0_bounds(h, values)))
+        result = batch_equals_singular(h, values);
+        if (!result)
         {
-            return result;
+            result = check_p0_bounds(h, values);
         }
-        mu_assert("recorded 0 should give batch p0 of 0", c != 2 || values[2] == 0);
-        if ((result = batch_equals_singular(rotated, values)))
+        if (!result && c == 2 && values[2] != 0)
         {
-            return result;
+            result = "recorded 0 should give batch p0 of 0";
+        }
+        if (!result)
+        {
+            result = batch_equals_singular(rotated, values);
         }
 
         hdr_close(rotated);
         hdr_close(h);
+        if (result)
+        {
+            return result;
+        }
     }
 
     /* Tail loop: counts_len is always a multiple of the block size, so shrink it. */
@@ -642,13 +650,9 @@ static char* test_value_at_percentiles_p0_equals_singular(void)
             result = check_p0_bounds(h, values);
         }
         h->counts_len = len;
-        if (result)
-        {
-            return result;
-        }
     }
     hdr_close(h);
-    return 0;
+    return result;
 }
 
 
