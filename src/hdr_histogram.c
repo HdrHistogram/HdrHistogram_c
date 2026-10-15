@@ -1018,8 +1018,8 @@ int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percen
     /* targets the scan never reached (e.g. empty) get the singular API's not-found value */
     for (; at_pos < length; at_pos++)
     {
-        values[at_pos] = percentiles[at_pos] == 0.0 || total_count == 0 ?
-            lowest_equivalent_value(h, 0) : highest_equivalent_value(h, 0);
+        values[at_pos] = total_count == 0 ? 0 : (percentiles[at_pos] == 0.0 ?
+            lowest_equivalent_value(h, 0) : highest_equivalent_value(h, 0));
     }
     return 0;
 }
