@@ -514,6 +514,24 @@ static char* test_percentile_edges(void)
     return 0;
 }
 
+/* empty, lowest > 1: unresolved dense plural slots match packed (p>0 is the top of bucket 0) */
+static char* test_plural_empty_parity(void)
+{
+    struct hdr_packed_histogram* p = NULL;
+    struct hdr_histogram* d = NULL;
+    hdr_packed_init(100, HIGHEST, SIG, &p);
+    hdr_init(100, HIGHEST, SIG, &d);
+    double pcts[] = {0, 50, 99.9, 100, 150};
+    int64_t pv[5], dv[5];
+    mu_assert("empty packed plural ok", hdr_packed_value_at_percentiles(p, pcts, pv, 5) == 0);
+    mu_assert("empty dense plural ok", hdr_value_at_percentiles(d, pcts, dv, 5) == 0);
+    for (int i = 0; i < 5; i++) mu_assert("empty plural parity", compare_int64(dv[i], pv[i]));
+    mu_assert("empty p0 is 0", dv[0] == 0);
+    mu_assert("empty p50 is top of bucket 0", dv[1] == 63);
+    hdr_packed_close(p); hdr_close(d);
+    return 0;
+}
+
 /* single-pass plural must equal the per-percentile singular for ANY input order
    (packed sorts targets internally), for duplicates, out-of-range percentiles,
    and length past the small-buffer threshold (the malloc path). */
@@ -746,6 +764,7 @@ static struct mu_result all_tests(void)
     mu_run_test(test_encoding_count_width_growth);
     mu_run_test(test_count_widths);
     mu_run_test(test_percentile_edges);
+    mu_run_test(test_plural_empty_parity);
     mu_run_test(test_plural_single_pass_order);
     mu_run_test(test_min_with_zero);
     mu_run_test(test_memory_size);

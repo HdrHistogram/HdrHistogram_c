@@ -566,6 +566,91 @@ static char* test_percentile_singular_equals_plural_with_offset(void)
     return 0;
 }
 
+static char* check_empty_value_at_percentiles(const struct hdr_histogram* h, int64_t* values)
+{
+    const double percentiles[5] = { 0.0, 50.0, 99.9, 100.0, 150.0 };
+    int i;
+
+    mu_assert("empty value_at_percentiles return should be 0",
+        hdr_value_at_percentiles(h, percentiles, values, 5) == 0);
+    for (i = 0; i < 5; i++)
+    {
+        mu_assert("singular != plural on empty histogram",
+            hdr_value_at_percentile(h, percentiles[i]) == values[i]);
+    }
+    return 0;
+}
+
+static char* test_value_at_percentiles_empty(void)
+{
+    const int64_t lowest[2] = { 1, 100 };
+    const double p50 = 50.0;
+    int c;
+
+    for (c = 0; c < 2; c++)
+    {
+        struct hdr_histogram* h = NULL;
+        int64_t values[5] = { -7, -7, -7, -7, -7 };
+        char* result;
+
+        mu_assert("Failed to allocate hdr_histogram",
+            hdr_init(lowest[c], INT64_C(3600000000), 3, &h) == 0);
+        if ((result = check_empty_value_at_percentiles(h, values))) return result;
+
+        h->normalizing_index_offset = h->counts_len / 2;
+        if ((result = check_empty_value_at_percentiles(h, values))) return result;
+        h->normalizing_index_offset = 0;
+
+        /* reuse the output buffer of a non-empty call across hdr_reset */
+        mu_assert("record failed", hdr_record_value(h, 5000));
+        mu_assert("non-empty value_at_percentiles return should be 0",
+            hdr_value_at_percentiles(h, &p50, values, 1) == 0);
+        hdr_reset(h);
+        if ((result = check_empty_value_at_percentiles(h, values))) return result;
+
+        values[0] = -7;
+        mu_assert("zero-length value_at_percentiles return should be 0",
+            hdr_value_at_percentiles(h, &p50, values, 0) == 0);
+        mu_assert("zero-length value_at_percentiles should not write", values[0] == -7);
+
+        hdr_close(h);
+    }
+    return 0;
+}
+
+/* Counts summing below total_count (struct written directly, or read racing writers)
+   leave the upper targets unresolved. */
+static char* test_value_at_percentiles_unresolved_targets(void)
+{
+    const double percentiles[4] = { 25.0, 50.0, 99.0, 100.0 };
+    const int32_t offsets[2] = { 0, 37 };
+    int c;
+    int i;
+
+    for (c = 0; c < 2; c++)
+    {
+        struct hdr_histogram* h = NULL;
+        int64_t values[4] = { -7, -7, -7, -7 };
+
+        mu_assert("Failed to allocate hdr_histogram", hdr_init(100, INT64_C(3600000000), 3, &h) == 0);
+        h->normalizing_index_offset = offsets[c];
+        mu_assert("record failed", hdr_record_value(h, 1000));
+        h->total_count = 4;
+
+        mu_assert("value_at_percentiles return should be 0",
+            hdr_value_at_percentiles(h, percentiles, values, 4) == 0);
+        mu_assert("p25 should resolve to the recorded value", values[0] >= 1000);
+        for (i = 0; i < 4; i++)
+        {
+            mu_assert("singular != plural for unresolved target",
+                hdr_value_at_percentile(h, percentiles[i]) == values[i]);
+        }
+
+        hdr_close(h);
+    }
+    return 0;
+}
+
 
 static char* test_recorded_values(void)
 {
@@ -1518,6 +1603,8 @@ static struct mu_result all_tests(void)
     mu_run_test(test_value_at_percentiles_with_offset);
     mu_run_test(test_value_at_percentiles_blocked_parity);
     mu_run_test(test_percentile_singular_equals_plural_with_offset);
+    mu_run_test(test_value_at_percentiles_empty);
+    mu_run_test(test_value_at_percentiles_unresolved_targets);
     mu_run_test(test_recorded_values);
     mu_run_test(test_linear_values);
     mu_run_test(test_logarithmic_values);
