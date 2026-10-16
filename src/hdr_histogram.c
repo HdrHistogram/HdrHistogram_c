@@ -780,7 +780,7 @@ int64_t hdr_total_count(const struct hdr_histogram* h)
 
 int64_t hdr_min(const struct hdr_histogram* h)
 {
-    if (0 < hdr_count_at_index(h, 0))
+    if (0 == hdr_total_count(h) || 0 < hdr_count_at_index(h, 0))
     {
         return 0;
     }

@@ -89,6 +89,7 @@ static char* test_empty_histogram(void)
     mu_assert("empty stddev 0", hdr_packed_stddev(p) == 0.0);
     mu_assert("empty populated 0", hdr_packed_populated(p) == 0);
     mu_assert("empty min == dense", hdr_packed_min(p) == hdr_min(d));
+    mu_assert("empty min 0", hdr_packed_min(p) == 0);
     char* r = parity_full(d, p);
     hdr_packed_close(p); hdr_close(d);
     return r;
