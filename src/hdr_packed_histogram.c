@@ -617,6 +617,10 @@ static int64_t packed_count_at_percentile(const struct hdr_packed_histogram* h, 
 
 int64_t hdr_packed_value_at_percentile(const struct hdr_packed_histogram* h, double percentile)
 {
+    if (h->total_count == 0)
+    {
+        return 0;
+    }
     const struct hdr_histogram* g = &h->cfg->geom;
     int64_t value_from_idx =
         packed_value_from_idx_at_count(h, packed_count_at_percentile(h, percentile));
@@ -643,6 +647,14 @@ int hdr_packed_value_at_percentiles(const struct hdr_packed_histogram* h,
     }
     if (0 == length)
     {
+        return 0;
+    }
+    if (h->total_count == 0)
+    {
+        for (size_t i = 0; i < length; i++)
+        {
+            values[i] = 0;
+        }
         return 0;
     }
 
@@ -673,7 +685,7 @@ int hdr_packed_value_at_percentiles(const struct hdr_packed_histogram* h,
     for (size_t i = 0; i < length; i++)
     {
         tgt[i] = packed_count_at_percentile(h, percentiles[i]);
-        vfi[i] = 0;                 /* unreached (empty histogram) -> value 0, as singular */
+        vfi[i] = 0;                 /* unreached -> value 0, as singular */
         ord[i] = i;
     }
     /* insertion sort `ord` by ascending target (length is small) */

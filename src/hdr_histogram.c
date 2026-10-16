@@ -916,6 +916,11 @@ static int64_t get_value_from_idx_up_to_count(const struct hdr_histogram* h, int
 
 int64_t hdr_value_at_percentile(const struct hdr_histogram* h, double percentile)
 {
+    /* empty: the scan's not-found 0 must not be rounded up to highest_equivalent_value(0) */
+    if (HDR_UNLIKELY(h->total_count == 0))
+    {
+        return 0;
+    }
     double requested_percentile = percentile < 100.0 ? percentile : 100.0;
     int64_t count_at_percentile =
         (int64_t) (((requested_percentile / 100) * h->total_count) + 0.5);
@@ -938,6 +943,14 @@ int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percen
     if (NULL == percentiles || NULL == values)
     {
         return EINVAL;
+    }
+    if (HDR_UNLIKELY(h->total_count == 0))
+    {
+        for (size_t i = 0; i < length; i++)
+        {
+            values[i] = 0;
+        }
+        return 0;
     }
 
     struct hdr_iter iter;
@@ -1015,6 +1028,12 @@ int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percen
                 at_pos++;
             }
         }
+    }
+    /* unreached targets (counts below total_count) get the singular's not-found value */
+    for (; at_pos < length; at_pos++)
+    {
+        values[at_pos] = percentiles[at_pos] == 0.0 ?
+            lowest_equivalent_value(h, 0) : highest_equivalent_value(h, 0);
     }
     return 0;
 }
