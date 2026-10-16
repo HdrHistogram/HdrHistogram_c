@@ -265,8 +265,9 @@ int64_t hdr_add_while_correcting_for_coordinated_omission(
     struct hdr_histogram* h, struct hdr_histogram* from, int64_t expected_interval);
 
 /**
- * Get minimum value from the histogram.  Will return 2^63-1 if the histogram
- * is empty.
+ * Get minimum value from the histogram.  Will return 0 if the histogram is
+ * empty, like hdr_max; a recorded 0 also gives 0, so use hdr_total_count to
+ * tell the two apart.
  *
  * @param h "This" pointer
  */

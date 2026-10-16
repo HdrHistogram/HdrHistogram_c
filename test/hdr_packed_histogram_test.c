@@ -89,6 +89,7 @@ static char* test_empty_histogram(void)
     mu_assert("empty stddev 0", hdr_packed_stddev(p) == 0.0);
     mu_assert("empty populated 0", hdr_packed_populated(p) == 0);
     mu_assert("empty min == dense", hdr_packed_min(p) == hdr_min(d));
+    mu_assert("empty min 0", hdr_packed_min(p) == 0);
     char* r = parity_full(d, p);
     hdr_packed_close(p); hdr_close(d);
     return r;
@@ -646,7 +647,7 @@ static char* test_packed_decode_shapes(void)
     struct hdr_packed_histogram* eo = NULL;
     mu_assert("packed decode empty ok", hdr_packed_decode_compressed(se, sel, &eo) == 0);
     mu_assert("packed decode empty total", hdr_packed_total_count(eo) == 0);
-    mu_assert("packed decode empty min", hdr_packed_min(eo) == INT64_MAX);
+    mu_assert("packed decode empty min", hdr_packed_min(eo) == 0);
     mu_assert("packed decode empty max", hdr_packed_max(eo) == 0);
     free(se); hdr_packed_close(eo); hdr_packed_close(e);
 

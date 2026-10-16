@@ -525,7 +525,7 @@ int64_t hdr_packed_max(const struct hdr_packed_histogram* h)
 
 int64_t hdr_packed_min(const struct hdr_packed_histogram* h)
 {
-    if (sparse_get(h, 0) > 0)
+    if (0 == h->total_count || sparse_get(h, 0) > 0)
     {
         return 0;
     }
