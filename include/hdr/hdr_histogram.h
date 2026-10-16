@@ -292,9 +292,9 @@ int64_t hdr_total_count(const struct hdr_histogram* h);
  * Get the value at a specific percentile.
  *
  * @param h "This" pointer.
- * @param percentile The percentile to get the value for. Above 100 and +inf give the
- * value at 100; NaN is treated as 100; below 0 and -inf give the first recorded
- * value. Exactly 0 returns the lowest equivalent value of that bucket.
+ * @param percentile The percentile to get the value for. Above 100 gives the value at
+ * 100; below 0 and -inf give the first recorded value. Exactly 0 returns the lowest
+ * equivalent value of that bucket.
  * @return the value at the percentile, or 0 if no values have been recorded.
  */
 int64_t hdr_value_at_percentile(const struct hdr_histogram* h, double percentile);
