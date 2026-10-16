@@ -10,6 +10,7 @@
 #include <errno.h>
 #include <string.h>
 #include <math.h>
+#include <float.h>
 
 #include <stdio.h>
 #include <math.h>
@@ -1731,9 +1732,51 @@ static char* test_record_rejects_negative_count(void)
     return 0;
 }
 
+static char* check_rank_both_apis(struct hdr_histogram* h, double p, int64_t expected)
+{
+    int64_t batch = -1;
+    mu_assert("batch rc", hdr_value_at_percentiles(h, &p, &batch, 1) == 0);
+    mu_assert("singular", hdr_value_at_percentile(h, p) == expected);
+    mu_assert("batch", batch == expected);
+    return 0;
+}
+
+static char* test_percentile_rank_clamped(void)
+{
+    struct hdr_histogram* h = NULL;
+    char* err;
+    int64_t first_hi, max_v;
+    const double bad[] = { -INFINITY, -1e300, -DBL_MAX, -1.0 };
+    size_t i;
+
+    mu_assert("allocate", hdr_init(1, 1000000000, 3, &h) == 0);
+    mu_assert("record", hdr_record_value(h, 10001));
+    mu_assert("record", hdr_record_value(h, 20001));
+    first_hi = hdr_next_non_equivalent_value(h, 10001) - 1;
+    max_v = hdr_max(h);
+    for (i = 0; i < sizeof(bad) / sizeof(bad[0]); i++)
+    {
+        if ((err = check_rank_both_apis(h, bad[i], first_hi))) return err;
+    }
+    if ((err = check_rank_both_apis(h, NAN, max_v))) return err;
+    if ((err = check_rank_both_apis(h, INFINITY, max_v))) return err;
+    hdr_close(h);
+
+    /* 2^63 after double rounding must resolve to the last bucket, not UB */
+    mu_assert("allocate", hdr_init(1, 1000000000, 3, &h) == 0);
+    mu_assert("record", hdr_record_values(h, 10001, INT64_MAX));
+    max_v = hdr_max(h);
+    if ((err = check_rank_both_apis(h, 100.0, max_v))) return err;
+    if ((err = check_rank_both_apis(h, INFINITY, max_v))) return err;
+    if ((err = check_rank_both_apis(h, -INFINITY, max_v))) return err;
+    hdr_close(h);
+    return 0;
+}
+
 static struct mu_result all_tests(void)
 {
     mu_run_test(test_percentile_widened_scan);
+    mu_run_test(test_percentile_rank_clamped);
     mu_run_test(test_record_rejects_negative_count);
     mu_run_test(test_create);
     mu_run_test(test_invalid_init);
