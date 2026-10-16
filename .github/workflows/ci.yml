@@ -97,10 +97,6 @@ jobs:
   # toolset, so neither of the two configurations the guard specifically
   # handles was exercised. These two jobs close that gap.
 
-  # 32-bit x86 GCC (i386): HDR_HAS_AVX2_DISPATCH must be compiled out here,
-  # because the AVX2 kernel uses _mm_extract_epi64, which is unavailable in
-  # 32-bit codegen. HDR_LOG_REQUIRED=DISABLED avoids needing a 32-bit zlib;
-  # the core suites still exercise hdr_value_at_percentile (the dispatched path).
   # Forces the libatomic path (the probe otherwise passes on every CI target).
   build-linux-force-libatomic:
     name: build (linux, forced libatomic)
@@ -121,6 +117,10 @@ jobs:
       - name: Test
         run: ctest --test-dir _build --output-on-failure
 
+  # 32-bit x86 GCC (i386): HDR_HAS_AVX2_DISPATCH must be compiled out here,
+  # because the AVX2 kernel uses _mm_extract_epi64, which is unavailable in
+  # 32-bit codegen. HDR_LOG_REQUIRED=DISABLED avoids needing a 32-bit zlib;
+  # the core suites still exercise hdr_value_at_percentile (the dispatched path).
   build-linux-i386:
     name: build (linux, Debug, i386, gcc -m32)
     runs-on: ubuntu-latest
