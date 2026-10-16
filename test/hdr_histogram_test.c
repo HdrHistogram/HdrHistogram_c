@@ -674,6 +674,93 @@ static char* test_value_at_percentiles_p0_equals_singular(void)
 }
 
 
+static char* check_empty_value_at_percentiles(const struct hdr_histogram* h, int64_t* values)
+{
+    const double percentiles[5] = { 0.0, 50.0, 99.9, 100.0, 150.0 };
+    int i;
+
+    mu_assert("empty value_at_percentiles return should be 0",
+        hdr_value_at_percentiles(h, percentiles, values, 5) == 0);
+    for (i = 0; i < 5; i++)
+    {
+        mu_assert("empty histogram percentile should be 0", values[i] == 0);
+        mu_assert("singular != plural on empty histogram",
+            hdr_value_at_percentile(h, percentiles[i]) == values[i]);
+    }
+    return 0;
+}
+
+static char* test_value_at_percentiles_empty(void)
+{
+    const int64_t lowest[2] = { 1, 100 };
+    const double p50 = 50.0;
+    int c;
+
+    for (c = 0; c < 2; c++)
+    {
+        struct hdr_histogram* h = NULL;
+        int64_t values[5] = { -7, -7, -7, -7, -7 };
+        char* result;
+
+        mu_assert("Failed to allocate hdr_histogram",
+            hdr_init(lowest[c], INT64_C(3600000000), 3, &h) == 0);
+        if ((result = check_empty_value_at_percentiles(h, values))) return result;
+
+        h->normalizing_index_offset = h->counts_len / 2;
+        if ((result = check_empty_value_at_percentiles(h, values))) return result;
+        h->normalizing_index_offset = 0;
+
+        /* reuse the output buffer of a non-empty call across hdr_reset */
+        mu_assert("record failed", hdr_record_value(h, 5000));
+        mu_assert("non-empty value_at_percentiles return should be 0",
+            hdr_value_at_percentiles(h, &p50, values, 1) == 0);
+        hdr_reset(h);
+        if ((result = check_empty_value_at_percentiles(h, values))) return result;
+
+        values[0] = -7;
+        mu_assert("zero-length value_at_percentiles return should be 0",
+            hdr_value_at_percentiles(h, &p50, values, 0) == 0);
+        mu_assert("zero-length value_at_percentiles should not write", values[0] == -7);
+
+        hdr_close(h);
+    }
+    return 0;
+}
+
+/* Counts summing below total_count (struct written directly, or read racing writers)
+   leave the upper targets unresolved. */
+static char* test_value_at_percentiles_unresolved_targets(void)
+{
+    const double percentiles[4] = { 25.0, 50.0, 99.0, 100.0 };
+    const int32_t offsets[2] = { 0, 37 };
+    int c;
+    int i;
+
+    for (c = 0; c < 2; c++)
+    {
+        struct hdr_histogram* h = NULL;
+        int64_t values[4] = { -7, -7, -7, -7 };
+
+        mu_assert("Failed to allocate hdr_histogram", hdr_init(100, INT64_C(3600000000), 3, &h) == 0);
+        h->normalizing_index_offset = offsets[c];
+        mu_assert("record failed", hdr_record_value(h, 1000));
+        h->total_count = 4;
+
+        mu_assert("value_at_percentiles return should be 0",
+            hdr_value_at_percentiles(h, percentiles, values, 4) == 0);
+        mu_assert("p25 should resolve to the recorded value", values[0] >= 1000);
+        for (i = 0; i < 4; i++)
+        {
+            mu_assert("singular != plural for unresolved target",
+                hdr_value_at_percentile(h, percentiles[i]) == values[i]);
+        }
+
+        hdr_close(h);
+    }
+    return 0;
+}
+
+
 static char* test_recorded_values(void)
 {
     struct hdr_iter iter;
@@ -848,6 +935,69 @@ static char* test_reset(void)
     mu_assert("Value at 99% not 0.0", hdr_value_at_percentile(raw_histogram, 99.0) == 0);
     mu_assert("Value at 99% not 0.0", hdr_value_at_percentile(cor_histogram, 99.0) == 0);
 
+    return 0;
+}
+
+static char* test_value_at_percentile_empty_configs(void)
+{
+    const int64_t lowests[] = { 1, 2, 100, 1000, INT64_C(1) << 20 };
+    const int sig_figs[] = { 1, 3, 5 };
+    const double percentiles[] = { 0.0, -0.0, 1e-9, 50.0, 95.0, 99.999, 100.0, 150.0, -1.0, NAN };
+    size_t l, s, p;
+    int state;
+
+    for (l = 0; l < sizeof(lowests) / sizeof(lowests[0]); l++)
+    {
+        for (s = 0; s < sizeof(sig_figs) / sizeof(sig_figs[0]); s++)
+        {
+            /* fresh, after reset, non-zero offset, zero-count record */
+            for (state = 0; state < 4; state++)
+            {
+                struct hdr_histogram* h = NULL;
+                mu_assert("Failed to allocate hdr_histogram",
+                    hdr_init(lowests[l], lowests[l] * 1000000, sig_figs[s], &h) == 0);
+
+                if (state == 1)
+                {
+                    hdr_record_value(h, lowests[l] * 1000);
+                    hdr_reset(h);
+                }
+                else if (state == 2)
+                {
+                    h->normalizing_index_offset = h->counts_len / 2;
+                }
+                else if (state == 3)
+                {
+                    hdr_record_values(h, lowests[l] * 50, 0);
+                }
+
+                mu_assert("Total count != 0", h->total_count == 0);
+                for (p = 0; p < sizeof(percentiles) / sizeof(percentiles[0]); p++)
+                {
+                    mu_assert("Empty histogram percentile not 0",
+                        hdr_value_at_percentile(h, percentiles[p]) == 0);
+                }
+
+                hdr_close(h);
+            }
+        }
+    }
+
+    return 0;
+}
+
+static char* test_value_at_percentile_recorded_zero(void)
+{
+    /* a recorded 0 still reports its bucket's range; only empty short-circuits */
+    struct hdr_histogram* h = NULL;
+    mu_assert("Failed to allocate hdr_histogram", hdr_init(100, 10000000, 3, &h) == 0);
+    hdr_record_value(h, 0);
+
+    mu_assert("p0 not 0", hdr_value_at_percentile(h, 0.0) == 0);
+    mu_assert("p50 not 63", hdr_value_at_percentile(h, 50.0) == 63);
+    mu_assert("p100 not 63", hdr_value_at_percentile(h, 100.0) == 63);
+
+    hdr_close(h);
     return 0;
 }
 
@@ -1627,10 +1777,14 @@ static struct mu_result all_tests(void)
     mu_run_test(test_value_at_percentiles_blocked_parity);
     mu_run_test(test_percentile_singular_equals_plural_with_offset);
     mu_run_test(test_value_at_percentiles_p0_equals_singular);
+    mu_run_test(test_value_at_percentiles_empty);
+    mu_run_test(test_value_at_percentiles_unresolved_targets);
     mu_run_test(test_recorded_values);
     mu_run_test(test_linear_values);
     mu_run_test(test_logarithmic_values);
     mu_run_test(test_reset);
+    mu_run_test(test_value_at_percentile_empty_configs);
+    mu_run_test(test_value_at_percentile_recorded_zero);
     mu_run_test(test_scaling_equivalence);
     mu_run_test(test_out_of_range_values);
     mu_run_test(test_record_value_capped);

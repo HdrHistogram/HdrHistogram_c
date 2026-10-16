@@ -293,6 +293,7 @@ int64_t hdr_total_count(const struct hdr_histogram* h);
  *
  * @param h "This" pointer.
  * @param percentile The percentile to get the value for
+ * @return the value at the percentile, or 0 if no values have been recorded.
  */
 int64_t hdr_value_at_percentile(const struct hdr_histogram* h, double percentile);
 
@@ -304,7 +305,9 @@ int64_t hdr_value_at_percentile(const struct hdr_histogram* h, double percentile
  * @param length Number of elements in the arrays.
  * @param values Destination array containing the values at the given percentiles.
  * The values array should be allocated by the caller.
- * @return 0 on success, ENOMEM if the provided destination array is null.
+ * Percentiles that cannot be resolved get the same value hdr_value_at_percentile
+ * returns for them, so all are 0 on an empty histogram.
+ * @return 0 on success, EINVAL if percentiles or values is null.
  */
 int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percentiles, int64_t *values, size_t length);
 
