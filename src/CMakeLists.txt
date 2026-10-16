@@ -5,8 +5,8 @@ check_library_exists(rt clock_gettime "" HAVE_LIBRT)
 
 # 32-bit ARM, RISC-V and others lower 64-bit __atomic builtins to libatomic calls
 if (NOT MSVC)
-    include(CheckCSourceLinks)
-    check_c_source_links("
+    include(CheckCSourceCompiles)
+    check_c_source_compiles("
 #include <stdint.h>
 int main(void)
 {
