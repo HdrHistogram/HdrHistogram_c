@@ -932,6 +932,12 @@ int64_t hdr_value_at_percentile(const struct hdr_histogram* h, double percentile
     return highest_equivalent_value(h, value_from_idx);
 }
 
+/* p0 is the bucket's lowest value, matching hdr_value_at_percentile */
+static int64_t percentile_bound(const struct hdr_histogram* h, double percentile, int64_t value)
+{
+    return percentile == 0.0 ? lowest_equivalent_value(h, value) : highest_equivalent_value(h, value);
+}
+
 int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percentiles, int64_t *values, size_t length)
 {
     if (NULL == percentiles || NULL == values)
@@ -987,7 +993,7 @@ int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percen
                     total += (uint64_t)counts[j];
                     while (at_pos < length && (int64_t)total >= values[at_pos])
                     {
-                        values[at_pos] = highest_equivalent_value(h, hdr_value_at_index(h, j));
+                        values[at_pos] = percentile_bound(h, percentiles[at_pos], hdr_value_at_index(h, j));
                         at_pos++;
                     }
                 }
@@ -1003,7 +1009,7 @@ int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percen
             total += (uint64_t)counts[idx];
             while (at_pos < length && (int64_t)total >= values[at_pos])
             {
-                values[at_pos] = highest_equivalent_value(h, hdr_value_at_index(h, idx));
+                values[at_pos] = percentile_bound(h, percentiles[at_pos], hdr_value_at_index(h, idx));
                 at_pos++;
             }
         }
@@ -1018,7 +1024,7 @@ int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percen
             total += (uint64_t)iter.count;
             while (at_pos < length && (int64_t)total >= values[at_pos])
             {
-                values[at_pos] = highest_equivalent_value(h, iter.value);
+                values[at_pos] = percentile_bound(h, percentiles[at_pos], iter.value);
                 at_pos++;
             }
         }
