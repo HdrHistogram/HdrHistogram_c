@@ -56,8 +56,7 @@ static char* parity_full(struct hdr_histogram* d, struct hdr_packed_histogram* p
     for (size_t i = 0; i < sizeof(pcts)/sizeof(pcts[0]); i++)
         mu_assert("percentile parity",
             compare_int64(hdr_value_at_percentile(d, pcts[i]), hdr_packed_value_at_percentile(p, pcts[i])));
-    /* mean/stddev parity (non-empty): tolerance from Java data-access tests */
-    if (d->total_count > 0)
+    /* mean/stddev parity: tolerance from Java data-access tests */
     {
         mu_assert("mean parity", compare_double(hdr_mean(d), hdr_packed_mean(p), hdr_mean(d) * 0.001 + 1e-9));
         mu_assert("stddev parity", compare_double(hdr_stddev(d), hdr_packed_stddev(p), hdr_stddev(d) * 0.001 + 1e-9));
@@ -550,6 +549,36 @@ static char* test_plural_empty_parity(void)
 /* single-pass plural must equal the per-percentile singular for ANY input order
    (packed sorts targets internally), for duplicates, out-of-range percentiles,
    and length past the small-buffer threshold (the malloc path). */
+static char* test_empty_mean_stddev_parity(void)
+{
+    const int64_t lows[] = {1, 100};
+    for (size_t l = 0; l < sizeof(lows) / sizeof(lows[0]); l++)
+    {
+        for (int sig = 1; sig <= 5; sig++)
+        {
+            struct hdr_packed_histogram* p = NULL;
+            struct hdr_histogram* d = NULL;
+            hdr_packed_init(lows[l], HIGHEST, sig, &p);
+            hdr_init(lows[l], HIGHEST, sig, &d);
+            mu_assert("fresh dense 0", hdr_mean(d) == 0.0 && hdr_stddev(d) == 0.0);
+            mu_assert("fresh packed 0", hdr_packed_mean(p) == 0.0 && hdr_packed_stddev(p) == 0.0);
+
+            hdr_record_value(d, 1000); hdr_packed_record_value(p, 1000);
+            hdr_reset(d); hdr_packed_reset(p);
+            mu_assert("reset dense 0", hdr_mean(d) == 0.0 && hdr_stddev(d) == 0.0);
+            mu_assert("reset packed 0", hdr_packed_mean(p) == 0.0 && hdr_packed_stddev(p) == 0.0);
+
+            hdr_record_value(d, 0); hdr_packed_record_value(p, 0);
+            mu_assert("zero sample parity", hdr_mean(d) == hdr_packed_mean(p) &&
+                hdr_stddev(d) == hdr_packed_stddev(p) && hdr_stddev(d) == 0.0);
+            mu_assert("zero sample total", 1 == d->total_count && 1 == hdr_packed_total_count(p));
+            hdr_close(d);
+            hdr_packed_close(p);
+        }
+    }
+    return 0;
+}
+
 static char* test_plural_single_pass_order(void)
 {
     struct hdr_packed_histogram* p = NULL;
@@ -780,6 +809,7 @@ static struct mu_result all_tests(void)
     mu_run_test(test_count_widths);
     mu_run_test(test_percentile_edges);
     mu_run_test(test_plural_empty_parity);
+    mu_run_test(test_empty_mean_stddev_parity);
     mu_run_test(test_plural_single_pass_order);
     mu_run_test(test_min_with_zero);
     mu_run_test(test_memory_size);

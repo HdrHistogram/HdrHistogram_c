@@ -1639,6 +1639,37 @@ static char* test_mean_does_not_overflow(void)
     return 0;
 }
 
+static char* test_empty_mean_stddev_is_zero(void)
+{
+    const int64_t lows[] = {1, 100};
+    struct hdr_histogram* h = NULL;
+
+    for (size_t l = 0; l < sizeof(lows) / sizeof(lows[0]); l++)
+    {
+        for (int sig = 1; sig <= 5; sig++)
+        {
+            mu_assert("Should allocate", 0 == hdr_init(lows[l], 3600000000LL, sig, &h));
+            mu_assert("fresh mean is 0", hdr_mean(h) == 0.0);
+            mu_assert("fresh stddev is 0", hdr_stddev(h) == 0.0);
+
+            hdr_record_value(h, 1000);
+            hdr_record_value(h, 5000);
+            mu_assert("nonempty mean > 0", hdr_mean(h) > 0.0);
+            hdr_reset(h);
+            mu_assert("reset mean is 0", hdr_mean(h) == 0.0);
+            mu_assert("reset stddev is 0", hdr_stddev(h) == 0.0);
+
+            /* a recorded 0 is not empty: mean comes from the non-empty path */
+            hdr_record_value(h, 0);
+            mu_assert("one sample", 1 == h->total_count);
+            mu_assert("zero-sample mean", hdr_mean(h) == (double) hdr_median_equivalent_value(h, 0));
+            mu_assert("zero-sample stddev is 0", hdr_stddev(h) == 0.0);
+            hdr_close(h);
+        }
+    }
+    return 0;
+}
+
 static char* test_count_at_value_out_of_range(void)
 {
     /* Regression (ASan, found via fuzzing): hdr_count_at_value indexed counts[]
@@ -1777,6 +1808,7 @@ static struct mu_result all_tests(void)
     mu_run_test(test_interval_recording);
     mu_run_test(reset_histogram_on_sample_and_recycle);
     mu_run_test(test_mean_does_not_overflow);
+    mu_run_test(test_empty_mean_stddev_is_zero);
     mu_run_test(test_count_at_value_out_of_range);
     mu_run_test(test_count_at_index_out_of_range);
 

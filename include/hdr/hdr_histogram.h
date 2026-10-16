@@ -315,7 +315,7 @@ int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percen
  * Gets the standard deviation for the values in the histogram.
  *
  * @param h "This" pointer
- * @return The standard deviation
+ * @return The standard deviation, or 0.0 if the histogram is empty.
  */
 double hdr_stddev(const struct hdr_histogram* h);
 
@@ -323,7 +323,7 @@ double hdr_stddev(const struct hdr_histogram* h);
  * Gets the mean for the values in the histogram.
  *
  * @param h "This" pointer
- * @return The mean
+ * @return The mean, or 0.0 if the histogram is empty.
  */
 double hdr_mean(const struct hdr_histogram* h);
 
