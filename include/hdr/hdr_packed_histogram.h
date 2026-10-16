@@ -12,8 +12,9 @@
  * provide synchronization and ownership management.
  *
  * Negative counts and recordings that overflow total_count are rejected.
- * Empty mean/stddev return zero. Percentile targets are clamped to the total;
- * NaN and positive infinity select p100, negative percentiles select count one.
+ * Empty mean/stddev and percentiles return zero. Percentile targets are
+ * clamped to the total; NaN and positive infinity select p100, negative
+ * percentiles select count one.
  * The plural API accepts unsorted percentiles and agrees with singular queries,
  * including the lowest equivalent value at p0. Floating-point statistics may
  * differ from dense statistics due to accumulation order.

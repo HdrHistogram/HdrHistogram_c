@@ -518,7 +518,7 @@ static char* test_percentile_edges(void)
     return 0;
 }
 
-/* empty, lowest > 1: unresolved dense plural slots match packed (p>0 is the top of bucket 0) */
+/* empty, lowest > 1: dense and packed, singular and plural, are all 0 */
 static char* test_plural_empty_parity(void)
 {
     struct hdr_packed_histogram* p = NULL;
@@ -529,9 +529,20 @@ static char* test_plural_empty_parity(void)
     int64_t pv[5], dv[5];
     mu_assert("empty packed plural ok", hdr_packed_value_at_percentiles(p, pcts, pv, 5) == 0);
     mu_assert("empty dense plural ok", hdr_value_at_percentiles(d, pcts, dv, 5) == 0);
-    for (int i = 0; i < 5; i++) mu_assert("empty plural parity", compare_int64(dv[i], pv[i]));
-    mu_assert("empty p0 is 0", dv[0] == 0);
-    mu_assert("empty p50 is top of bucket 0", dv[1] == 63);
+    for (int i = 0; i < 5; i++)
+    {
+        mu_assert("empty dense 0", dv[i] == 0 && hdr_value_at_percentile(d, pcts[i]) == 0);
+        mu_assert("empty packed 0", pv[i] == 0 && hdr_packed_value_at_percentile(p, pcts[i]) == 0);
+    }
+    /* a recorded 0 is not empty: p>0 is the top of bucket 0 */
+    hdr_packed_record_value(p, 0); hdr_record_value(d, 0);
+    mu_assert("recorded 0 packed plural ok", hdr_packed_value_at_percentiles(p, pcts, pv, 5) == 0);
+    for (int i = 0; i < 5; i++)
+    {
+        mu_assert("recorded 0 parity", pv[i] == hdr_value_at_percentile(d, pcts[i]) &&
+            pv[i] == hdr_packed_value_at_percentile(p, pcts[i]));
+    }
+    mu_assert("recorded 0 p0 and p50", pv[0] == 0 && pv[1] == 63);
     hdr_packed_close(p); hdr_close(d);
     return 0;
 }

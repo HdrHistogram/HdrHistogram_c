@@ -665,6 +665,7 @@ static char* check_empty_value_at_percentiles(const struct hdr_histogram* h, int
         hdr_value_at_percentiles(h, percentiles, values, 5) == 0);
     for (i = 0; i < 5; i++)
     {
+        mu_assert("empty histogram percentile should be 0", values[i] == 0);
         mu_assert("singular != plural on empty histogram",
             hdr_value_at_percentile(h, percentiles[i]) == values[i]);
     }
@@ -916,6 +917,69 @@ static char* test_reset(void)
     mu_assert("Value at 99% not 0.0", hdr_value_at_percentile(raw_histogram, 99.0) == 0);
     mu_assert("Value at 99% not 0.0", hdr_value_at_percentile(cor_histogram, 99.0) == 0);
 
+    return 0;
+}
+
+static char* test_value_at_percentile_empty_configs(void)
+{
+    const int64_t lowests[] = { 1, 2, 100, 1000, INT64_C(1) << 20 };
+    const int sig_figs[] = { 1, 3, 5 };
+    const double percentiles[] = { 0.0, -0.0, 1e-9, 50.0, 95.0, 99.999, 100.0, 150.0, -1.0, NAN };
+    size_t l, s, p;
+    int state;
+
+    for (l = 0; l < sizeof(lowests) / sizeof(lowests[0]); l++)
+    {
+        for (s = 0; s < sizeof(sig_figs) / sizeof(sig_figs[0]); s++)
+        {
+            /* fresh, after reset, non-zero offset, zero-count record */
+            for (state = 0; state < 4; state++)
+            {
+                struct hdr_histogram* h = NULL;
+                mu_assert("Failed to allocate hdr_histogram",
+                    hdr_init(lowests[l], lowests[l] * 1000000, sig_figs[s], &h) == 0);
+
+                if (state == 1)
+                {
+                    hdr_record_value(h, lowests[l] * 1000);
+                    hdr_reset(h);
+                }
+                else if (state == 2)
+                {
+                    h->normalizing_index_offset = h->counts_len / 2;
+                }
+                else if (state == 3)
+                {
+                    hdr_record_values(h, lowests[l] * 50, 0);
+                }
+
+                mu_assert("Total count != 0", h->total_count == 0);
+                for (p = 0; p < sizeof(percentiles) / sizeof(percentiles[0]); p++)
+                {
+                    mu_assert("Empty histogram percentile not 0",
+                        hdr_value_at_percentile(h, percentiles[p]) == 0);
+                }
+
+                hdr_close(h);
+            }
+        }
+    }
+
+    return 0;
+}
+
+static char* test_value_at_percentile_recorded_zero(void)
+{
+    /* a recorded 0 still reports its bucket's range; only empty short-circuits */
+    struct hdr_histogram* h = NULL;
+    mu_assert("Failed to allocate hdr_histogram", hdr_init(100, 10000000, 3, &h) == 0);
+    hdr_record_value(h, 0);
+
+    mu_assert("p0 not 0", hdr_value_at_percentile(h, 0.0) == 0);
+    mu_assert("p50 not 63", hdr_value_at_percentile(h, 50.0) == 63);
+    mu_assert("p100 not 63", hdr_value_at_percentile(h, 100.0) == 63);
+
+    hdr_close(h);
     return 0;
 }
 
@@ -1700,6 +1764,8 @@ static struct mu_result all_tests(void)
     mu_run_test(test_linear_values);
     mu_run_test(test_logarithmic_values);
     mu_run_test(test_reset);
+    mu_run_test(test_value_at_percentile_empty_configs);
+    mu_run_test(test_value_at_percentile_recorded_zero);
     mu_run_test(test_scaling_equivalence);
     mu_run_test(test_out_of_range_values);
     mu_run_test(test_record_value_capped);
