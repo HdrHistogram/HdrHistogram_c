@@ -27,7 +27,7 @@ include(CMakePackageConfigHelpers)
 # 4. If any interfaces have been removed since the last public release, then set age to 0.
 
 set(HDR_SOVERSION_CURRENT   6)
-set(HDR_SOVERSION_REVISION  4)
+set(HDR_SOVERSION_REVISION  5)
 set(HDR_SOVERSION_AGE       4)
 
 set(HDR_VERSION ${HDR_SOVERSION_CURRENT}.${HDR_SOVERSION_REVISION}.${HDR_SOVERSION_AGE})
