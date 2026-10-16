@@ -48,6 +48,8 @@ Copy the files into your project and build `hdr_histogram.c` (and, with `--with-
 cc -c -Ipath/to/amalgamated path/to/amalgamated/hdr_histogram.c
 ```
 
+On targets without native 64-bit atomics (32-bit ARM, RISC-V, MIPS) also link `-latomic`.
+
 ### Allocator
 
 To route allocations through your own allocator, provide a header that defines

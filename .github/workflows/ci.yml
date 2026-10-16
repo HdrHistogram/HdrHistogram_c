@@ -97,6 +97,26 @@ jobs:
   # toolset, so neither of the two configurations the guard specifically
   # handles was exercised. These two jobs close that gap.
 
+  # Forces the libatomic path (the probe otherwise passes on every CI target).
+  build-linux-force-libatomic:
+    name: build (linux, forced libatomic)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+        with:
+          submodules: recursive
+      - name: Configure
+        run: cmake -S . -B _build -DHDR_ATOMIC64_LINKS=OFF
+      - name: Check libatomic was selected
+        run: |
+          grep -q 'HAVE_LIBATOMIC:INTERNAL=1' _build/CMakeCache.txt
+          grep -q -- '-latomic' _build/hdr_histogram.pc
+      - name: Build
+        run: cmake --build _build
+      - name: Test
+        run: ctest --test-dir _build --output-on-failure
+
   # 32-bit x86 GCC (i386): HDR_HAS_AVX2_DISPATCH must be compiled out here,
   # because the AVX2 kernel uses _mm_extract_epi64, which is unavailable in
   # 32-bit codegen. HDR_LOG_REQUIRED=DISABLED avoids needing a 32-bit zlib;
