@@ -723,9 +723,7 @@ static char* test_p100_near_int64_max(void)
 
     /* total > 2^53 (not the UB band): the p100 == max INVARIANT must hold -- packed
        returns the last/max bucket. dense's FP-rounded int64 target undershoots and
-       returns an earlier bucket, so here packed is MORE correct than dense (a
-       documented divergence, like mean/stddev in item 3). Assert the invariant, and
-       that dense indeed differs (documenting the dense imprecision). */
+       returned an earlier bucket before the dense rank was made exact; both agree now. */
     struct hdr_packed_histogram* p2 = NULL;
     struct hdr_histogram* d2 = NULL;
     hdr_packed_init(1, HIGHEST, SIG, &p2);
@@ -736,8 +734,8 @@ static char* test_p100_near_int64_max(void)
     hdr_record_value(d2, HIGHEST);
     mu_assert("2^53 p100 == max (invariant)",
         hdr_packed_value_at_percentile(p2, 100.0) == hdr_packed_max(p2));
-    mu_assert("2^53 dense p100 undershoots (packed more correct)",
-        hdr_value_at_percentile(d2, 100.0) != hdr_packed_value_at_percentile(p2, 100.0));
+    mu_assert("2^53 dense p100 == packed p100",
+        hdr_value_at_percentile(d2, 100.0) == hdr_packed_value_at_percentile(p2, 100.0));
     hdr_packed_close(p2); hdr_close(d2);
     return 0;
 }
