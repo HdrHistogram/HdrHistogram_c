@@ -751,9 +751,7 @@ static char* test_p100_near_int64_max(void)
 
     /* total > 2^53 (not the UB band): the p100 == max INVARIANT must hold -- packed
        returns the last/max bucket. dense's FP-rounded int64 target undershoots and
-       returns an earlier bucket, so here packed is MORE correct than dense (a
-       documented divergence, like mean/stddev in item 3). Assert the invariant, and
-       that dense indeed differs (documenting the dense imprecision). */
+       returned an earlier bucket before the dense rank was made exact; both agree now. */
     struct hdr_packed_histogram* p2 = NULL;
     struct hdr_histogram* d2 = NULL;
     hdr_packed_init(1, HIGHEST, SIG, &p2);
@@ -764,9 +762,35 @@ static char* test_p100_near_int64_max(void)
     hdr_record_value(d2, HIGHEST);
     mu_assert("2^53 p100 == max (invariant)",
         hdr_packed_value_at_percentile(p2, 100.0) == hdr_packed_max(p2));
-    mu_assert("2^53 dense p100 undershoots (packed more correct)",
-        hdr_value_at_percentile(d2, 100.0) != hdr_packed_value_at_percentile(p2, 100.0));
+    mu_assert("2^53 dense p100 == packed p100",
+        hdr_value_at_percentile(d2, 100.0) == hdr_packed_value_at_percentile(p2, 100.0));
     hdr_packed_close(p2); hdr_close(d2);
+    return 0;
+}
+
+static char* test_p100_around_2pow53_matches_dense(void)
+{
+    const int64_t base = INT64_C(1) << 53;
+    int64_t extra;
+    for (extra = -1; extra <= 3; extra++)
+    {
+        struct hdr_packed_histogram* p = NULL;
+        struct hdr_histogram* d = NULL;
+        double pct = 100.0;
+        int64_t pb = -1, db = -1;
+        hdr_packed_init(1, HIGHEST, SIG, &p);
+        hdr_init(1, HIGHEST, SIG, &d);
+        hdr_packed_record_values(p, 10001, base + extra);
+        hdr_record_values(d, 10001, base + extra);
+        hdr_packed_record_value(p, 20001);
+        hdr_record_value(d, 20001);
+        mu_assert("packed batch", hdr_packed_value_at_percentiles(p, &pct, &pb, 1) == 0);
+        mu_assert("dense batch", hdr_value_at_percentiles(d, &pct, &db, 1) == 0);
+        mu_assert("dense singular == packed max", hdr_value_at_percentile(d, 100.0) == hdr_packed_max(p));
+        mu_assert("dense batch == packed max", db == hdr_packed_max(p));
+        mu_assert("packed batch == packed max", pb == hdr_packed_max(p));
+        hdr_packed_close(p); hdr_close(d);
+    }
     return 0;
 }
 
@@ -822,6 +846,7 @@ static struct mu_result all_tests(void)
     mu_run_test(test_packed_decode_shapes);
     mu_run_test(test_top_bucket_int64_max);
     mu_run_test(test_p100_near_int64_max);
+    mu_run_test(test_p100_around_2pow53_matches_dense);
     mu_ok;
 }
 

@@ -293,7 +293,9 @@ int64_t hdr_total_count(const struct hdr_histogram* h);
  * Get the value at a specific percentile.
  *
  * @param h "This" pointer.
- * @param percentile The percentile to get the value for
+ * @param percentile The percentile to get the value for. Above 100 gives the value at
+ * 100; below 0 and -inf give the first recorded value. Exactly 0 returns the lowest
+ * equivalent value of that bucket.
  * @return the value at the percentile, or 0 if no values have been recorded.
  */
 int64_t hdr_value_at_percentile(const struct hdr_histogram* h, double percentile);
@@ -302,7 +304,8 @@ int64_t hdr_value_at_percentile(const struct hdr_histogram* h, double percentile
  * Get the values at the given percentiles.
  *
  * @param h "This" pointer.
- * @param percentiles The ordered percentiles array to get the values for.
+ * @param percentiles The ordered percentiles array to get the values for, with the
+ * same out-of-range handling as hdr_value_at_percentile.
  * @param length Number of elements in the arrays.
  * @param values Destination array containing the values at the given percentiles.
  * The values array should be allocated by the caller.

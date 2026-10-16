@@ -914,6 +914,16 @@ static int64_t get_value_from_idx_up_to_count(const struct hdr_histogram* h, int
 }
 
 
+/* Target cumulative count in [1, total_count]; NaN/+inf -> total_count, -inf/negative -> 1 */
+static int64_t count_at_percentile(int64_t total_count, double percentile)
+{
+    const double requested = percentile < 100.0 ? percentile : 100.0;
+    const double cc = ((requested / 100) * (double) total_count) + 0.5;
+    if (!(cc >= 1.0))                   return 1;
+    if (cc >= (double) total_count)     return total_count;
+    return (int64_t) cc;
+}
+
 int64_t hdr_value_at_percentile(const struct hdr_histogram* h, double percentile)
 {
     /* empty: the scan's not-found 0 must not be rounded up to highest_equivalent_value(0) */
@@ -921,10 +931,8 @@ int64_t hdr_value_at_percentile(const struct hdr_histogram* h, double percentile
     {
         return 0;
     }
-    double requested_percentile = percentile < 100.0 ? percentile : 100.0;
-    int64_t count_at_percentile =
-        (int64_t) (((requested_percentile / 100) * h->total_count) + 0.5);
-    int64_t value_from_idx = get_value_from_idx_up_to_count(h, count_at_percentile);
+    int64_t value_from_idx =
+        get_value_from_idx_up_to_count(h, count_at_percentile(h->total_count, percentile));
     if (percentile == 0.0)
     {
         return lowest_equivalent_value(h, value_from_idx);
@@ -959,10 +967,7 @@ int hdr_value_at_percentiles(const struct hdr_histogram *h, const double *percen
     // i.e. to store the expected cumulative count at each percentile
     for (size_t i = 0; i < length; i++)
     {
-        const double requested_percentile = percentiles[i] < 100.0 ? percentiles[i] : 100.0;
-        const int64_t count_at_percentile =
-        (int64_t) (((requested_percentile / 100) * total_count) + 0.5);
-        values[i] = count_at_percentile > 1 ? count_at_percentile : 1;
+        values[i] = count_at_percentile(total_count, percentiles[i]);
     }
 
     uint64_t total = 0; /* unsigned: no signed-overflow UB when a hostile block sum is added at once */
