@@ -401,6 +401,20 @@ static char* test_min_max_empty(void)
     mu_assert("hdr_min after reset != 0", hdr_min(h) == 0);
     mu_assert("hdr_max after reset != 0", hdr_max(h) == 0);
 
+    mu_assert("atomic record failed", hdr_record_value_atomic(h, 1000));
+    mu_assert("hdr_min after atomic record != 1000", hdr_min(h) == 1000);
+    hdr_reset(h);
+    mu_assert("hdr_min after atomic reset != 0", hdr_min(h) == 0);
+
+    {
+        struct hdr_histogram* other = NULL;
+        mu_assert("hdr_init failed", 0 == hdr_init(1, 3600000000LL, 3, &other));
+        mu_assert("hdr_add failed", 0 == hdr_add(h, other));
+        mu_assert("hdr_min after adding empty != 0", hdr_min(h) == 0);
+        mu_assert("hdr_min > hdr_max", hdr_min(h) <= hdr_max(h));
+        hdr_close(other);
+    }
+
     hdr_close(h);
     return 0;
 }

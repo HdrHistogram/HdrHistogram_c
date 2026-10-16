@@ -69,6 +69,7 @@ bool hdr_packed_record_values(struct hdr_packed_histogram* h, int64_t value, int
    keeps counts[]. No realloc, so a record->snapshot->reset loop does not thrash. */
 void    hdr_packed_reset(struct hdr_packed_histogram* h);
 int64_t hdr_packed_total_count(const struct hdr_packed_histogram* h);
+/* 0 when empty, like hdr_min. */
 int64_t hdr_packed_min(const struct hdr_packed_histogram* h);
 int64_t hdr_packed_max(const struct hdr_packed_histogram* h);
 double  hdr_packed_mean(const struct hdr_packed_histogram* h);

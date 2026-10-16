@@ -266,7 +266,8 @@ int64_t hdr_add_while_correcting_for_coordinated_omission(
 
 /**
  * Get minimum value from the histogram.  Will return 0 if the histogram is
- * empty, like hdr_max.
+ * empty, like hdr_max; a recorded 0 also gives 0, so use hdr_total_count to
+ * tell the two apart.
  *
  * @param h "This" pointer
  */
