@@ -57,10 +57,8 @@ static char* parity_full(struct hdr_histogram* d, struct hdr_packed_histogram* p
         mu_assert("percentile parity",
             compare_int64(hdr_value_at_percentile(d, pcts[i]), hdr_packed_value_at_percentile(p, pcts[i])));
     /* mean/stddev parity: tolerance from Java data-access tests */
-    {
-        mu_assert("mean parity", compare_double(hdr_mean(d), hdr_packed_mean(p), hdr_mean(d) * 0.001 + 1e-9));
-        mu_assert("stddev parity", compare_double(hdr_stddev(d), hdr_packed_stddev(p), hdr_stddev(d) * 0.001 + 1e-9));
-    }
+    mu_assert("mean parity", compare_double(hdr_mean(d), hdr_packed_mean(p), hdr_mean(d) * 0.001 + 1e-9));
+    mu_assert("stddev parity", compare_double(hdr_stddev(d), hdr_packed_stddev(p), hdr_stddev(d) * 0.001 + 1e-9));
     return 0;
 }
 
@@ -546,9 +544,6 @@ static char* test_plural_empty_parity(void)
     return 0;
 }
 
-/* single-pass plural must equal the per-percentile singular for ANY input order
-   (packed sorts targets internally), for duplicates, out-of-range percentiles,
-   and length past the small-buffer threshold (the malloc path). */
 static char* test_empty_mean_stddev_parity(void)
 {
     const int64_t lows[] = {1, 100};
@@ -579,6 +574,9 @@ static char* test_empty_mean_stddev_parity(void)
     return 0;
 }
 
+/* single-pass plural must equal the per-percentile singular for ANY input order
+   (packed sorts targets internally), for duplicates, out-of-range percentiles,
+   and length past the small-buffer threshold (the malloc path). */
 static char* test_plural_single_pass_order(void)
 {
     struct hdr_packed_histogram* p = NULL;
