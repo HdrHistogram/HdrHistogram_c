@@ -3,6 +3,26 @@ include(CheckLibraryExists)
 check_library_exists(m ceil "" HAVE_LIBM)
 check_library_exists(rt clock_gettime "" HAVE_LIBRT)
 
+# 32-bit ARM, RISC-V and others lower 64-bit __atomic builtins to libatomic calls
+if (NOT MSVC)
+    include(CheckCSourceLinks)
+    check_c_source_links("
+#include <stdint.h>
+int main(void)
+{
+    volatile int64_t x = 0;
+    int64_t e = 0;
+    __atomic_store_n(&x, 1, __ATOMIC_SEQ_CST);
+    __atomic_exchange_n(&x, 2, __ATOMIC_SEQ_CST);
+    __atomic_compare_exchange_n(&x, &e, 3, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+    return (int)(__atomic_add_fetch(&x, 1, __ATOMIC_SEQ_CST) + __atomic_load_n(&x, __ATOMIC_SEQ_CST));
+}"
+        HDR_ATOMIC64_LINKS)
+    if (NOT HDR_ATOMIC64_LINKS)
+        check_library_exists(atomic __atomic_fetch_add_8 "" HAVE_LIBATOMIC)
+    endif()
+endif()
+
 if (HDR_LOG_ENABLED)
     set(HDR_LOG_IMPLEMENTATION hdr_histogram_log.c)
     set(HDR_ZLIB ZLIB::ZLIB)
@@ -40,7 +60,7 @@ if(HDR_HISTOGRAM_CORE_ONLY)
         ${HDR_HISTOGRAM_PRIVATE_HEADERS}
         ${HDR_HISTOGRAM_PUBLIC_HEADERS})
     target_link_libraries(hdr_histogram_core_static
-        PRIVATE $<$<BOOL:${HAVE_LIBM}>:m>)
+        PRIVATE $<$<BOOL:${HAVE_LIBM}>:m> $<$<BOOL:${HAVE_LIBATOMIC}>:atomic>)
     target_include_directories(hdr_histogram_core_static
         PUBLIC
             $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
@@ -68,6 +88,7 @@ function(hdr_histogram_add_library NAME LIBRARY_TYPE DO_INSTALL)
 #            $<$<BOOL:${ZLIB_FOUND}>ZLIB::ZLIB>
             Threads::Threads
             $<$<BOOL:${HAVE_LIBM}>:m>
+            $<$<BOOL:${HAVE_LIBATOMIC}>:atomic>
             $<$<BOOL:${HAVE_LIBRT}>:rt>
             $<$<BOOL:${WIN32}>:ws2_32>)
     target_include_directories(

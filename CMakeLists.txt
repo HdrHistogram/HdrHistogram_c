@@ -128,6 +128,11 @@ if(${ZLIB_FOUND})
 else()
     set(PC_REQUIRES_PRIVATE_ZLIB "")
 endif()
+if(HAVE_LIBATOMIC)
+    set(PC_LIBS_PRIVATE_ATOMIC "-latomic")
+else()
+    set(PC_LIBS_PRIVATE_ATOMIC "")
+endif()
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}.pc.in
     ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.pc
