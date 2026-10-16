@@ -1764,11 +1764,14 @@ static char* test_percentile_rank_clamped(void)
 
     /* 2^63 after double rounding must resolve to the last bucket, not UB */
     mu_assert("allocate", hdr_init(1, 1000000000, 3, &h) == 0);
-    mu_assert("record", hdr_record_values(h, 10001, INT64_MAX));
+    mu_assert("record", hdr_record_values(h, 10001, INT64_MAX - 1));
+    mu_assert("record", hdr_record_value(h, 20001));
+    first_hi = hdr_next_non_equivalent_value(h, 10001) - 1;
     max_v = hdr_max(h);
     if ((err = check_rank_both_apis(h, 100.0, max_v))) return err;
     if ((err = check_rank_both_apis(h, INFINITY, max_v))) return err;
-    if ((err = check_rank_both_apis(h, -INFINITY, max_v))) return err;
+    if ((err = check_rank_both_apis(h, 99.9999999, first_hi))) return err;
+    if ((err = check_rank_both_apis(h, -INFINITY, first_hi))) return err;
     hdr_close(h);
     return 0;
 }
