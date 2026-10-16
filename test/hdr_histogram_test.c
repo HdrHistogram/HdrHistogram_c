@@ -1773,10 +1773,37 @@ static char* test_percentile_rank_clamped(void)
     return 0;
 }
 
+static char* test_percentile_p100_around_2pow53(void)
+{
+    const int64_t base = INT64_C(1) << 53;
+    int64_t extra;
+    int last_bucket;
+    char* err;
+
+    for (last_bucket = 0; last_bucket < 2; last_bucket++)
+    {
+        for (extra = -2; extra <= 4; extra++)
+        {
+            struct hdr_histogram* h = NULL;
+            mu_assert("allocate", hdr_init(1, 1000000000, 3, &h) == 0);
+            mu_assert("record", hdr_record_values(h, 10001, base + extra));
+            if (last_bucket)
+            {
+                mu_assert("record", hdr_record_value(h, 20001));
+            }
+            err = check_rank_both_apis(h, 100.0, hdr_max(h));
+            hdr_close(h);
+            if (err) return err;
+        }
+    }
+    return 0;
+}
+
 static struct mu_result all_tests(void)
 {
     mu_run_test(test_percentile_widened_scan);
     mu_run_test(test_percentile_rank_clamped);
+    mu_run_test(test_percentile_p100_around_2pow53);
     mu_run_test(test_record_rejects_negative_count);
     mu_run_test(test_create);
     mu_run_test(test_invalid_init);

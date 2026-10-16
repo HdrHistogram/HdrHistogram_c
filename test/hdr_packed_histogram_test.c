@@ -740,6 +740,32 @@ static char* test_p100_near_int64_max(void)
     return 0;
 }
 
+static char* test_p100_around_2pow53_matches_dense(void)
+{
+    const int64_t base = INT64_C(1) << 53;
+    int64_t extra;
+    for (extra = -1; extra <= 3; extra++)
+    {
+        struct hdr_packed_histogram* p = NULL;
+        struct hdr_histogram* d = NULL;
+        double pct = 100.0;
+        int64_t pb = -1, db = -1;
+        hdr_packed_init(1, HIGHEST, SIG, &p);
+        hdr_init(1, HIGHEST, SIG, &d);
+        hdr_packed_record_values(p, 10001, base + extra);
+        hdr_record_values(d, 10001, base + extra);
+        hdr_packed_record_value(p, 20001);
+        hdr_record_value(d, 20001);
+        mu_assert("packed batch", hdr_packed_value_at_percentiles(p, &pct, &pb, 1) == 0);
+        mu_assert("dense batch", hdr_value_at_percentiles(d, &pct, &db, 1) == 0);
+        mu_assert("dense singular == packed max", hdr_value_at_percentile(d, 100.0) == hdr_packed_max(p));
+        mu_assert("dense batch == packed max", db == hdr_packed_max(p));
+        mu_assert("packed batch == packed max", pb == hdr_packed_max(p));
+        hdr_packed_close(p); hdr_close(d);
+    }
+    return 0;
+}
+
 static char* test_decode_rejects_short_inflated_payload(void)
 {
     uint8_t raw[41] = {0}, compressed[256] = {0};
@@ -791,6 +817,7 @@ static struct mu_result all_tests(void)
     mu_run_test(test_packed_decode_shapes);
     mu_run_test(test_top_bucket_int64_max);
     mu_run_test(test_p100_near_int64_max);
+    mu_run_test(test_p100_around_2pow53_matches_dense);
     mu_ok;
 }
 
