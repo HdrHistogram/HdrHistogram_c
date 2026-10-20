@@ -42,9 +42,19 @@ Measured on the benchmark fleet with this repository's own drivers (`hdr_histogr
 `hdr_percentile_bench`) plus a small batch timing loop, one pinned core, new and old releases
 interleaved on the same machine. These are microbenchmarks, not application throughput.
 
-**0.12.1 against 0.12.0: unchanged.** 0.12.1 is a bug-fix release; write, read and batch speed
-stay within about 1% of 0.12.0 (speed relative to 0.12.0, higher is faster; median of six runs
-per release, GCC 13.3, default Release build):
+![HdrHistogram_c 0.12.1 against 0.12.0 and 0.11.10: queries are 2x to 20x faster than 0.11.10 and unchanged against 0.12.0, on Intel, AMD and Graviton](docs/images/0.12.1/versions.png)
+
+**Against 0.11.10: percentile queries are much faster, recording is unchanged.** Speed of 0.12.1 relative to 0.11.10 (higher is
+faster; median of six runs per release, GCC 13.3, default Release build):
+
+| | Intel Xeon (Sapphire Rapids) | AMD EPYC (Zen 5) | AWS Graviton (Neoverse V2) |
+|---|---:|---:|---:|
+| `hdr_record_value` (write) | 1.018x | 1.011x | 0.984x |
+| `hdr_value_at_percentile`, 4 percentiles as single calls | 1.95x | 2.05x | 2.10x |
+| `hdr_value_at_percentile`, repository read driver | 1.74x | 2.14x | 2.17x |
+| `hdr_value_at_percentiles`, 4 percentiles (batch) | 15.3x | 15.4x | 20.4x |
+
+**Against 0.12.0: unchanged.** 0.12.1 is a bug-fix release; write, read and batch speed stay within about 1% of 0.12.0:
 
 | | Intel Xeon (Sapphire Rapids) | AMD EPYC (Zen 5) | AWS Graviton (Neoverse V2) |
 |---|---:|---:|---:|
@@ -53,24 +63,17 @@ per release, GCC 13.3, default Release build):
 | `hdr_value_at_percentile`, repository read driver | 1.000x | 1.006x | 1.000x |
 | `hdr_value_at_percentiles`, 4 percentiles (batch) | 1.038x | 1.011x | 0.998x |
 
-![HdrHistogram_c 0.12.1 vs 0.12.0: write, read and batch speed are unchanged on Intel, AMD and Graviton](docs/images/0.12.1/speedup.png)
+<details><summary>Against 0.12.0 only, and every run, per machine</summary>
 
-<details><summary>Every run, per machine</summary>
+![0.12.1 speed relative to 0.12.0 inside a plus or minus 2% band](docs/images/0.12.1/speedup.png)
 
 ![Every run of every benchmark, normalised to the 0.12.0 median](docs/images/0.12.1/runs.png)
 
 </details>
 
-**0.12.0 against 0.11.10: percentile queries are much faster, recording is unchanged.**
-
-| 0.12.0 vs 0.11.10, higher is better | `hdr_value_at_percentile` (read) | `hdr_value_at_percentiles`, 4 percentiles (batch) | `hdr_record_value` (write) |
-|---|---:|---:|---:|
-| Intel Xeon (Sapphire Rapids) | 1.74x | 33x | 1.05x (inside run-to-run spread) |
-| AMD EPYC (Zen 5) | 2.12x | 29x | 0.98x |
-| AWS Graviton (Neoverse V2) | 1.22x | 20x | 0.99x |
-| Apple M6 | 1.12x | 32x | 1.00x |
-
-![HdrHistogram_c 0.12.0 vs 0.11.10: speedup per machine](docs/images/0.12.0/speedup.png)
+The read driver prints only two decimals, so its ratio resolves to about 2 to 4%; the single-call row is the precise read-path
+figure. The 0.12.0 release notes have their own batch figures (a different loop and histogram, plus an Apple M6 row), so compare
+numbers only within one table.
 
 Method, commits and caveats are in the release notes:
 [0.12.1](https://github.com/HdrHistogram/HdrHistogram_c/releases/tag/0.12.1) and
